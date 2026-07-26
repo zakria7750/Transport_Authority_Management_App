@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useApp, type Screen } from '../context'
-import { AppBar, useTheme, T, Toggle } from '../components'
+import { AppBar, useTheme, T, Toggle, useDebounce } from '../components'
 
 // ══════════════════════════════════════════════════════════
 //  MORE SCREEN
@@ -117,10 +117,10 @@ export function SettingsScreen() {
 
   const settings = [
     {
-      title: 'المظهر',
+      title: 'المظهر والألوان',
       items: [
         {
-          icon: '🌙', label: 'الوضع الداكن', desc: 'تبديل بين الفاتح والداكن',
+          icon: '🌙', label: 'الوضع الداكن', desc: state.darkMode ? 'الوضع الداكن مفعّل' : 'الوضع الفاتح مفعّل',
           control: <Toggle checked={state.darkMode} onChange={() => dispatch({ type: 'TOGGLE_DARK' })} />,
         },
       ],
@@ -204,10 +204,11 @@ export function SearchScreen() {
   const { state, navigate } = useApp()
   const th = useTheme()
   const [query, setQuery] = useState('')
+  const debouncedQuery = useDebounce(query, 300)
 
   const results = useMemo(() => {
-    if (!query.trim() || query.length < 2) return { active: [], inactive: [] }
-    const q = query.toLowerCase()
+    if (!debouncedQuery.trim() || debouncedQuery.length < 2) return { active: [], inactive: [] }
+    const q = debouncedQuery.toLowerCase()
     const active = state.drivers.filter(d =>
       d.status === 'نشط' && (d.ownerName.includes(q) || d.plate.includes(q) || d.phone.includes(q))
     )
@@ -215,7 +216,7 @@ export function SearchScreen() {
       d.status === 'غير_نشط' && (d.ownerName.includes(q) || d.plate.includes(q) || d.phone.includes(q))
     )
     return { active, inactive }
-  }, [query, state.drivers])
+  }, [debouncedQuery, state.drivers])
 
   const total = results.active.length + results.inactive.length
 
@@ -258,7 +259,7 @@ export function SearchScreen() {
         ) : total === 0 ? (
           <div style={{ padding: 40, textAlign: 'center' }}>
             <span style={{ fontSize: 48, display: 'block', marginBottom: 12 }}>😔</span>
-            <p style={{ color: th.sub, fontSize: 14 }}>لا توجد نتائج لـ "{query}"</p>
+            <p style={{ color: th.sub, fontSize: 14 }}>لا توجد نتائج لـ "{debouncedQuery}"</p>
           </div>
         ) : (
           <>
@@ -328,7 +329,7 @@ export function SearchScreen() {
   )
 }
 
-// ══════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════���══════
 //  NOTIFICATIONS SCREEN
 // ══════════════════════════════════════════════════════════
 export function NotificationsScreen() {

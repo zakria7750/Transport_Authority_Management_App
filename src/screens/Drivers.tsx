@@ -1,6 +1,6 @@
-import { useState, useMemo } from 'react'
-import { useApp } from '../context'
-import { AppBar, StatusChip, SkeletonRow, useTheme, T, EmptyState } from '../components'
+import { useState, useMemo, useRef, useEffect } from 'react'
+import { useApp, useSaveScrollPosition, useGetScrollPosition } from '../context'
+import { AppBar, StatusChip, SkeletonRow, useTheme, T, EmptyState, PullToRefresh, usePagination } from '../components'
 import type { Driver, TripType, ViolationType } from '../data'
 
 type Filter = 'الكل' | 'نشط' | 'غير_نشط' | 'مخالف'
@@ -258,6 +258,26 @@ export default function DriversScreen() {
   const [showSearch, setShowSearch] = useState(false)
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null)
   const [loading] = useState(false)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const saveScroll = useSaveScrollPosition('drivers')
+  const savedScroll = useGetScrollPosition('drivers')
+
+  useEffect(() => {
+    if (scrollRef.current && savedScroll > 0) {
+      scrollRef.current.scrollTop = savedScroll
+    }
+  }, [savedScroll])
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    if (scrollRef.current) {
+      saveScroll(scrollRef.current.scrollTop)
+    }
+  }
+
+  const handleRefresh = async () => {
+    await new Promise(r => setTimeout(r, 800))
+    showSnackbar('تم تحديث البيانات بنجاح ✅')
+  }
 
   const filtered = useMemo(() => {
     let list = state.drivers
@@ -277,6 +297,8 @@ export default function DriversScreen() {
     return list
   }, [state.drivers, filter, subFilter, search])
 
+  const { paginatedItems, page, setPage, totalPages, hasNextPage, totalItems } = usePagination(filtered, 20)
+
   const handleViolation = (driver: Driver, vType: 'ت' | 'ح') => {
     dispatch({ type: 'ADD_VIOLATION', driverId: driver.id, vType })
     showSnackbar(`تم تسجيل مخالفة (${vType}) للسائق ${driver.ownerName}`, () => {
@@ -285,8 +307,9 @@ export default function DriversScreen() {
   }
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: th.bg, overflow: 'hidden', position: 'relative' }}>
-      <AppBar
+    <PullToRefresh onRefresh={handleRefresh} containerRef={scrollRef}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: th.bg, overflow: 'hidden', position: 'relative' }}>
+        <AppBar
         title="كشف البوابير"
         rightSlot={
           <div style={{ display: 'flex', gap: 6 }}>
@@ -344,29 +367,49 @@ export default function DriversScreen() {
         )}
       </div>
 
-      {/* Count */}
+      {/* Count and Pagination */}
       <div style={{ padding: '8px 16px', background: th.bg, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-        <span style={{ fontSize: 12, color: th.sub }}>{filtered.length} بابور</span>
-        <span style={{ fontSize: 11, color: th.muted }}>اضغط مطولاً على الصف للخيارات</span>
+        <span style={{ fontSize: 12, color: th.sub }}>{totalItems} بابور · صفحة {page} من {totalPages}</span>
+        <span style={{ fontSize: 11, color: th.muted }}>اضغط مطولاً للخيارات</span>
       </div>
 
       {/* List */}
-      <div style={{ flex: 1, overflowY: 'auto', background: th.card }}>
+      <div ref={scrollRef} onScroll={handleScroll} style={{ flex: 1, overflowY: 'auto', background: th.card }}>
         {loading ? (
           Array.from({ length: 8 }).map((_, i) => <SkeletonRow key={i} dark={th.dark} />)
         ) : filtered.length === 0 ? (
           <EmptyState icon="📋" text="لا توجد نتائج" />
         ) : (
-          filtered.map(driver => (
-            <DriverRow
-              key={driver.id}
-              driver={driver}
-              isManager={isManager}
-              onNahma={setSelectedDriver}
-              onViolation={handleViolation}
-              highlighted={state.lastHighlightedDriverId === driver.id}
-            />
-          ))
+          <>
+            {paginatedItems.map(driver => (
+              <DriverRow
+                key={driver.id}
+                driver={driver}
+                isManager={isManager}
+                onNahma={setSelectedDriver}
+                onViolation={handleViolation}
+                highlighted={state.lastHighlightedDriverId === driver.id}
+              />
+            ))}
+            {totalPages > 1 && (
+              <div style={{ padding: '16px', display: 'flex', gap: 8, justifyContent: 'center', background: th.bg, borderTop: `1px solid ${th.border}` }}>
+                <button onClick={() => setPage(p => p - 1)} disabled={page === 1}
+                  style={{
+                    padding: '8px 16px', borderRadius: 10, border: `1px solid ${th.border}`,
+                    background: page === 1 ? th.border : th.card,
+                    color: page === 1 ? th.muted : th.text,
+                    fontSize: 12, fontWeight: 700, cursor: page === 1 ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
+                  }}>السابق</button>
+                <button onClick={() => setPage(p => p + 1)} disabled={!hasNextPage}
+                  style={{
+                    padding: '8px 16px', borderRadius: 10, border: `1px solid ${th.border}`,
+                    background: !hasNextPage ? th.border : th.card,
+                    color: !hasNextPage ? th.muted : th.text,
+                    fontSize: 12, fontWeight: 700, cursor: !hasNextPage ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
+                  }}>التالي</button>
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -377,10 +420,11 @@ export default function DriversScreen() {
           onClose={() => {
             dispatch({ type: 'SET_HIGHLIGHT', driverId: selectedDriver.id })
             setSelectedDriver(null)
-            setTimeout(() => dispatch({ type: 'SET_HIGHLIGHT', driverId: null }), 2000)
+            setTimeout(() => dispatch({ type: 'SET_HIGHLIGHT', driverId: null }), 2500)
           }}
         />
       )}
-    </div>
+      </div>
+    </PullToRefresh>
   )
 }

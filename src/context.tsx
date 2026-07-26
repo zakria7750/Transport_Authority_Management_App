@@ -1,4 +1,4 @@
-import { createContext, useContext, useReducer, useCallback, type ReactNode } from 'react'
+import { createContext, useContext, useReducer, useCallback, useEffect, type ReactNode } from 'react'
 import {
   USERS_DATA, DRIVERS_DATA, TRIPS_DATA, VIOLATIONS_DATA,
   BREAKDOWNS_DATA, NOTIFICATIONS_DATA,
@@ -36,6 +36,7 @@ interface AppState {
   users: User[]
   minGuarantors: number
   lastHighlightedDriverId: number | null
+  scrollPositions: Record<Screen, number>
 }
 
 // ─── Actions ──────────────────────────────────────────────
@@ -65,10 +66,19 @@ type Action =
   | { type: 'DELETE_USER'; userId: number }
   | { type: 'SET_MIN_GUARANTORS'; min: number }
   | { type: 'SET_HIGHLIGHT'; driverId: number | null }
+  | { type: 'SAVE_SCROLL'; screen: Screen; position: number }
+  | { type: 'GET_SCROLL'; screen: Screen }
+
+const getInitialDarkMode = () => {
+  if (typeof window === 'undefined') return false
+  const saved = localStorage.getItem('darkMode')
+  if (saved !== null) return saved === 'true'
+  return false
+}
 
 const initialState: AppState = {
   user: null,
-  darkMode: false,
+  darkMode: getInitialDarkMode(),
   screen: 'login',
   screenParams: {},
   snackbar: null,
@@ -80,6 +90,7 @@ const initialState: AppState = {
   users: USERS_DATA,
   minGuarantors: 2,
   lastHighlightedDriverId: null,
+  scrollPositions: {},
 }
 
 function reducer(state: AppState, action: Action): AppState {
@@ -93,8 +104,13 @@ function reducer(state: AppState, action: Action): AppState {
     case 'NAVIGATE':
       return { ...state, screen: action.screen, screenParams: action.params ?? {} }
 
-    case 'TOGGLE_DARK':
-      return { ...state, darkMode: !state.darkMode }
+    case 'TOGGLE_DARK': {
+      const newDarkMode = !state.darkMode
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('darkMode', newDarkMode.toString())
+      }
+      return { ...state, darkMode: newDarkMode }
+    }
 
     case 'SHOW_SNACKBAR':
       if (state.snackbar?.timeoutId) clearTimeout(state.snackbar.timeoutId)
@@ -304,6 +320,15 @@ function reducer(state: AppState, action: Action): AppState {
     case 'SET_HIGHLIGHT':
       return { ...state, lastHighlightedDriverId: action.driverId }
 
+    case 'SAVE_SCROLL':
+      return {
+        ...state,
+        scrollPositions: { ...state.scrollPositions, [action.screen]: action.position }
+      }
+
+    case 'GET_SCROLL':
+      return state
+
     default:
       return state
   }
@@ -349,4 +374,17 @@ export function useApp() {
   const ctx = useContext(AppContext)
   if (!ctx) throw new Error('useApp must be used within AppProvider')
   return ctx
+}
+
+export function useSaveScrollPosition(screen: Screen) {
+  const { dispatch } = useApp()
+  const saveScroll = useCallback((position: number) => {
+    dispatch({ type: 'SAVE_SCROLL', screen, position })
+  }, [screen, dispatch])
+  return saveScroll
+}
+
+export function useGetScrollPosition(screen: Screen) {
+  const { state } = useApp()
+  return state.scrollPositions[screen] ?? 0
 }

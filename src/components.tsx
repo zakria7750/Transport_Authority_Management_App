@@ -1,6 +1,40 @@
 import { useApp, type Screen } from './context'
 import type { Driver } from './data'
 
+// ─── useDebounce Hook ─────────────────────────────────────
+export function useDebounce<T>(value: T, delay: number = 300): T {
+  const [debouncedValue, setDebouncedValue] = React.useState(value)
+
+  React.useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value)
+    }, delay)
+
+    return () => clearTimeout(handler)
+  }, [value, delay])
+
+  return debouncedValue
+}
+
+// ─── usePagination Hook ───────────────────────────────────
+export function usePagination<T>(items: T[], itemsPerPage: number = 20) {
+  const [page, setPage] = React.useState(1)
+  const totalPages = Math.ceil(items.length / itemsPerPage)
+  const startIdx = (page - 1) * itemsPerPage
+  const endIdx = startIdx + itemsPerPage
+  const paginatedItems = items.slice(startIdx, endIdx)
+
+  return {
+    paginatedItems,
+    page,
+    setPage,
+    totalPages,
+    hasNextPage: page < totalPages,
+    hasPrevPage: page > 1,
+    totalItems: items.length,
+  }
+}
+
 // ─── Tokens ───────────────────────────────────────────────
 export const T = {
   // Light mode
@@ -64,6 +98,7 @@ export function StatusChip({ driver }: { driver: Driver }) {
     <span style={{
       padding: '2px 8px', borderRadius: 99, fontSize: 11, fontWeight: 600,
       backgroundColor: bg, color, whiteSpace: 'nowrap',
+      animation: 'fadeIn 0.3s ease',
     }}>{label}</span>
   )
 }
@@ -206,7 +241,7 @@ export function Snackbar() {
       borderRadius: 12, padding: '12px 16px',
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
-      animation: 'slideUp 0.3s ease',
+      animation: 'slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
     }}>
       <span style={{ fontSize: 13, flex: 1 }}>{state.snackbar.message}</span>
       {state.snackbar.undoFn && (
@@ -337,6 +372,69 @@ export function Toggle({ checked, onChange }: { checked: boolean; onChange: () =
         transition: 'all 0.2s',
         boxShadow: '0 1px 4px rgba(0,0,0,0.2)',
       }} />
+    </div>
+  )
+}
+
+// ─── PullToRefresh ────────────────────────────────────────
+interface PullToRefreshProps {
+  onRefresh: () => Promise<void>
+  children: React.ReactNode
+  containerRef: React.RefObject<HTMLDivElement>
+}
+
+export function PullToRefresh({ onRefresh, children, containerRef }: PullToRefreshProps) {
+  const [refreshing, setRefreshing] = React.useState(false)
+  const [pullDistance, setPullDistance] = React.useState(0)
+  const startYRef = React.useRef<number>(0)
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (containerRef.current && containerRef.current.scrollTop === 0) {
+      startYRef.current = e.touches[0].clientY
+    }
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (startYRef.current && containerRef.current && containerRef.current.scrollTop === 0) {
+      const diff = e.touches[0].clientY - startYRef.current
+      if (diff > 0) {
+        setPullDistance(Math.min(diff, 100))
+      }
+    }
+  }
+
+  const handleTouchEnd = async () => {
+    if (pullDistance > 60 && !refreshing) {
+      setRefreshing(true)
+      await onRefresh()
+      setRefreshing(false)
+    }
+    setPullDistance(0)
+    startYRef.current = 0
+  }
+
+  return (
+    <div
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      style={{ position: 'relative', height: '100%' }}
+    >
+      {pullDistance > 0 && (
+        <div style={{
+          position: 'absolute', top: -40, left: '50%', transform: 'translateX(-50%)',
+          zIndex: 10, textAlign: 'center',
+        }}>
+          <div style={{
+            width: 30, height: 30, borderRadius: '50%',
+            border: '3px solid ' + T.primary,
+            borderTopColor: 'transparent',
+            transform: `rotate(${(pullDistance / 100) * 360}deg)`,
+            opacity: Math.min(1, pullDistance / 60),
+          }} />
+        </div>
+      )}
+      {children}
     </div>
   )
 }
