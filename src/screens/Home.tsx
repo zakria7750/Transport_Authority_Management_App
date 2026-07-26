@@ -1,0 +1,249 @@
+import { useState } from 'react'
+import { useApp } from '../context'
+import { AppBar, useTheme, T } from '../components'
+
+export default function HomeScreen() {
+  const { state, navigate, dispatch, isManager, showSnackbar } = useApp()
+  const th = useTheme()
+  const [showQuickMenu, setShowQuickMenu] = useState(false)
+
+  const drivers = state.drivers
+  const activeCount = drivers.filter(d => d.status === 'نشط').length
+  const inactiveCount = drivers.filter(d => d.status === 'غير_نشط').length
+  const violatorsCount = drivers.filter(d => d.violation !== null).length
+  const totalCompensation = drivers.reduce((s, d) => s + d.compensationBalance, 0)
+  const pendingViolations = state.violations.filter(v => !v.raised).length
+  const pendingTrips = state.trips.filter(t => t.status === 'معلقة').length
+
+  const stats = [
+    { label: 'البوابير النشطة', value: activeCount, icon: '✅', color: T.success, bg: '#D1FAE5' },
+    { label: 'غير النشطة', value: inactiveCount, icon: '⏸', color: T.sub, bg: '#F1F5F9' },
+    { label: 'المخالفين', value: violatorsCount, icon: '⚠️', color: T.danger, bg: '#FEE2E2' },
+    { label: 'التعويضات', value: `${totalCompensation.toLocaleString()} ر`, icon: '💰', color: T.warning, bg: '#FEF9C3' },
+  ]
+
+  return (
+    <div style={{ flex: 1, overflowY: 'auto', background: th.bg, display: 'flex', flexDirection: 'column' }}>
+      <AppBar
+        title="الرئيسية"
+        rightSlot={
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button onClick={() => navigate('search')}
+              style={{ background: 'none', border: 'none', color: '#CBD5E1', cursor: 'pointer', fontSize: 18, padding: 4 }}>🔍</button>
+            <button onClick={() => navigate('settings')}
+              style={{ background: 'none', border: 'none', color: '#CBD5E1', cursor: 'pointer', fontSize: 18, padding: 4 }}>⚙️</button>
+          </div>
+        }
+        leftSlot={
+          <div style={{ position: 'relative' }}>
+            <button onClick={() => setShowQuickMenu(!showQuickMenu)}
+              style={{
+                width: 32, height: 32, borderRadius: 8,
+                background: T.primaryLight, border: 'none',
+                color: '#fff', fontSize: 20, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontWeight: 300,
+              }}>+</button>
+            {showQuickMenu && (
+              <div style={{
+                position: 'absolute', left: 0, top: 38, zIndex: 100,
+                background: '#1E293B', borderRadius: 12, overflow: 'hidden',
+                boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+                minWidth: 180, border: '1px solid #334155',
+              }}>
+                {[
+                  { label: 'تسجيل مالك جديد', icon: '👤', action: () => { navigate('registration'); setShowQuickMenu(false) } },
+                  { label: 'إضافة مالك للكشف', icon: '📋', action: () => { navigate('registration'); setShowQuickMenu(false) } },
+                  ...(isManager ? [
+                    { label: 'إضافة مخالفة', icon: '⚠️', action: () => { navigate('violations'); setShowQuickMenu(false) } },
+                    { label: 'إضافة مستخدم', icon: '🔑', action: () => { navigate('users'); setShowQuickMenu(false) } },
+                  ] : []),
+                ].map(item => (
+                  <button key={item.label} onClick={item.action}
+                    style={{
+                      width: '100%', padding: '12px 16px', border: 'none',
+                      background: 'none', color: '#F1F5F9', cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', gap: 10,
+                      fontSize: 13, textAlign: 'right', fontFamily: 'inherit',
+                      borderBottom: '1px solid #334155',
+                    }}>
+                    <span>{item.icon}</span>{item.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        }
+      />
+
+      {/* Hero greeting */}
+      <div style={{
+        background: 'linear-gradient(135deg, #0F2040 0%, #1D4ED8 100%)',
+        padding: '20px 20px 28px',
+        position: 'relative', overflow: 'hidden',
+      }}>
+        <div style={{ position: 'absolute', top: -20, left: -20, width: 120, height: 120, borderRadius: '50%', background: 'rgba(255,255,255,0.04)' }} />
+        <div style={{ position: 'absolute', bottom: -30, right: -10, width: 160, height: 160, borderRadius: '50%', background: 'rgba(255,255,255,0.03)' }} />
+        <p style={{ color: '#94A3B8', fontSize: 13, margin: '0 0 4px' }}>مرحباً،</p>
+        <h2 style={{ color: '#F1F5F9', fontSize: 20, fontWeight: 800, margin: '0 0 4px' }}>{state.user?.name}</h2>
+        <p style={{ color: '#64748B', fontSize: 12, margin: 0 }}>
+          {state.user?.role === 'مدير_مكتب' ? 'مدير المكتب' : 'موظف نهمة'} ·&nbsp;
+          {new Date().toLocaleDateString('ar-SA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+        </p>
+      </div>
+
+      {/* Stats Cards */}
+      <div style={{ padding: '16px 16px 0', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        {stats.map(s => (
+          <div key={s.label} style={{
+            background: th.card, borderRadius: 14, padding: '14px 16px',
+            border: `1px solid ${th.border}`,
+            display: 'flex', flexDirection: 'column', gap: 8,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 22 }}>{s.icon}</span>
+              <div style={{ padding: '2px 8px', borderRadius: 99, background: s.bg, fontSize: 10, fontWeight: 700, color: s.color }}>
+                اليوم
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: 26, fontWeight: 800, color: th.text, lineHeight: 1 }}>{s.value}</div>
+              <div style={{ fontSize: 11, color: th.sub, marginTop: 4 }}>{s.label}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Manager Quick Actions */}
+      {isManager && (
+        <div style={{ padding: '16px 16px 0' }}>
+          <p style={{ fontSize: 12, fontWeight: 700, color: th.sub, textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 10px' }}>
+            إجراءات سريعة
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <button
+              onClick={() => {
+                dispatch({ type: 'RAISE_ALL_VIOLATIONS' })
+                showSnackbar(`تم رفع ${pendingViolations} مخالفة بنجاح ✅`)
+              }}
+              style={{
+                background: T.danger, border: 'none', borderRadius: 12,
+                padding: '13px 16px', color: '#fff', fontWeight: 700,
+                fontSize: 13, cursor: 'pointer', fontFamily: 'inherit',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              }}>
+              <span>رفع جميع المخالفات القابلة للرفع</span>
+              <span style={{ background: 'rgba(255,255,255,0.2)', borderRadius: 99, padding: '2px 10px', fontSize: 12 }}>
+                {pendingViolations}
+              </span>
+            </button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                onClick={() => navigate('violations')}
+                style={{
+                  flex: 1, background: th.card, border: `1px solid ${th.border}`,
+                  borderRadius: 12, padding: '12px', color: T.warning, fontWeight: 700,
+                  fontSize: 12, cursor: 'pointer', fontFamily: 'inherit',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                }}>
+                🔔 طلبات الاستثناء <span style={{ background: '#FEF9C3', borderRadius: 99, padding: '0 6px', fontSize: 11 }}>3</span>
+              </button>
+              <button
+                onClick={() => showSnackbar('تمت المزامنة بنجاح ✅')}
+                style={{
+                  flex: 1, background: T.primary, border: 'none',
+                  borderRadius: 12, padding: '12px', color: '#fff', fontWeight: 700,
+                  fontSize: 12, cursor: 'pointer', fontFamily: 'inherit',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                }}>
+                🔄 مزامنة الآن
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Nav Grid */}
+      <div style={{ padding: '16px 16px 0' }}>
+        <p style={{ fontSize: 12, fontWeight: 700, color: th.sub, textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 10px' }}>
+          وصول سريع
+        </p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+          {[
+            { icon: '📋', label: 'الكشف', screen: 'drivers' as const },
+            { icon: '🚛', label: 'النهمات', screen: 'pending-trips' as const },
+            { icon: '📝', label: 'التحضير', screen: 'attendance' as const },
+            { icon: '⚠️', label: 'المخالفات', screen: 'violations' as const },
+            { icon: '🔧', label: 'الأعطال', screen: 'breakdowns' as const },
+            { icon: '🏦', label: 'الضمانات', screen: 'guarantees' as const },
+            ...(isManager ? [
+              { icon: '📊', label: 'التقارير', screen: 'reports' as const },
+              { icon: '👥', label: 'المستخدمون', screen: 'users' as const },
+            ] : [
+              { icon: '🔍', label: 'بحث', screen: 'search' as const },
+              { icon: '⚙️', label: 'الإعدادات', screen: 'settings' as const },
+            ]),
+          ].map(item => (
+            <button key={item.label}
+              onClick={() => navigate(item.screen)}
+              style={{
+                background: th.card, border: `1px solid ${th.border}`,
+                borderRadius: 12, padding: '12px 8px',
+                cursor: 'pointer', fontFamily: 'inherit',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+                transition: 'transform 0.1s',
+              }}>
+              <span style={{ fontSize: 22 }}>{item.icon}</span>
+              <span style={{ fontSize: 10, fontWeight: 600, color: th.sub, textAlign: 'center' }}>{item.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Recent Activity */}
+      <div style={{ padding: '16px 16px 0' }}>
+        <p style={{ fontSize: 12, fontWeight: 700, color: th.sub, textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 10px' }}>
+          آخر النشاطات
+        </p>
+        <div style={{ background: th.card, borderRadius: 14, border: `1px solid ${th.border}`, overflow: 'hidden' }}>
+          {state.notifications.slice(0, 4).map((n, i) => (
+            <div key={n.id} style={{
+              padding: '12px 16px',
+              borderBottom: i < 3 ? `1px solid ${th.border}` : 'none',
+              display: 'flex', alignItems: 'flex-start', gap: 12,
+              background: !n.read ? (th.dark ? 'rgba(29,78,216,0.08)' : '#EFF6FF') : 'transparent',
+            }}>
+              <span style={{ fontSize: 18, flexShrink: 0 }}>{n.icon}</span>
+              <div style={{ flex: 1 }}>
+                <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: th.text }}>{n.title}</p>
+                <p style={{ margin: '2px 0 0', fontSize: 11, color: th.sub, lineHeight: 1.4 }}>{n.message}</p>
+              </div>
+              {!n.read && (
+                <div style={{ width: 8, height: 8, borderRadius: 4, background: T.primary, flexShrink: 0, marginTop: 4 }} />
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Summary footer */}
+      <div style={{ padding: '12px 16px 24px' }}>
+        <div style={{
+          background: th.card, borderRadius: 14, border: `1px solid ${th.border}`,
+          padding: '14px 16px', display: 'flex', justifyContent: 'space-around',
+        }}>
+          {[
+            { label: 'نهمات معلقة', value: pendingTrips, color: T.warning },
+            { label: 'مخالفات مفتوحة', value: pendingViolations, color: T.danger },
+            { label: 'إجمالي البوابير', value: drivers.length, color: T.primary },
+          ].map(s => (
+            <div key={s.label} style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 20, fontWeight: 800, color: s.color }}>{s.value}</div>
+              <div style={{ fontSize: 10, color: th.sub, marginTop: 2 }}>{s.label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}

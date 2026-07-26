@@ -1,0 +1,10 @@
+{
+  "description": "Effortlessly plan your perfect 7-day Japan itinerary with daily activities, transportation options, and budget tracking for a seamless travel experience.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
