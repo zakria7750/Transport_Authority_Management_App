@@ -43,6 +43,64 @@ export default function AttendanceScreen() {
 
   const presentCount = activeDrivers.filter(d => getVal(d.id, 'm1') || getVal(d.id, 'm2')).length
 
+  const handlePrintAttendance = () => {
+    const printWindow = window.open('', '_blank')
+    if (!printWindow) {
+      showSnackbar('يرجى السماح بفتح نافذة جديدة للطباعة')
+      return
+    }
+    const date = new Date().toLocaleDateString('ar-SA')
+    let html = `<html dir="rtl"><head><style>
+      body { font-family: Arial, sans-serif; padding: 20px; }
+      h1 { text-align: center; margin-bottom: 20px; }
+      table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+      th, td { border: 1px solid #000; padding: 8px; text-align: center; }
+      th { background: #f0f0f0; font-weight: bold; }
+      @media print { body { margin: 0; padding: 10px; } }
+    </style></head><body>`
+    html += `<h1>كشف التحضير - ${date}</h1>`
+    html += `<table><thead><tr><th>م</th><th>المالك</th><th>النوع</th><th>اللوحة</th><th>م1</th><th>م2</th><th>ملاحظة</th></tr></thead><tbody>`
+    activeDrivers.forEach(driver => {
+      const m1 = getVal(driver.id, 'm1') ? '✓' : '✕'
+      const m2 = getVal(driver.id, 'm2') ? '✓' : '✕'
+      const note = getVal(driver.id, 't') ? 'مخالفة' : 'حضر'
+      html += `<tr><td>${driver.seq}</td><td>${driver.ownerName}</td><td>${driver.type}</td><td>${driver.plate}</td><td>${m1}</td><td>${m2}</td><td>${note}</td></tr>`
+    })
+    html += `</tbody></table></body></html>`
+    printWindow.document.write(html)
+    printWindow.document.close()
+    setTimeout(() => { printWindow.print(); printWindow.close() }, 500)
+    showSnackbar('تم فتح نافذة الطباعة ✅')
+  }
+
+  const handlePrintTrips = () => {
+    const printWindow = window.open('', '_blank')
+    if (!printWindow) {
+      showSnackbar('يرجى السماح بفتح نافذة جديدة للطباعة')
+      return
+    }
+    const date = new Date().toLocaleDateString('ar-SA')
+    let html = `<html dir="rtl"><head><style>
+      body { font-family: Arial, sans-serif; padding: 20px; }
+      h1 { text-align: center; margin-bottom: 20px; }
+      table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+      th, td { border: 1px solid #000; padding: 8px; text-align: center; }
+      th { background: #f0f0f0; font-weight: bold; }
+      @media print { body { margin: 0; padding: 10px; } }
+    </style></head><body>`
+    html += `<h1>كشف النهمات - ${date}</h1>`
+    html += `<table><thead><tr><th>م</th><th>المالك</th><th>النوع</th><th>اللوحة</th><th>الحالة</th><th>الوقت</th></tr></thead><tbody>`
+    state.trips.filter(t => t.status !== 'ملغاة').forEach((trip, idx) => {
+      const driver = state.drivers.find(d => d.id === trip.driverId)
+      html += `<tr><td>${idx + 1}</td><td>${driver?.ownerName}</td><td>${trip.type}</td><td>${driver?.plate}</td><td>${trip.status}</td><td>${trip.createdAt}</td></tr>`
+    })
+    html += `</tbody></table></body></html>`
+    printWindow.document.write(html)
+    printWindow.document.close()
+    setTimeout(() => { printWindow.print(); printWindow.close() }, 500)
+    showSnackbar('تم فتح نافذة الطباعة ✅')
+  }
+
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: th.bg, overflow: 'hidden' }}>
       <AppBar title="كشف التحضير" back="more" />
@@ -163,19 +221,19 @@ export default function AttendanceScreen() {
           {saving ? '⏳ جاري الحفظ...' : '💾 حفظ التحضير'}
         </button>
         <button
-          onClick={() => showSnackbar('تم إرسال الطباعة للكشف 🖨️')}
+          onClick={handlePrintAttendance}
           style={{
             flex: 1, padding: '12px', borderRadius: 12,
             border: `1px solid ${th.border}`, background: 'none',
             color: th.sub, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit',
-          }}>🖨️ تحضير</button>
+          }}>🖨️ طباعة التحضير</button>
         <button
-          onClick={() => showSnackbar('تم إرسال طباعة كشف النهمة 🖨️')}
+          onClick={handlePrintTrips}
           style={{
             flex: 1, padding: '12px', borderRadius: 12,
             border: `1px solid ${th.border}`, background: 'none',
             color: th.sub, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit',
-          }}>📋 نهمة</button>
+          }}>🖨️ طباعة النهمات</button>
       </div>
     </div>
   )

@@ -1,11 +1,31 @@
-import { useState } from 'react'
-import { useApp } from '../context'
-import { AppBar, useTheme, T } from '../components'
+import { useState, useRef, useEffect } from 'react'
+import { useApp, useSaveScrollPosition, useGetScrollPosition } from '../context'
+import { AppBar, useTheme, T, PullToRefresh } from '../components'
 
 export default function HomeScreen() {
   const { state, navigate, dispatch, isManager, showSnackbar } = useApp()
   const th = useTheme()
   const [showQuickMenu, setShowQuickMenu] = useState(false)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const saveScroll = useSaveScrollPosition('home')
+  const savedScroll = useGetScrollPosition('home')
+
+  useEffect(() => {
+    if (scrollRef.current && savedScroll > 0) {
+      scrollRef.current.scrollTop = savedScroll
+    }
+  }, [savedScroll])
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    if (scrollRef.current) {
+      saveScroll(scrollRef.current.scrollTop)
+    }
+  }
+
+  const handleRefresh = async () => {
+    await new Promise(r => setTimeout(r, 800))
+    showSnackbar('تم تحديث البيانات بنجاح ✅')
+  }
 
   const drivers = state.drivers
   const activeCount = drivers.filter(d => d.status === 'نشط').length
@@ -23,8 +43,9 @@ export default function HomeScreen() {
   ]
 
   return (
-    <div style={{ flex: 1, overflowY: 'auto', background: th.bg, display: 'flex', flexDirection: 'column' }}>
-      <AppBar
+    <PullToRefresh onRefresh={handleRefresh} containerRef={scrollRef}>
+      <div ref={scrollRef} onScroll={handleScroll} style={{ flex: 1, overflowY: 'auto', background: th.bg, display: 'flex', flexDirection: 'column' }}>
+        <AppBar
         title="الرئيسية"
         rightSlot={
           <div style={{ display: 'flex', gap: 6 }}>
@@ -244,6 +265,7 @@ export default function HomeScreen() {
           ))}
         </div>
       </div>
-    </div>
+      </div>
+    </PullToRefresh>
   )
 }
