@@ -1,28 +1,25 @@
-import { useApp, type Screen } from './context'
-import type { Driver } from './data'
+import React, { useState, useEffect, useRef, type ReactNode } from "react"
+import { useApp, type Screen } from "./context"
+import type { Driver } from "./data"
+import { isViolator } from "./domain"
 
-// ─── useDebounce Hook ─────────────────────────────────────
 export function useDebounce<T>(value: T, delay: number = 300): T {
-  const [debouncedValue, setDebouncedValue] = React.useState(value)
+  const [debouncedValue, setDebouncedValue] = useState(value)
 
-  React.useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedValue(value)
-    }, delay)
-
+  useEffect(() => {
+    const handler = setTimeout(() => setDebouncedValue(value), delay)
     return () => clearTimeout(handler)
   }, [value, delay])
 
   return debouncedValue
 }
 
-// ─── usePagination Hook ───────────────────────────────────
 export function usePagination<T>(items: T[], itemsPerPage: number = 20) {
-  const [page, setPage] = React.useState(1)
-  const totalPages = Math.ceil(items.length / itemsPerPage)
+  const [page, setPage] = useState(1)
+  useEffect(() => setPage(1), [items.length])
+  const totalPages = Math.max(1, Math.ceil(items.length / itemsPerPage))
   const startIdx = (page - 1) * itemsPerPage
-  const endIdx = startIdx + itemsPerPage
-  const paginatedItems = items.slice(startIdx, endIdx)
+  const paginatedItems = items.slice(startIdx, startIdx + itemsPerPage)
 
   return {
     paginatedItems,
@@ -80,26 +77,94 @@ export function useTheme() {
 
 // ─── StatusChip ───────────────────────────────────────────
 export function StatusChip({ driver }: { driver: Driver }) {
-  let label = '', bg = '', color = ''
-  if (driver.status === 'غير_نشط') {
-    label = driver.statusReason?.includes('مخالف') ? `مخالف (${driver.violation})` : (driver.statusReason ?? 'غير نشط')
-    bg = driver.statusReason?.includes('مخالف') ? '#FEE2E2' : '#F1F5F9'
-    color = driver.statusReason?.includes('مخالف') ? T.danger : T.sub
-  } else if (driver.violation) {
-    label = `مخالف (${driver.violation})`
-    bg = '#FEE2E2'; color = T.danger
+  let label = ""
+  let bg = ""
+  let color = ""
+
+  if (driver.status === "غير_نشط") {
+    if (driver.statusReason === "قابل_للإضافة") {
+      label = "قابل للإضافة"
+      bg = "#E2E8F0"
+      color = "#475569"
+    } else if (isViolator(driver) || driver.statusReason?.includes("مخالف")) {
+      label = `مخالف (${driver.violation ?? (driver.statusReason === "مخالف_ح" ? "ح" : "ت")})`
+      bg = "#FEE2E2"
+      color = T.danger
+    } else {
+      label = driver.statusReason === "مفروز" ? "مفروز" : driver.statusReason === "بدون_ضمانة" ? "بدون ضمانة" : "غير نشط"
+      bg = "#F1F5F9"
+      color = T.sub
+    }
   } else if (driver.currentTrip) {
     label = `لديه نهمة · ${driver.currentTrip}`
-    bg = '#FEF9C3'; color = '#B45309'
+    bg = "#FEF9C3"
+    color = "#B45309"
   } else {
-    label = 'جاهز'; bg = '#D1FAE5'; color = '#065F46'
+    label = "جاهز"
+    bg = "#D1FAE5"
+    color = "#065F46"
   }
+
   return (
-    <span style={{
-      padding: '2px 8px', borderRadius: 99, fontSize: 11, fontWeight: 600,
-      backgroundColor: bg, color, whiteSpace: 'nowrap',
-      animation: 'fadeIn 0.3s ease',
-    }}>{label}</span>
+    <span
+      style={{
+        padding: "2px 8px",
+        borderRadius: 99,
+        fontSize: 11,
+        fontWeight: 600,
+        backgroundColor: bg,
+        color,
+        whiteSpace: "nowrap",
+        animation: "fadeIn 0.3s ease",
+      }}
+    >
+      {label}
+    </span>
+  )
+}
+
+export function BottomSheet({
+  title,
+  subtitle,
+  onClose,
+  children,
+}: {
+  title: string
+  subtitle?: string
+  onClose: () => void
+  children: ReactNode
+}) {
+  const th = useTheme()
+  return (
+    <div style={{ position: "absolute", inset: 0, zIndex: 150 }}>
+      <div
+        style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)" }}
+        onClick={onClose}
+      />
+      <div
+        style={{
+          position: "absolute",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          background: th.card,
+          borderRadius: "20px 20px 0 0",
+          padding: "0 0 24px",
+          animation: "slideUp 0.3s ease",
+          maxHeight: "85%",
+          overflowY: "auto",
+        }}
+      >
+        <div style={{ padding: "12px 0 8px", display: "flex", justifyContent: "center" }}>
+          <div style={{ width: 40, height: 4, borderRadius: 2, background: th.border }} />
+        </div>
+        <div style={{ padding: "0 20px" }}>
+          <h3 style={{ color: th.text, fontSize: 17, fontWeight: 700, margin: "0 0 4px" }}>{title}</h3>
+          {subtitle && <p style={{ color: th.sub, fontSize: 12, margin: "0 0 16px" }}>{subtitle}</p>}
+          {children}
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -192,11 +257,18 @@ const NAV_ITEMS: { screen: Screen; icon: string; label: string }[] = [
 ]
 
 export function BottomNav() {
-  const { state, navigate } = useApp()
+  const { state, navigate, isRegistrationClerk } = useApp()
   const th = useTheme()
 
-  const HIDDEN: Screen[] = ['login', 'driver-profile']
+  const HIDDEN: Screen[] = ["login", "driver-profile"]
   if (HIDDEN.includes(state.screen)) return null
+
+  const items = isRegistrationClerk
+    ? [
+        { screen: "registration" as Screen, icon: "➕", label: "تسجيل" },
+        { screen: "settings" as Screen, icon: "⚙️", label: "إعدادات" },
+      ]
+    : NAV_ITEMS
 
   return (
     <div style={{
@@ -205,7 +277,7 @@ export function BottomNav() {
       display: 'flex',
       flexShrink: 0,
     }}>
-      {NAV_ITEMS.map(item => {
+      {items.map(item => {
         const active = state.screen === item.screen
         return (
           <button key={item.screen}
@@ -380,13 +452,13 @@ export function Toggle({ checked, onChange }: { checked: boolean; onChange: () =
 interface PullToRefreshProps {
   onRefresh: () => Promise<void>
   children: React.ReactNode
-  containerRef: React.RefObject<HTMLDivElement>
+  containerRef: React.RefObject<HTMLDivElement | null>
 }
 
 export function PullToRefresh({ onRefresh, children, containerRef }: PullToRefreshProps) {
-  const [refreshing, setRefreshing] = React.useState(false)
-  const [pullDistance, setPullDistance] = React.useState(0)
-  const startYRef = React.useRef<number>(0)
+  const [refreshing, setRefreshing] = useState(false)
+  const [pullDistance, setPullDistance] = useState(0)
+  const startYRef = useRef<number>(0)
 
   const handleTouchStart = (e: React.TouchEvent) => {
     if (containerRef.current && containerRef.current.scrollTop === 0) {

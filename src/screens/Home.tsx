@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { useApp, useSaveScrollPosition, useGetScrollPosition } from '../context'
 import { AppBar, useTheme, T, PullToRefresh } from '../components'
+import { isPendingTripStatus, violatorCount } from '../domain'
+import type { Screen } from '../context'
 
 export default function HomeScreen() {
   const { state, navigate, dispatch, isManager, showSnackbar } = useApp()
@@ -16,7 +18,7 @@ export default function HomeScreen() {
     }
   }, [savedScroll])
 
-  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+  const handleScroll = () => {
     if (scrollRef.current) {
       saveScroll(scrollRef.current.scrollTop)
     }
@@ -30,17 +32,24 @@ export default function HomeScreen() {
   const drivers = state.drivers
   const activeCount = drivers.filter(d => d.status === 'نشط').length
   const inactiveCount = drivers.filter(d => d.status === 'غير_نشط').length
-  const violatorsCount = drivers.filter(d => d.violation !== null).length
+  const violatorsCount = violatorCount(drivers)
   const totalCompensation = drivers.reduce((s, d) => s + d.compensationBalance, 0)
   const pendingViolations = state.violations.filter(v => !v.raised).length
-  const pendingTrips = state.trips.filter(t => t.status === 'معلقة').length
+  const pendingTrips = state.trips.filter(t => isPendingTripStatus(t.status)).length
 
-  const stats = [
-    { label: 'البوابير النشطة', value: activeCount, icon: '✅', color: T.success, bg: '#D1FAE5' },
-    { label: 'غير النشطة', value: inactiveCount, icon: '⏸', color: T.sub, bg: '#F1F5F9' },
-    { label: 'المخالفين', value: violatorsCount, icon: '⚠️', color: T.danger, bg: '#FEE2E2' },
-    { label: 'التعويضات', value: `${totalCompensation.toLocaleString()} ر`, icon: '💰', color: T.warning, bg: '#FEF9C3' },
+  const stats: { label: string; value: string | number; icon: string; color: string; bg: string; screen?: Screen; filter?: string }[] = [
+    { label: 'البوابير النشطة', value: activeCount, icon: '✅', color: T.success, bg: '#D1FAE5', screen: 'drivers', filter: 'نشط' },
+    { label: 'غير النشطة', value: inactiveCount, icon: '⏸', color: T.sub, bg: '#F1F5F9', screen: 'drivers', filter: 'غير_نشط' },
+    { label: 'المخالفين', value: violatorsCount, icon: '⚠️', color: T.danger, bg: '#FEE2E2', screen: 'violations' },
+    { label: 'التعويضات', value: `${totalCompensation.toLocaleString()} ر`, icon: '💰', color: T.warning, bg: '#FEF9C3', screen: 'guarantees' },
   ]
+
+  const roleLabel =
+    state.user?.role === 'مدير_مكتب'
+      ? 'مدير المكتب'
+      : state.user?.role === 'موظف_تسجيل'
+        ? 'موظف تسجيل'
+        : 'موظف نهمة'
 
   return (
     <PullToRefresh onRefresh={handleRefresh} containerRef={scrollRef}>
@@ -73,8 +82,8 @@ export default function HomeScreen() {
                 minWidth: 180, border: '1px solid #334155',
               }}>
                 {[
-                  { label: 'تسجيل مالك جديد', icon: '👤', action: () => { navigate('registration'); setShowQuickMenu(false) } },
-                  { label: 'إضافة مالك للكشف', icon: '📋', action: () => { navigate('registration'); setShowQuickMenu(false) } },
+                  { label: 'تسجيل مالك جديد', icon: '👤', action: () => { navigate('registration', { tab: 'register' }); setShowQuickMenu(false) } },
+                  { label: 'إضافة مالك للكشف', icon: '📋', action: () => { navigate('registration', { tab: 'add' }); setShowQuickMenu(false) } },
                   ...(isManager ? [
                     { label: 'إضافة مخالفة', icon: '⚠️', action: () => { navigate('violations'); setShowQuickMenu(false) } },
                     { label: 'إضافة مستخدم', icon: '🔑', action: () => { navigate('users'); setShowQuickMenu(false) } },
@@ -108,7 +117,7 @@ export default function HomeScreen() {
         <p style={{ color: '#94A3B8', fontSize: 13, margin: '0 0 4px' }}>مرحباً،</p>
         <h2 style={{ color: '#F1F5F9', fontSize: 20, fontWeight: 800, margin: '0 0 4px' }}>{state.user?.name}</h2>
         <p style={{ color: '#64748B', fontSize: 12, margin: 0 }}>
-          {state.user?.role === 'مدير_مكتب' ? 'مدير المكتب' : 'موظف نهمة'} ·&nbsp;
+          {roleLabel} ·&nbsp;
           {new Date().toLocaleDateString('ar-SA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
         </p>
       </div>
@@ -116,11 +125,19 @@ export default function HomeScreen() {
       {/* Stats Cards */}
       <div style={{ padding: '16px 16px 0', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         {stats.map(s => (
-          <div key={s.label} style={{
-            background: th.card, borderRadius: 14, padding: '14px 16px',
-            border: `1px solid ${th.border}`,
-            display: 'flex', flexDirection: 'column', gap: 8,
-          }}>
+          <button
+            key={s.label}
+            type="button"
+            onClick={() => s.screen && navigate(s.screen, s.filter ? { filter: s.filter } : undefined)}
+            disabled={!s.screen}
+            style={{
+              background: th.card, borderRadius: 14, padding: '14px 16px',
+              border: `1px solid ${th.border}`,
+              display: 'flex', flexDirection: 'column', gap: 8,
+              cursor: s.screen ? 'pointer' : 'default',
+              fontFamily: 'inherit', textAlign: 'right',
+            }}
+          >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontSize: 22 }}>{s.icon}</span>
               <div style={{ padding: '2px 8px', borderRadius: 99, background: s.bg, fontSize: 10, fontWeight: 700, color: s.color }}>
@@ -131,7 +148,7 @@ export default function HomeScreen() {
               <div style={{ fontSize: 26, fontWeight: 800, color: th.text, lineHeight: 1 }}>{s.value}</div>
               <div style={{ fontSize: 11, color: th.sub, marginTop: 4 }}>{s.label}</div>
             </div>
-          </div>
+          </button>
         ))}
       </div>
 
@@ -170,7 +187,11 @@ export default function HomeScreen() {
                 🔔 طلبات الاستثناء <span style={{ background: '#FEF9C3', borderRadius: 99, padding: '0 6px', fontSize: 11 }}>3</span>
               </button>
               <button
-                onClick={() => showSnackbar('تمت المزامنة بنجاح ✅')}
+                onClick={async () => {
+                  await new Promise(r => setTimeout(r, 600))
+                  dispatch({ type: 'SYNC_NOW' })
+                  showSnackbar('تمت المزامنة بنجاح ✅')
+                }}
                 style={{
                   flex: 1, background: T.primary, border: 'none',
                   borderRadius: 12, padding: '12px', color: '#fff', fontWeight: 700,

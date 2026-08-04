@@ -1,0 +1,354 @@
+import { useState, useMemo } from "react"
+import { useApp } from "./context"
+import { BottomSheet, useTheme, T } from "./components"
+import { YEMEN_PROVINCES, PAYLOAD_OPTIONS, DESTINATION_TYPES } from "./constants"
+import { suggestNextBreakNum, formatPayload } from "./domain"
+import type { Driver, Trip, TripType, DestinationType } from "./data"
+
+type Props = {
+  driver: Driver
+  existingTrip?: Trip
+  onClose: () => void
+}
+
+export default function TripSheet({ driver, existingTrip, onClose }: Props) {
+  const { state, dispatch, showSnackbar } = useApp()
+  const th = useTheme()
+  const isEdit = !!existingTrip
+
+  const [tripType, setTripType] = useState<TripType>(existingTrip?.type ?? "فرزة")
+  const [payloadItems, setPayloadItems] = useState<string[]>(
+    existingTrip?.payload ? existingTrip.payload.split("، ").filter(Boolean) : [],
+  )
+  const [province, setProvince] = useState(existingTrip?.province ?? "صنعاء")
+  const [destinationType, setDestinationType] = useState<DestinationType>(
+    existingTrip?.destinationType ?? "فرع",
+  )
+  const [destination, setDestination] = useState(existingTrip?.destination ?? "")
+  const [breakNum, setBreakNum] = useState(
+    existingTrip?.breakNum ?? suggestNextBreakNum(state.trips),
+  )
+
+  const togglePayload = (item: string) => {
+    setPayloadItems((prev) =>
+      prev.includes(item) ? prev.filter((p) => p !== item) : [...prev, item],
+    )
+  }
+
+  const selectAllPayload = () => setPayloadItems([...PAYLOAD_OPTIONS])
+
+  const payloadStr = useMemo(() => formatPayload(payloadItems), [payloadItems])
+
+  const saveDraft = () => {
+    if (isEdit && existingTrip) {
+      dispatch({
+        type: "EDIT_TRIP",
+        edit: {
+          tripId: existingTrip.id,
+          payload: payloadStr,
+          province,
+          destinationType,
+          destination,
+          breakNum,
+        },
+      })
+      showSnackbar("تم حفظ التعديلات كمسودة")
+      onClose()
+      return
+    }
+    dispatch({
+      type: "CREATE_TRIP",
+      trip: {
+        driverId: driver.id,
+        tripType,
+        payload: payloadStr,
+        province,
+        destinationType,
+        destination,
+        breakNum,
+        asDraft: true,
+      },
+    })
+    showSnackbar("تم حفظ النهمة كمسودة")
+    onClose()
+  }
+
+  const confirm = () => {
+    if (tripType === "تعويض" && driver.compensationBalance <= 0) {
+      showSnackbar("لا يوجد رصيد تعويض متاح ⚠️")
+      return
+    }
+    if (isEdit && existingTrip) {
+      dispatch({
+        type: "EDIT_TRIP",
+        edit: {
+          tripId: existingTrip.id,
+          payload: payloadStr,
+          province,
+          destinationType,
+          destination,
+          breakNum,
+        },
+      })
+      showSnackbar(`تم تحديث نهمة ${driver.ownerName} ✅`)
+      onClose()
+      return
+    }
+    dispatch({
+      type: "CREATE_TRIP",
+      trip: {
+        driverId: driver.id,
+        tripType,
+        payload: payloadStr,
+        province,
+        destinationType,
+        destination,
+        breakNum,
+        asDraft: false,
+      },
+    })
+    showSnackbar(`تم إنشاء نهمة (${tripType}) للسائق ${driver.ownerName} ✅`)
+    onClose()
+  }
+
+  return (
+    <BottomSheet
+      title={isEdit ? "تعديل النهمة" : "إنشاء نهمة"}
+      subtitle={`${driver.ownerName} · ${driver.plate}`}
+      onClose={onClose}
+    >
+      {!isEdit && (
+        <>
+          <p style={{ fontSize: 12, fontWeight: 600, color: th.sub, margin: "0 0 8px" }}>نوع النهمة</p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 16 }}>
+            {(["فرزة", "م1", "م2", "تعويض"] as TripType[]).map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setTripType(t)}
+                style={{
+                  padding: "10px 4px",
+                  borderRadius: 10,
+                  border: "none",
+                  background: tripType === t ? T.primary : th.inputBg,
+                  color: tripType === t ? "#fff" : th.text,
+                  fontWeight: 700,
+                  fontSize: 13,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+
+      {tripType === "تعويض" ? (
+        <div
+          style={{
+            background: "#FEF9C3",
+            borderRadius: 12,
+            padding: "14px 16px",
+            marginBottom: 16,
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+          }}
+        >
+          <span style={{ fontSize: 24 }}>💰</span>
+          <div>
+            <p style={{ margin: 0, fontSize: 11, color: "#92400E" }}>رصيد التعويض المتاح</p>
+            <p style={{ margin: "4px 0 0", fontSize: 20, fontWeight: 800, color: "#B45309" }}>
+              {driver.compensationBalance.toLocaleString()} ريال
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 16 }}>
+          <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: th.sub }}>الحمولة</label>
+              <button
+                type="button"
+                onClick={selectAllPayload}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: T.primary,
+                  fontSize: 11,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                منوع (الكل)
+              </button>
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {PAYLOAD_OPTIONS.map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => togglePayload(p)}
+                  style={{
+                    padding: "8px 14px",
+                    borderRadius: 99,
+                    border: `1px solid ${payloadItems.includes(p) ? T.primary : th.border}`,
+                    background: payloadItems.includes(p) ? "#DBEAFE" : th.inputBg,
+                    color: th.text,
+                    fontSize: 12,
+                    cursor: "pointer",
+                    fontFamily: "inherit",
+                  }}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: th.sub, display: "block", marginBottom: 6 }}>
+              المحافظة
+            </label>
+            <select
+              value={province}
+              onChange={(e) => setProvince(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                borderRadius: 10,
+                border: `1px solid ${th.border}`,
+                background: th.inputBg,
+                color: th.text,
+                fontSize: 14,
+                fontFamily: "inherit",
+              }}
+            >
+              {YEMEN_PROVINCES.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: th.sub, display: "block", marginBottom: 6 }}>
+              نوع الوجهة
+            </label>
+            <div style={{ display: "flex", gap: 8 }}>
+              {DESTINATION_TYPES.map((dt) => (
+                <button
+                  key={dt}
+                  type="button"
+                  onClick={() => setDestinationType(dt)}
+                  style={{
+                    flex: 1,
+                    padding: "8px",
+                    borderRadius: 10,
+                    border: "none",
+                    background: destinationType === dt ? T.primary : th.inputBg,
+                    color: destinationType === dt ? "#fff" : th.text,
+                    fontSize: 12,
+                    cursor: "pointer",
+                    fontFamily: "inherit",
+                  }}
+                >
+                  {dt}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: th.sub, display: "block", marginBottom: 6 }}>
+              الوجهة
+            </label>
+            <input
+              value={destination}
+              onChange={(e) => setDestination(e.target.value)}
+              placeholder="المقصد"
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                borderRadius: 10,
+                border: `1px solid ${th.border}`,
+                background: th.inputBg,
+                color: th.text,
+                fontSize: 14,
+                outline: "none",
+                boxSizing: "border-box",
+                fontFamily: "inherit",
+                direction: "rtl",
+              }}
+            />
+          </div>
+
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: th.sub, display: "block", marginBottom: 6 }}>
+              رقم الفك
+            </label>
+            <input
+              value={breakNum}
+              onChange={(e) => setBreakNum(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                borderRadius: 10,
+                border: `1px solid ${th.border}`,
+                background: th.inputBg,
+                color: th.text,
+                fontSize: 14,
+                outline: "none",
+                boxSizing: "border-box",
+                fontFamily: "inherit",
+                direction: "rtl",
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      <div style={{ display: "flex", gap: 10 }}>
+        <button
+          type="button"
+          onClick={saveDraft}
+          style={{
+            flex: 1,
+            padding: "13px",
+            borderRadius: 12,
+            border: `1px solid ${th.border}`,
+            background: "none",
+            color: th.sub,
+            fontSize: 14,
+            cursor: "pointer",
+            fontFamily: "inherit",
+          }}
+        >
+          حفظ كمسودة
+        </button>
+        <button
+          type="button"
+          onClick={confirm}
+          disabled={tripType === "تعويض" && driver.compensationBalance <= 0}
+          style={{
+            flex: 2,
+            padding: "13px",
+            borderRadius: 12,
+            border: "none",
+            background: tripType === "تعويض" && driver.compensationBalance <= 0 ? th.border : T.primary,
+            color: "#fff",
+            fontSize: 14,
+            fontWeight: 700,
+            cursor: tripType === "تعويض" && driver.compensationBalance <= 0 ? "not-allowed" : "pointer",
+            fontFamily: "inherit",
+          }}
+        >
+          {isEdit ? "حفظ التعديل ✓" : "تأكيد مبدئي ✓"}
+        </button>
+      </div>
+    </BottomSheet>
+  )
+}

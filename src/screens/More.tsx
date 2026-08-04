@@ -111,9 +111,14 @@ export function MoreScreen() {
 export function SettingsScreen() {
   const { state, dispatch, showSnackbar } = useApp()
   const th = useTheme()
-  const [biometric, setBiometric] = useState(false)
   const [autoSync, setAutoSync] = useState(true)
   const [autoBackup, setAutoBackup] = useState(false)
+
+  const handleSync = async () => {
+    await new Promise((r) => setTimeout(r, 600))
+    dispatch({ type: 'SYNC_NOW' })
+    showSnackbar('تمت المزامنة بنجاح ✅')
+  }
 
   const settings = [
     {
@@ -129,8 +134,17 @@ export function SettingsScreen() {
       title: 'الأمان',
       items: [
         {
-          icon: '👆', label: 'الدخول بالبصمة', desc: 'تسجيل دخول سريع',
-          control: <Toggle checked={biometric} onChange={() => setBiometric(!biometric)} />,
+          icon: '👆',
+          label: 'الدخول بالبصمة',
+          desc: state.biometricEnabled
+            ? 'يظهر زر البصمة في شاشة الدخول'
+            : 'معطّل — فعّله للدخول السريع',
+          control: (
+            <Toggle
+              checked={state.biometricEnabled}
+              onChange={() => dispatch({ type: 'SET_BIOMETRIC', enabled: !state.biometricEnabled })}
+            />
+          ),
         },
       ],
     },
@@ -182,10 +196,25 @@ export function SettingsScreen() {
           </div>
         ))}
 
-        <div style={{ padding: '20px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <button onClick={() => showSnackbar('جاري المزامنة... ✅')}
+        <div style={{
+          margin: '0 16px 12px',
+          padding: '14px 16px',
+          background: state.pendingSyncCount > 0 ? (th.dark ? 'rgba(245,158,11,0.12)' : '#FEF9C3') : th.card,
+          borderRadius: 12,
+          border: `1px solid ${state.pendingSyncCount > 0 ? '#F59E0B' : th.border}`,
+        }}>
+          <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: th.text }}>📡 حالة المزامنة</p>
+          <p style={{ margin: '6px 0 0', fontSize: 12, color: th.sub }}>
+            {state.pendingSyncCount > 0
+              ? `${state.pendingSyncCount} عملية بانتظار المزامنة مع الخادم`
+              : 'جميع البيانات متزامنة'}
+          </p>
+        </div>
+
+        <div style={{ padding: '0 16px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <button onClick={() => void handleSync()}
             style={{ padding: '14px', borderRadius: 12, border: `1px solid ${th.border}`, background: th.card, color: T.primary, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
-            🔄 مزامنة يدوية
+            🔄 مزامنة يدوية {state.pendingSyncCount > 0 ? `(${state.pendingSyncCount})` : ''}
           </button>
           <button onClick={() => showSnackbar('تم إنشاء نسخة احتياطية ✅')}
             style={{ padding: '14px', borderRadius: 12, border: `1px solid ${th.border}`, background: th.card, color: T.success, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
@@ -335,81 +364,94 @@ export function SearchScreen() {
 export function NotificationsScreen() {
   const { state, dispatch } = useApp()
   const th = useTheme()
+  const [tab, setTab] = useState<'unread' | 'read' | 'all'>('all')
 
   const unread = state.notifications.filter(n => !n.read)
   const read = state.notifications.filter(n => n.read)
+  const visible =
+    tab === 'unread' ? unread : tab === 'read' ? read : state.notifications
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: th.bg, overflow: 'hidden' }}>
       <AppBar title="الإشعارات" back="home"
         rightSlot={
-          <button onClick={() => dispatch({ type: 'READ_ALL_NOTIFICATIONS' })}
-            style={{ background: 'none', border: 'none', color: T.primary, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
-            تعليم الكل مقروء
-          </button>
+          unread.length > 0 ? (
+            <button onClick={() => dispatch({ type: 'READ_ALL_NOTIFICATIONS' })}
+              style={{ background: 'none', border: 'none', color: T.primary, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
+              تعليم الكل مقروء
+            </button>
+          ) : undefined
         }
       />
 
+      <div style={{ background: th.card, borderBottom: `1px solid ${th.border}`, display: 'flex' }}>
+        {[
+          ['all', 'الكل', state.notifications.length],
+          ['unread', 'غير مقروءة', unread.length],
+          ['read', 'مقروءة', read.length],
+        ].map(([k, l, count]) => (
+          <button
+            key={k}
+            type="button"
+            onClick={() => setTab(k as typeof tab)}
+            style={{
+              flex: 1,
+              padding: '12px 4px',
+              border: 'none',
+              background: 'none',
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+              color: tab === k ? T.primary : th.sub,
+              borderBottom: `2px solid ${tab === k ? T.primary : 'transparent'}`,
+              fontSize: 11,
+              fontWeight: tab === k ? 700 : 400,
+            }}
+          >
+            {l} ({count as number})
+          </button>
+        ))}
+      </div>
+
       <div style={{ flex: 1, overflowY: 'auto' }}>
-        {unread.length > 0 && (
-          <>
-            <div style={{ padding: '12px 16px 6px' }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: T.primary }}>🔵 غير مقروءة ({unread.length})</span>
-            </div>
-            {unread.map(n => (
-              <div key={n.id}
-                onClick={() => dispatch({ type: 'READ_NOTIFICATION', id: n.id })}
-                style={{
-                  padding: '14px 20px', borderBottom: `1px solid ${th.border}`,
-                  background: th.dark ? 'rgba(29,78,216,0.1)' : '#EFF6FF',
-                  cursor: 'pointer', display: 'flex', alignItems: 'flex-start', gap: 12,
-                }}>
-                <span style={{ fontSize: 22, flexShrink: 0 }}>{n.icon}</span>
-                <div style={{ flex: 1 }}>
-                  <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: th.text }}>{n.title}</p>
-                  <p style={{ margin: '3px 0 0', fontSize: 12, color: th.sub, lineHeight: 1.4 }}>{n.message}</p>
-                  <p style={{ margin: '4px 0 0', fontSize: 10, color: th.muted }}>{n.date}</p>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
-                  <div style={{ width: 8, height: 8, borderRadius: 4, background: T.primary }} />
-                  <button onClick={e => { e.stopPropagation(); dispatch({ type: 'DELETE_NOTIFICATION', id: n.id }) }}
-                    style={{ background: 'none', border: 'none', color: th.muted, cursor: 'pointer', fontSize: 14 }}>✕</button>
-                </div>
-              </div>
-            ))}
-          </>
-        )}
-
-        {read.length > 0 && (
-          <>
-            <div style={{ padding: '12px 16px 6px' }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: th.sub }}>مقروءة ({read.length})</span>
-            </div>
-            {read.map(n => (
-              <div key={n.id} style={{
-                padding: '14px 20px', borderBottom: `1px solid ${th.border}`,
-                background: 'transparent',
-                display: 'flex', alignItems: 'flex-start', gap: 12,
-                opacity: 0.7,
-              }}>
-                <span style={{ fontSize: 20, flexShrink: 0 }}>{n.icon}</span>
-                <div style={{ flex: 1 }}>
-                  <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: th.text }}>{n.title}</p>
-                  <p style={{ margin: '3px 0 0', fontSize: 12, color: th.sub, lineHeight: 1.4 }}>{n.message}</p>
-                  <p style={{ margin: '4px 0 0', fontSize: 10, color: th.muted }}>{n.date}</p>
-                </div>
-                <button onClick={() => dispatch({ type: 'DELETE_NOTIFICATION', id: n.id })}
-                  style={{ background: 'none', border: 'none', color: th.muted, cursor: 'pointer', fontSize: 14 }}>✕</button>
-              </div>
-            ))}
-          </>
-        )}
-
-        {state.notifications.length === 0 && (
+        {visible.length === 0 ? (
           <div style={{ padding: 40, textAlign: 'center' }}>
             <span style={{ fontSize: 48, display: 'block', marginBottom: 12 }}>🔔</span>
-            <p style={{ color: th.sub, fontSize: 14 }}>لا توجد إشعارات</p>
+            <p style={{ color: th.sub, fontSize: 14 }}>لا توجد إشعارات في هذا التبويب</p>
           </div>
+        ) : (
+          visible.map(n => (
+            <div
+              key={n.id}
+              onClick={() => !n.read && dispatch({ type: 'READ_NOTIFICATION', id: n.id })}
+              style={{
+                padding: '14px 20px',
+                borderBottom: `1px solid ${th.border}`,
+                background: !n.read ? (th.dark ? 'rgba(29,78,216,0.1)' : '#EFF6FF') : 'transparent',
+                cursor: !n.read ? 'pointer' : 'default',
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 12,
+                opacity: n.read ? 0.85 : 1,
+              }}
+            >
+              <span style={{ fontSize: n.read ? 20 : 22, flexShrink: 0 }}>{n.icon}</span>
+              <div style={{ flex: 1 }}>
+                <p style={{ margin: 0, fontSize: 13, fontWeight: n.read ? 600 : 700, color: th.text }}>{n.title}</p>
+                <p style={{ margin: '3px 0 0', fontSize: 12, color: th.sub, lineHeight: 1.4 }}>{n.message}</p>
+                <p style={{ margin: '4px 0 0', fontSize: 10, color: th.muted }}>{n.date}</p>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
+                {!n.read && <div style={{ width: 8, height: 8, borderRadius: 4, background: T.primary }} />}
+                <button
+                  type="button"
+                  onClick={e => { e.stopPropagation(); dispatch({ type: 'DELETE_NOTIFICATION', id: n.id }) }}
+                  style={{ background: 'none', border: 'none', color: th.muted, cursor: 'pointer', fontSize: 14 }}
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          ))
         )}
       </div>
     </div>
