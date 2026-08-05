@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { useApp, useSaveScrollPosition, useGetScrollPosition } from '../context'
-import { AppBar, StatusChip, SkeletonRow, useTheme, T, EmptyState, PullToRefresh, useInfiniteScroll } from '../components'
+import { AppBar, StatusChip, SkeletonRow, useTheme, T, EmptyState, PullToRefresh, useInfiniteScroll, StandardAppBar } from '../components'
 import TripSheet from '../TripSheet'
 import { isViolator, sortDriversAllFilter } from '../domain'
 import type { Driver, ViolationType } from '../data'
@@ -239,25 +239,21 @@ export default function DriversScreen() {
   return (
     <PullToRefresh onRefresh={handleRefresh} containerRef={scrollRef}>
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: th.bg, overflow: 'hidden', position: 'relative' }}>
-        <AppBar
+        <StandardAppBar
         title="كشف البوابير"
-        rightSlot={
-          <div style={{ display: 'flex', gap: 6 }}>
-            <button
-              type="button"
-              onClick={() => setShowSubFilters(!showSubFilters)}
-              style={{
-                background: showSubFilters || filter === 'نشط' ? 'rgba(255,255,255,0.15)' : 'none',
-                border: 'none', color: '#CBD5E1', cursor: 'pointer', fontSize: 18, padding: 4,
-                borderRadius: 6,
-              }}
-              title="فلتر"
-            >
-              🎚
-            </button>
-            <button onClick={() => setShowSearch(!showSearch)}
-              style={{ background: 'none', border: 'none', color: '#CBD5E1', cursor: 'pointer', fontSize: 18, padding: 4 }}>🔍</button>
-          </div>
+        extraRight={
+          <button
+            type="button"
+            onClick={() => setShowSubFilters(!showSubFilters)}
+            style={{
+              background: showSubFilters || filter === 'نشط' ? 'rgba(255,255,255,0.15)' : 'none',
+              border: 'none', color: '#CBD5E1', cursor: 'pointer', fontSize: 18, padding: 4,
+              borderRadius: 6,
+            }}
+            title="فلتر"
+          >
+            🎚
+          </button>
         }
       />
 

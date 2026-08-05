@@ -418,9 +418,13 @@ export function SearchableRosterField<T>({
 export function AppBarStandardSlots({
   onQuickAdd,
   showBell = true,
+  extraRight,
+  extraLeft,
 }: {
   onQuickAdd?: () => void
   showBell?: boolean
+  extraRight?: React.ReactNode
+  extraLeft?: React.ReactNode
 }) {
   const { navigate, dispatch, isManager, state, showSnackbar, unreadCount } = useApp()
 
@@ -498,6 +502,7 @@ export function AppBarStandardSlots({
   return {
     rightSlot: (
       <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+        {extraRight}
         <button
           type="button"
           onClick={() => navigate("settings")}
@@ -520,6 +525,7 @@ export function AppBarStandardSlots({
       <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
         {bellBtn}
         {syncBtn}
+        {extraLeft}
         {onQuickAdd ? (
           <button
             type="button"
@@ -545,6 +551,34 @@ export function AppBarStandardSlots({
       </div>
     ),
   }
+}
+
+type StandardAppBarProps = {
+  title: string
+  back?: Screen | "home"
+  onQuickAdd?: () => void
+  extraRight?: React.ReactNode
+  extraLeft?: React.ReactNode
+  showBell?: boolean
+  hideBell?: boolean
+}
+
+export function StandardAppBar({
+  title,
+  back,
+  onQuickAdd,
+  extraRight,
+  extraLeft,
+  showBell = true,
+  hideBell,
+}: StandardAppBarProps) {
+  const { rightSlot, leftSlot } = AppBarStandardSlots({
+    onQuickAdd,
+    extraRight,
+    extraLeft,
+    showBell: showBell && !hideBell,
+  })
+  return <AppBar title={title} back={back} rightSlot={rightSlot} leftSlot={leftSlot} hideBell />
 }
 
 // ─── StatusChip ───────────────────────────────────────────
