@@ -1,28 +1,28 @@
-import { useApp, type Screen } from './context'
-import type { Driver } from './data'
+import React, { useState, useEffect, useRef, type ReactNode } from "react"
+import { useApp, type Screen } from "./context"
+import type { Driver } from "./data"
+import { isViolator } from "./domain"
+import { OFFICE_BRAND, APP_FULL_BRAND } from "./constants"
 
-// ─── useDebounce Hook ─────────────────────────────────────
+export { OFFICE_BRAND, APP_FULL_BRAND, APP_SHORT_BRAND, APP_TAGLINE, TRANSPORT_AUTHORITY, APP_NAME, APP_PRINT_HEADER } from "./constants"
+
 export function useDebounce<T>(value: T, delay: number = 300): T {
-  const [debouncedValue, setDebouncedValue] = React.useState(value)
+  const [debouncedValue, setDebouncedValue] = useState(value)
 
-  React.useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedValue(value)
-    }, delay)
-
+  useEffect(() => {
+    const handler = setTimeout(() => setDebouncedValue(value), delay)
     return () => clearTimeout(handler)
   }, [value, delay])
 
   return debouncedValue
 }
 
-// ─── usePagination Hook ───────────────────────────────────
 export function usePagination<T>(items: T[], itemsPerPage: number = 20) {
-  const [page, setPage] = React.useState(1)
-  const totalPages = Math.ceil(items.length / itemsPerPage)
+  const [page, setPage] = useState(1)
+  useEffect(() => setPage(1), [items.length])
+  const totalPages = Math.max(1, Math.ceil(items.length / itemsPerPage))
   const startIdx = (page - 1) * itemsPerPage
-  const endIdx = startIdx + itemsPerPage
-  const paginatedItems = items.slice(startIdx, endIdx)
+  const paginatedItems = items.slice(startIdx, startIdx + itemsPerPage)
 
   return {
     paginatedItems,
@@ -35,6 +35,34 @@ export function usePagination<T>(items: T[], itemsPerPage: number = 20) {
   }
 }
 
+export function useInfiniteScroll<T>(
+  items: T[],
+  itemsPerPage: number = 20,
+  containerRef?: React.RefObject<HTMLDivElement | null>,
+) {
+  const [visibleCount, setVisibleCount] = useState(itemsPerPage)
+  useEffect(() => setVisibleCount(itemsPerPage), [items.length, itemsPerPage])
+
+  useEffect(() => {
+    const el = containerRef?.current
+    if (!el) return
+    const onScroll = () => {
+      if (el.scrollTop + el.clientHeight >= el.scrollHeight - 80) {
+        setVisibleCount((c) => Math.min(c + itemsPerPage, items.length))
+      }
+    }
+    el.addEventListener("scroll", onScroll)
+    return () => el.removeEventListener("scroll", onScroll)
+  }, [containerRef, items.length, itemsPerPage])
+
+  return {
+    visibleItems: items.slice(0, visibleCount),
+    totalItems: items.length,
+    hasMore: visibleCount < items.length,
+    loadMore: () => setVisibleCount((c) => Math.min(c + itemsPerPage, items.length)),
+  }
+}
+
 // ─── Tokens ───────────────────────────────────────────────
 export const T = {
   // Light mode
@@ -44,10 +72,10 @@ export const T = {
   text: '#0F172A',
   sub: '#64748B',
   muted: '#94A3B8',
-  // Dark mode
-  dbg: '#0B1120',
-  dcard: '#161F2E',
-  dborder: '#1E2D40',
+  // Dark mode (Material-style per spec)
+  dbg: '#121212',
+  dcard: '#1E1E1E',
+  dborder: '#2C2C2C',
   dtext: '#F1F5F9',
   dsub: '#94A3B8',
   // Brand
@@ -74,32 +102,546 @@ export function useTheme() {
     text: d ? T.dtext : T.text,
     sub: d ? T.dsub : T.sub,
     muted: d ? '#4B5563' : T.muted,
-    inputBg: d ? '#1E2D40' : '#F8FAFC',
+    inputBg: d ? '#2C2C2C' : '#F8FAFC',
+  }
+}
+
+export function SearchableField({
+  label,
+  value,
+  onChange,
+  options,
+  placeholder = "ابحث أو اختر...",
+  allowCustom = false,
+}: {
+  label?: string
+  value: string
+  onChange: (v: string) => void
+  options: string[]
+  placeholder?: string
+  allowCustom?: boolean
+}) {
+  const th = useTheme()
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState(value)
+  const wrapRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => setQuery(value), [value])
+
+  useEffect(() => {
+    const close = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener("mousedown", close)
+    return () => document.removeEventListener("mousedown", close)
+  }, [])
+
+  const normalized = (s: string) => s.trim().toLowerCase()
+  const filtered = options.filter((o) => normalized(o).includes(normalized(query)))
+
+  const pick = (v: string) => {
+    onChange(v)
+    setQuery(v)
+    setOpen(false)
+  }
+
+  return (
+    <div ref={wrapRef} style={{ position: "relative" }}>
+      {label && (
+        <label style={{ fontSize: 12, fontWeight: 600, color: th.sub, display: "block", marginBottom: 6 }}>
+          {label}
+        </label>
+      )}
+      <input
+        value={query}
+        onChange={(e) => {
+          setQuery(e.target.value)
+          setOpen(true)
+          if (allowCustom) onChange(e.target.value)
+        }}
+        onFocus={() => setOpen(true)}
+        placeholder={placeholder}
+        style={{
+          width: "100%",
+          padding: "10px 12px",
+          borderRadius: 10,
+          border: `1px solid ${th.border}`,
+          background: th.inputBg,
+          color: th.text,
+          fontSize: 14,
+          fontFamily: "inherit",
+          boxSizing: "border-box",
+          direction: "rtl",
+          outline: "none",
+        }}
+      />
+      {open && query.trim() && filtered.length === 0 && (
+        <div
+          style={{
+            position: "absolute",
+            top: "100%",
+            left: 0,
+            right: 0,
+            zIndex: 120,
+            background: th.card,
+            border: `1px solid ${th.border}`,
+            borderRadius: 10,
+            marginTop: 4,
+            padding: "12px",
+            fontSize: 12,
+            color: th.sub,
+            textAlign: "center",
+            boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
+          }}
+        >
+          لا توجد نتائج
+        </div>
+      )}
+      {open && filtered.length > 0 && (
+        <div
+          style={{
+            position: "absolute",
+            top: "100%",
+            left: 0,
+            right: 0,
+            zIndex: 120,
+            background: th.card,
+            border: `1px solid ${th.border}`,
+            borderRadius: 10,
+            marginTop: 4,
+            maxHeight: 180,
+            overflowY: "auto",
+            boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
+          }}
+        >
+          {filtered.map((o) => (
+            <button
+              key={o}
+              type="button"
+              onClick={() => pick(o)}
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                border: "none",
+                borderBottom: `1px solid ${th.border}`,
+                background: o === value ? (th.dark ? "#2C2C2C" : "#EFF6FF") : "transparent",
+                color: th.text,
+                textAlign: "right",
+                cursor: "pointer",
+                fontFamily: "inherit",
+                fontSize: 13,
+              }}
+            >
+              {o}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+export function SearchableRosterField<T>({
+  label,
+  query,
+  onQueryChange,
+  selectedLabel,
+  items,
+  getKey,
+  formatLabel,
+  formatSubLabel,
+  filterItem,
+  onPick,
+  onAction,
+  actionLabel = "إضافة",
+  placeholder = "ابحث بالاسم أو اللوحة...",
+  emptyHint = "لا توجد نتائج مطابقة",
+}: {
+  label?: string
+  query: string
+  onQueryChange: (q: string) => void
+  selectedLabel?: string
+  items: T[]
+  getKey: (item: T) => string | number
+  formatLabel: (item: T) => string
+  formatSubLabel?: (item: T) => string
+  filterItem: (item: T, q: string) => boolean
+  onPick?: (item: T) => void
+  onAction?: (item: T) => void
+  actionLabel?: string
+  placeholder?: string
+  emptyHint?: string
+}) {
+  const th = useTheme()
+  const [open, setOpen] = useState(false)
+  const wrapRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const close = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener("mousedown", close)
+    return () => document.removeEventListener("mousedown", close)
+  }, [])
+
+  const filtered = query.trim()
+    ? items.filter((item) => filterItem(item, query))
+    : items.slice(0, 8)
+
+  const displayValue = open ? query : (selectedLabel ?? query)
+
+  return (
+    <div ref={wrapRef} style={{ position: "relative" }}>
+      {label && (
+        <label style={{ fontSize: 12, fontWeight: 600, color: th.sub, display: "block", marginBottom: 6 }}>
+          {label}
+        </label>
+      )}
+      <input
+        value={displayValue}
+        onChange={(e) => {
+          onQueryChange(e.target.value)
+          setOpen(true)
+        }}
+        onFocus={() => setOpen(true)}
+        placeholder={placeholder}
+        style={{
+          width: "100%",
+          padding: "10px 12px",
+          borderRadius: 10,
+          border: `1px solid ${th.border}`,
+          background: th.inputBg,
+          color: th.text,
+          fontSize: 14,
+          fontFamily: "inherit",
+          boxSizing: "border-box",
+          direction: "rtl",
+          outline: "none",
+        }}
+      />
+      {selectedLabel && !open && (
+        <p style={{ margin: "4px 0 0", fontSize: 11, color: T.success }}>✓ {selectedLabel}</p>
+      )}
+      {open && (
+        <div
+          style={{
+            position: "absolute",
+            top: "100%",
+            left: 0,
+            right: 0,
+            zIndex: 120,
+            background: th.card,
+            border: `1px solid ${th.border}`,
+            borderRadius: 10,
+            marginTop: 4,
+            maxHeight: 220,
+            overflowY: "auto",
+            boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
+          }}
+        >
+          {filtered.length === 0 ? (
+            <p style={{ margin: 0, padding: "12px", fontSize: 12, color: th.sub, textAlign: "center" }}>
+              {emptyHint}
+            </p>
+          ) : (
+            filtered.map((item) => (
+              <div
+                key={getKey(item)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "10px 12px",
+                  borderBottom: `1px solid ${th.border}`,
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onPick) {
+                      onPick(item)
+                      onQueryChange("")
+                      setOpen(false)
+                    }
+                  }}
+                  style={{
+                    flex: 1,
+                    border: "none",
+                    background: "transparent",
+                    color: th.text,
+                    textAlign: "right",
+                    cursor: onPick ? "pointer" : "default",
+                    fontFamily: "inherit",
+                    padding: 0,
+                  }}
+                >
+                  <span style={{ display: "block", fontSize: 13, fontWeight: 600 }}>{formatLabel(item)}</span>
+                  {formatSubLabel && (
+                    <span style={{ display: "block", fontSize: 11, color: th.sub, marginTop: 2 }}>
+                      {formatSubLabel(item)}
+                    </span>
+                  )}
+                </button>
+                {onAction && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onAction(item)
+                      onQueryChange("")
+                      setOpen(false)
+                    }}
+                    style={{
+                      flexShrink: 0,
+                      padding: "6px 12px",
+                      borderRadius: 8,
+                      border: "none",
+                      background: T.primary,
+                      color: "#fff",
+                      fontSize: 11,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      fontFamily: "inherit",
+                    }}
+                  >
+                    + {actionLabel}
+                  </button>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+export function AppBarStandardSlots({
+  onQuickAdd,
+  showBell = true,
+}: {
+  onQuickAdd?: () => void
+  showBell?: boolean
+}) {
+  const { navigate, dispatch, isManager, state, showSnackbar, unreadCount } = useApp()
+
+  const bellBtn = showBell ? (
+    <div style={{ position: "relative" }}>
+      <button
+        type="button"
+        onClick={() => navigate("notifications")}
+        style={{ background: "none", border: "none", color: "#CBD5E1", cursor: "pointer", fontSize: 18, lineHeight: 1, padding: 4 }}
+        title="الإشعارات"
+      >
+        🔔
+      </button>
+      {unreadCount > 0 && (
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            right: 0,
+            background: T.danger,
+            color: "#fff",
+            fontSize: 9,
+            fontWeight: 700,
+            borderRadius: 99,
+            minWidth: 14,
+            height: 14,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "0 3px",
+          }}
+        >
+          {unreadCount > 9 ? "9+" : unreadCount}
+        </div>
+      )}
+    </div>
+  ) : null
+
+  const syncBtn = isManager ? (
+    <button
+      type="button"
+      onClick={async () => {
+        await new Promise((r) => setTimeout(r, 500))
+        dispatch({ type: "SYNC_NOW" })
+        showSnackbar("تمت المزامنة بنجاح ✅")
+      }}
+      style={{ background: "none", border: "none", color: "#CBD5E1", cursor: "pointer", fontSize: 18, padding: 4, position: "relative" }}
+      title={`مزامنة — ${OFFICE_BRAND}`}
+    >
+      🔄
+      {state.pendingSyncCount > 0 && (
+        <span
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            background: T.warning,
+            color: "#fff",
+            fontSize: 8,
+            fontWeight: 700,
+            borderRadius: 99,
+            minWidth: 14,
+            height: 14,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          {state.pendingSyncCount > 9 ? "9+" : state.pendingSyncCount}
+        </span>
+      )}
+    </button>
+  ) : null
+
+  return {
+    rightSlot: (
+      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+        <button
+          type="button"
+          onClick={() => navigate("settings")}
+          style={{ background: "none", border: "none", color: "#CBD5E1", cursor: "pointer", fontSize: 18, padding: 4 }}
+          title="الإعدادات"
+        >
+          ⚙️
+        </button>
+        <button
+          type="button"
+          onClick={() => navigate("search")}
+          style={{ background: "none", border: "none", color: "#CBD5E1", cursor: "pointer", fontSize: 18, padding: 4 }}
+          title="بحث شامل"
+        >
+          🔍
+        </button>
+      </div>
+    ),
+    leftSlot: (
+      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+        {bellBtn}
+        {syncBtn}
+        {onQuickAdd ? (
+          <button
+            type="button"
+            onClick={onQuickAdd}
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: 8,
+              background: T.primaryLight,
+              border: "none",
+              color: "#fff",
+              fontSize: 20,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontWeight: 300,
+            }}
+          >
+            +
+          </button>
+        ) : null}
+      </div>
+    ),
   }
 }
 
 // ─── StatusChip ───────────────────────────────────────────
 export function StatusChip({ driver }: { driver: Driver }) {
-  let label = '', bg = '', color = ''
-  if (driver.status === 'غير_نشط') {
-    label = driver.statusReason?.includes('مخالف') ? `مخالف (${driver.violation})` : (driver.statusReason ?? 'غير نشط')
-    bg = driver.statusReason?.includes('مخالف') ? '#FEE2E2' : '#F1F5F9'
-    color = driver.statusReason?.includes('مخالف') ? T.danger : T.sub
-  } else if (driver.violation) {
-    label = `مخالف (${driver.violation})`
-    bg = '#FEE2E2'; color = T.danger
+  let label = ""
+  let bg = ""
+  let color = ""
+
+  if (driver.status === "غير_نشط") {
+    if (driver.statusReason === "قابل_للإضافة") {
+      label = "قابل للإضافة"
+      bg = "#E2E8F0"
+      color = "#475569"
+    } else if (isViolator(driver) || driver.statusReason?.includes("مخالف")) {
+      label = `مخالف (${driver.violation ?? (driver.statusReason === "مخالف_ح" ? "ح" : "ت")})`
+      bg = "#FEE2E2"
+      color = T.danger
+    } else if (driver.statusReason === "معطل") {
+      // Task 58: موقوف عن التحميل chip
+      label = "موقوف عن التحميل"
+      bg = "#FFF7ED"
+      color = T.warning
+    } else {
+      label = driver.statusReason === "مفروز" ? "مفروز" : driver.statusReason === "بدون_ضمانة" ? "بدون ضمانة" : "غير نشط"
+      bg = "#F1F5F9"
+      color = T.sub
+    }
   } else if (driver.currentTrip) {
     label = `لديه نهمة · ${driver.currentTrip}`
-    bg = '#FEF9C3'; color = '#B45309'
+    bg = "#FEF9C3"
+    color = "#B45309"
   } else {
-    label = 'جاهز'; bg = '#D1FAE5'; color = '#065F46'
+    label = "جاهز"
+    bg = "#D1FAE5"
+    color = "#065F46"
   }
+
   return (
-    <span style={{
-      padding: '2px 8px', borderRadius: 99, fontSize: 11, fontWeight: 600,
-      backgroundColor: bg, color, whiteSpace: 'nowrap',
-      animation: 'fadeIn 0.3s ease',
-    }}>{label}</span>
+    <span
+      style={{
+        padding: "2px 8px",
+        borderRadius: 99,
+        fontSize: 11,
+        fontWeight: 600,
+        backgroundColor: bg,
+        color,
+        whiteSpace: "nowrap",
+        animation: "fadeIn 0.3s ease",
+      }}
+    >
+      {label}
+    </span>
+  )
+}
+
+export function BottomSheet({
+  title,
+  subtitle,
+  onClose,
+  children,
+}: {
+  title: string
+  subtitle?: string
+  onClose: () => void
+  children: ReactNode
+}) {
+  const th = useTheme()
+  return (
+    <div style={{ position: "absolute", inset: 0, zIndex: 150 }}>
+      <div
+        style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)" }}
+        onClick={onClose}
+      />
+      <div
+        style={{
+          position: "absolute",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          background: th.card,
+          borderRadius: "20px 20px 0 0",
+          padding: "0 0 24px",
+          animation: "slideUp 0.3s ease",
+          maxHeight: "85%",
+          overflowY: "auto",
+        }}
+      >
+        <div style={{ padding: "12px 0 8px", display: "flex", justifyContent: "center" }}>
+          <div style={{ width: 40, height: 4, borderRadius: 2, background: th.border }} />
+        </div>
+        <div style={{ padding: "0 20px" }}>
+          <h3 style={{ color: th.text, fontSize: 17, fontWeight: 700, margin: "0 0 4px" }}>{title}</h3>
+          {subtitle && <p style={{ color: th.sub, fontSize: 12, margin: "0 0 16px" }}>{subtitle}</p>}
+          {children}
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -126,7 +668,7 @@ interface AppBarProps {
   rightSlot?: React.ReactNode
   leftSlot?: React.ReactNode
 }
-export function AppBar({ title, back, rightSlot, leftSlot }: AppBarProps) {
+export function AppBar({ title, back, rightSlot, leftSlot, hideBell }: AppBarProps & { hideBell?: boolean }) {
   const { navigate, state, unreadCount } = useApp()
 
   return (
@@ -161,7 +703,7 @@ export function AppBar({ title, back, rightSlot, leftSlot }: AppBarProps) {
       {/* Left side */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 80, justifyContent: 'flex-end' }}>
         {leftSlot}
-        {state.screen !== 'login' && (
+        {!hideBell && state.screen !== 'login' && !leftSlot && (
           <div style={{ position: 'relative' }}>
             <button onClick={() => navigate('notifications')}
               style={{ background: 'none', border: 'none', color: '#CBD5E1', cursor: 'pointer', fontSize: 18, lineHeight: 1, padding: 4 }}>
@@ -192,11 +734,18 @@ const NAV_ITEMS: { screen: Screen; icon: string; label: string }[] = [
 ]
 
 export function BottomNav() {
-  const { state, navigate } = useApp()
+  const { state, navigate, isRegistrationClerk } = useApp()
   const th = useTheme()
 
-  const HIDDEN: Screen[] = ['login', 'driver-profile']
+  const HIDDEN: Screen[] = ["login", "driver-profile"]
   if (HIDDEN.includes(state.screen)) return null
+
+  const items = isRegistrationClerk
+    ? [
+        { screen: "registration" as Screen, icon: "➕", label: "تسجيل" },
+        { screen: "settings" as Screen, icon: "⚙️", label: "إعدادات" },
+      ]
+    : NAV_ITEMS
 
   return (
     <div style={{
@@ -205,7 +754,7 @@ export function BottomNav() {
       display: 'flex',
       flexShrink: 0,
     }}>
-      {NAV_ITEMS.map(item => {
+      {items.map(item => {
         const active = state.screen === item.screen
         return (
           <button key={item.screen}
@@ -316,7 +865,7 @@ interface BtnProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 export function Btn({ variant = 'primary', size = 'md', fullWidth, children, style, ...props }: BtnProps) {
   const baseStyle: React.CSSProperties = {
     border: 'none', cursor: 'pointer', borderRadius: 10, fontWeight: 600,
-    fontFamily: 'inherit', transition: 'opacity 0.2s',
+    fontFamily: 'inherit', transition: 'opacity 0.2s, transform 0.15s ease',
     padding: size === 'sm' ? '6px 14px' : '11px 20px',
     fontSize: size === 'sm' ? 12 : 14,
     width: fullWidth ? '100%' : undefined,
@@ -327,7 +876,26 @@ export function Btn({ variant = 'primary', size = 'md', fullWidth, children, sty
     ghost: { background: 'transparent', color: T.primary, border: `1px solid ${T.primary}` },
     outline: { background: 'transparent', color: '#64748B', border: '1px solid #CBD5E1' },
   }
-  return <button {...props} style={{ ...baseStyle, ...variants[variant], ...style }}>{children}</button>
+  return (
+    <button
+      {...props}
+      style={{ ...baseStyle, ...variants[variant], ...style }}
+      onMouseDown={(e) => {
+        e.currentTarget.style.transform = 'scale(0.96)'
+        props.onMouseDown?.(e)
+      }}
+      onMouseUp={(e) => {
+        e.currentTarget.style.transform = 'scale(1)'
+        props.onMouseUp?.(e)
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.transform = 'scale(1)'
+        props.onMouseLeave?.(e)
+      }}
+    >
+      {children}
+    </button>
+  )
 }
 
 // ─── Card ─────────────────────────────────────────────────
@@ -380,13 +948,13 @@ export function Toggle({ checked, onChange }: { checked: boolean; onChange: () =
 interface PullToRefreshProps {
   onRefresh: () => Promise<void>
   children: React.ReactNode
-  containerRef: React.RefObject<HTMLDivElement>
+  containerRef: React.RefObject<HTMLDivElement | null>
 }
 
 export function PullToRefresh({ onRefresh, children, containerRef }: PullToRefreshProps) {
-  const [refreshing, setRefreshing] = React.useState(false)
-  const [pullDistance, setPullDistance] = React.useState(0)
-  const startYRef = React.useRef<number>(0)
+  const [refreshing, setRefreshing] = useState(false)
+  const [pullDistance, setPullDistance] = useState(0)
+  const startYRef = useRef<number>(0)
 
   const handleTouchStart = (e: React.TouchEvent) => {
     if (containerRef.current && containerRef.current.scrollTop === 0) {

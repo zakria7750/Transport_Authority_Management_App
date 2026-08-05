@@ -1,0 +1,485 @@
+المرحلة أ: واجهة وبحث (9–21)
+المهمة 9 — بحث ضامن في تعديل الضمانات (شاشة المدير)
+الهدف: عند تعديل ضامنين لمضمون من شاشة الضمانات، إضافة ضامن من كشف البوابير بالبحث (وليس إدخالاً حراً).
+
+الملفات: src/screens/Manager.tsx (نموذج تعديل المضمونين)، src/components.tsx (SearchableRosterField)، src/domain.ts (canBeGuarantor, guarantorFromRosterDriver).
+
+السلوك:
+
+في نموذج «تعديل ضامنين — [اسم المالك]» (تبويب المضمونين → ✏️): استبدال/إكمال أي حقل نص حر بـ SearchableRosterField.
+مصدر النتائج: سائقون من الكشف نشط أو غير نشط، بدون مخالfات (eligibleGuarantorDrivers + canBeGuarantor).
+كل نتيجة: اسم + لوحة + حالة + زر «+ إضافة».
+منع تكرار نفس الضامن (بالـ sourceDriverId أو الاسم).
+عند الحفظ: UPDATE_GUARANTORS مع filterValidActiveGuarantors.
+شروط القبول:
+
+لا يمكن إضافة مخالf كضامن.
+البحث يعمل بالاسم واللوحة.
+الضامن المضاف يحمل sourceDriverId للربط لاحقاً بقواعد المخالfة.
+يعتمد على: المهام 4–8.
+
+المهمة 10 — أيقونة مزامنة في AppBar
+الهدف: للمدير فقط — أيقونة 🔄 في AppBar (ليس Quick Actions فقط).
+
+الملفات: src/components.tsx (AppBarStandardSlots, AppBar).
+
+السلوك:
+
+إظهار أيقونة المزامنة في AppBar للمدير على الشاشات التي تستخدم AppBarStandardSlots.
+badge بعدد pendingSyncCount إن > 0.
+النقر: SYNC_NOW + Snackbar «تمت المزamنة».
+tooltip: «مزامنة — مكتب تعز».
+شروط القبول: المزامنة متاحة من AppBar في Home وكل الشاشات التي تستخدم الـ slots القياسية.
+
+المهمة 11 — ترتيب AppBar (RTL)
+الهدف: مطابقة §3.1: يمين (⚙️ إعدادات + 🔍 بحث)، يسار (🔔 جرس + 🔄 مزامنة + ➕ قائمة).
+
+الملفات: src/components.tsx (AppBar, AppBarStandardSlots).
+
+السلوك:
+
+في RTL: rightSlot = إعدادات + بحث؛ leftSlot = جرس + مزامنة (مدير) + (+).
+الجرس على كل الشاشات (ما لم يُخفَ).
+(+) للمدير/موظف النهمة حيث ينطبق.
+شروط القبول: الترتيب البصري يطابق البرومبت الأصلي في كل الشاشات.
+
+المهمة 12 — توحيد زر (+)
+الهدف: (+) في AppBar بشكل متسق، وليس Home فقط.
+
+الملفات: AppBarStandardSlots, Home.tsx, شاشات أخرى.
+
+السلوك:
+
+نقل قائمة Quick Add إلى slot يسار AppBar.
+نفس القائمة: تسجيل، إضافة للكشف، (مدير) مخalفة + مستخدم.
+إزالة التكرار إن وُجد في Home فقط.
+المهمة 13 — تبسيط «المزيد»
+الهدف: §3.1 — «المزيد» = إدارة المستخدمين (مدير) + الإعدادات فقط.
+
+الملفات: More.tsx, BottomNav في components.tsx, App.tsx.
+
+السلوك:
+
+BottomNav «المزيد» يفتح شاشة فيها عنصران فقط (أو واحد لغير المدير).
+إزالة: تحضير، مخalفات، أعطال، ضمانات، تقارير، بحث من More إن ظهرت.
+شروط القبول: MoreScreen يعرض فقط ما في §3.1.
+
+المهمة 14 — إعادة توزيع مسارات More
+الهدف: نقل ما أُزيل من More إلى مسارات بديلة.
+
+الملفات: Home.tsx (Quick Nav)، BottomNav, AppBar.
+
+السلوك:
+
+التحضير، الكشف، النهمات، المخalفات، الأعطال، الضمانات، التقارير: عبر Home Quick Nav و/أو AppBar و/أو BottomNav (4–5 عناصر رئيسية).
+المدير: وصول للتقارير والمستخدمين من Home أو AppBar.
+عدم كسر canAccessScreen لموظف التسgيل/النهمة.
+المهمة 15 — انتقال Slide Forward 300ms (RTL)
+الهدف: Slide from Right عند الدخول للشاشة.
+
+الملفات: App.tsx (Router), context.tsx (navDirection).
+
+السلوك:
+
+navigate(screen) → navDirection: 'forward'.
+CSS: translateX من اليمين (RTL) مدة 300ms ease.
+key={screen} على حاوية الشاشة.
+شروط القبول: كل تنقل للأمام يظهر slide من اليمين ~300ms.
+
+المهمة 16 — انتقال Slide Back
+الهدف: slide عكسي عند الرجوع.
+
+الملفات: context.tsx, App.tsx, AppBar (back).
+
+السلوك:
+
+navigate(..., { back: true }) أو navDirection: 'back'.
+animation: من اليسار لليمين.
+المهمة 17 — حفظ Accordion (اختياري)
+الهدف: عند الرجوع من تفاصيل نهمة، Accordion في «النهمات المعلقة» يبقى مفتوحاً.
+
+الملفات: PendingTrips.tsx, context.tsx (screenParams أو state محلي).
+
+السلوك: حفظ expandedTripId في params/context؛ استعادته عند mount.
+
+المهمة 18 — Infinite Scroll في الكشف
+الهدف: استبدال أزرار «سابق/التالي» بتحميل تلقائي (20 صف).
+
+الملفات: Drivers.tsx, useInfiniteScroll في components.tsx.
+
+السلوك:
+
+ربط useInfiniteScroll بـ container scroll.
+عند ~80px من الأسفل: loadMore.
+مؤشر تحميل أسفل القائمة.
+إعادة تعيين عند تغيير الفلتر/البحث.
+المهمة 19 — ترتيب فلتر «الكل»
+الهدف: نشط (seq) → غير نشط → مخalf.
+
+الملفات: Drivers.tsx, sortDriversAllFilter في domain.ts.
+
+السلوك: عند filter === 'all' أو «الكل»، تطبيق sortDriversAllFilter قبل pagination.
+
+المهمة 20 — أيقونة فلتر منفصلة
+الهدف: فلتر الحالة (نشط/غير نشط/مخalf/الكل) بأيقونة 🎚️ منفصلة عن البحث.
+
+الملفات: Drivers.tsx.
+
+السلوك:
+
+حقل بحث للاسم/اللوحة.
+زر/أيقونة فلتر → BottomSheet أو dropdown للحالة.
+دعم screenParams.filter من Home.
+المهمة 21 — تمرير أفقي للجدول (اختياري)
+الهدف: على الشاشات الضيقة، جدول الكشف قابل للتمرير أفقياً.
+
+الملفات: Drivers.tsx, Attendance.tsx.
+
+السلوك: overflowX: auto على wrapper الجدول؛ minWidth للأعمدة.
+
+المرحلة ب: منطق التعويض والتحضير (22–28)
+المهمة 22 — إنقاص 1 عند تأكيد مبدئي (تعويض)
+الهدف: §7–8 — نهمة «تعويض»: عند تأكيد مبدئي ينقص compensationBalance بـ 1 (لا حجز كامل).
+
+الملفات: context.tsx (CREATE_TRIP, CONFIRM_TRIP), domain.ts, TripSheet.tsx.
+
+السلوك:
+
+عند إنشاء/تأكيد نهمة تعويض (غير مسودة): compensationBalance -= 1 (حد أدنى 0).
+إزالة منطق «حجز الرصيد كاملاً» إن وُجد.
+منع التأكيد إذا الرصيد = 0.
+المهمة 23 — إنقاص 1 عند تأكيد الخروج (تعويض)
+الهدف: عند تأكيد خروج نهمة تعويض: إنقاص 1 إضافي.
+
+الملفات: context.tsx (CONFIRM_EXIT أو ما يعادله), PendingTrips.tsx.
+
+السلوك: عند انتقال نهمة تعويض من «مؤكدة مبدئياً» → «مكتملة»: -1 إضافي إن لم يُخصم مسبقاً (توثيق القاعدة في reducer لتجنب double-deduct).
+
+المهمة 24 — استرداد عند الإلغاء
+الهدف: إلغاء نهمة تعويض يسترد المبلغ المخصوم.
+
+الملفات: context.tsx (CANCEL_TRIP).
+
+السلوك:
+
+مسودة: لا خصم.
+مؤكدة مبدئياً: +1.
+مكتملة: +2 أو +1 حسب ما خُصم فعلياً (تتبع compensationAmount على Trip).
+المهمة 25 — عمود «ت» افتراضي حاضر
+الهدف: §كشف التحضير — «ت» محدد = حاضر؛ إلغاء = غياب.
+
+الملفات: Attendance.tsx, SAVE_ATTENDANCE في context.tsx.
+
+السلوك:
+
+افتراضي t: true لكل سائق نشط.
+الغياب: !t أو (!m1 && !m2) حسب §البرومبت.
+«حفظ التحضير» يسجل الغائبين فقط.
+المهمة 26 — م1/م2 يعرضان نوع النهمة
+الهدف: عرض «م1»/«م2»/«فرزة» كنص من النهمة المعلقة، وليس ✓/— فقط.
+
+الملفات: Attendance.tsx.
+
+السلوك:
+
+لكل سائق: إن وُجدت نهمة معلقة بنفس النوع → عرض trip.type.
+وإلا «—».
+checkbox م1/م2 للتحضير يبقى منفصلاً عن عرض النص.
+المهمة 27 — PDF كشف التحضير
+الهدف: تصدير PDF حقيقي (أو print محسّن) لكشف التحضير.
+
+الملفات: Attendance.tsx, مكتبة PDF (jsPDF/html2canvas) أو print CSS.
+
+السلوك:
+
+زر «طباعة/PDF» يولّد مستنداً بـ APP_PRINT_HEADER + التاريخ + جدول عمودين.
+يفتح نافذة طباعة أو يحمّل .pdf.
+المهمة 28 — PDF كشف النهمة
+الهدف: PDF/طباعة لكشف النهمات من شاشة التحضير.
+
+الملفات: Attendance.tsx.
+
+السلوك: نفس 27 لجدول النهمات (مالك، نوع، لوحة، حمولة، رقم فك).
+
+المرحلة ج: التسجيل (29–35)
+المهمة 29 — فاصل اللوحة رقمي
+الملفات: Registration.tsx, DriverProfile.tsx.
+
+السلوك: inputMode="numeric", فلترة غير الأرقام، validation.
+
+المهمة 30 — بطاقة أمام/خلف إلزامية
+الملفات: Registration.tsx.
+
+السلوك: منع handleRegister بدون images.frontId و images.backId؛ UI يوضح الإلزام (*).
+
+المهمة 31 — ربط بحث الضامن (تأكيد)
+الملفات: Registration.tsx.
+
+السلوك: التأكد من اكتمال المهمة 7؛ لا إدخال حر للضامن.
+
+المهمة 32 — تبويب «إضافة مالك»: بحث ثنائي
+الملفات: Registration.tsx (tab add).
+
+السلوك: حقلان: اسم + لوحة (منفصلان)؛ فلترة addableDrivers؛ عرض StatusChip.
+
+المهمة 33 — إعادة تسجيل = Driver جديد
+الهدف: ADD_DRIVER جديد (owner/truck منطقياً) بدل ACTIVATE_DRIVER على نفس السجل.
+
+الملفات: Registration.tsx, context.tsx (RE_REGISTER_DRIVER → ADD_DRIVER + أرشفة القديم).
+
+السلوك:
+
+سجل جديد id, seq جديد، status: نشط.
+السجل القديم: غير_نشط + statusReason مناسب.
+REINDEX للنشطين.
+المهمة 34 — العودة للرئيسية بعد التسجيل
+الملفات: Registration.tsx, context.tsx.
+
+السلوك: بعد نجاح التسجيل/الإضافة: navigate('home') + Snackbar (اختياري WhatsApp لاحقاً).
+
+المهمة 35 — WhatsApp بعد التسجيل
+الملفات: Registration.tsx, context.tsx (queue mock).
+
+السلوك: زر/إرسال تلقائي https://wa.me/... برسالة ترحib؛ prototype: Snackbar «تم إرسال WhatsApp».
+
+المرحلة د: المخalفات (36–39)
+المهمة 36 — إضافة مخalفة لغير النشط
+الملفات: Manager.tsx (ViolationsScreen).
+
+السلوك: eligibleDrivers: نشط + غير نشط بدون مخalفة؛ SearchableRosterField أو محسّن.
+
+المهمة 37 — سبب الرفع
+الملفات: ViolationsScreen, context.tsx (RAISE_VIOLATION).
+
+السلوك: BottomSheet قبل الرفع: حقل «سبب الرفع» إلزامي؛ حفظ في Violation.note أو raiseReason.
+
+المهمة 38 — تاريخ عند إضافة مخalفة (اختياري)
+الملفات: ViolationsScreen, data.ts (Violation.date).
+
+المهمة 39 — عرض المسجّل
+الملفات: ViolationsScreen, context.tsx.
+
+السلوك: recordedBy: state.user?.name عند الإضافة؛ عرض في البطاقة.
+
+المرحلة هـ: لوحة النهمات للمدير (40–43)
+المهمة 40 — شاشة/قسم لوحة النهمات
+الملفات: AllTrips.tsx أو توسيع Manager.tsx؛ route في App.tsx.
+
+السلوك: عرض كل النهمات: مسودة، مؤكدة مبدئياً، معلقة، مكتملة، ملغاة.
+
+المهمة 41 — فلترة وبحث النهمات
+السلوك: بحث: سائق، لوحة، نوع، وجهة، حالة، تاريخ (from–to أو chips).
+
+المهمة 42 — حذف نهمة مع استعادة السائق
+الملفات: context.tsx (DELETE_TRIP).
+
+السلوك: مسموح لـ مسودة/ملغاة؛ استعادة currentTrip, seq, التعويض؛ Snackbar + undo.
+
+المهمة 43 — إخفاء «تعديل» بعد تأكيد الخروج
+الملفات: AllTrips.tsx, PendingTrips.tsx, TripSheet.tsx.
+
+السلوك: زر تعديل يظهر فقط لـ: مسودة، مؤكدة مبدئياً، معلقة (قبل خروج).
+
+المرحلة و: الأعطال الكامل (44–55)
+المهمة 44 — فلترة كشف الأعطال
+الملفات: BreakdownsScreen في Manager.tsx.
+
+السلوك: بحث بالاسم/اللوحة debounce.
+
+المهمة 45 — أعمدة جدول كامل
+السلوك: تاريخ الخروج، حمولة، وجهة، رقم فك، موقع، مسعف، حالة.
+
+المهمة 46 — تعديل عطل مسجّل
+الملفات: BreakdownSheet.tsx, UPDATE_BREAKDOWN.
+
+المهمة 47 — إنهاء نهمة من الكشف
+السلوك: «إنهاء» → dismissedFromBreakdown أو حالة «منتهي» بدون كسر السائق.
+
+المهمة 48 — إضافة يدوية §10.2
+السلوك: من سجل الأعطال: إضافة عطل بدون تغيير نهمات تلقائياً (ADD_BREAKDOWN_MANUAL).
+
+المهمة 49 — حذف عطل + استعادة المعطل والمسعف
+الملفات: DELETE_BREAKDOWN, domain.ts.
+
+السلوك: استعادة preTripSnapshot للمعطل؛ إلغاء نهمة المسعف إن وُجدت.
+
+المهمة 50 — قريب + إلغاء: استعادة كاملة
+السلوك: إلغاء النهمة + استعادة بيانات السائق قبل النهمة (snapshot) + seq السابق.
+
+المهمة 51 — قريب + إبقاء
+السلoك: النهمة مكتملة؛ المعطل آخر الكشف (moveDriverToEndOfActive).
+
+المهمة 52 — بعيد
+السلوك: المعطل آخر الكشف؛ مسعف نهمة جديدة؛ تعويضات 0/1/2.
+
+المهمة 53 — إنشاء Trip للمسعف
+الملفات: ADD_BREAKDOWN في context.tsx.
+
+السلوك: CREATE_TRIP للمسعف: نفس الوجهة/محافظة/حمولة من نهمة المعطل.
+
+المهمة 54 — نوع نهمة المسعف «بدون»
+الملفات: BreakdownSheet.tsx, data.ts (RescuerTripType).
+
+السلوك: «بدون» → لا Trip للمسعف؛ تعويض فقط.
+
+المهمة 55 — Snackbar + Undo للأعطال
+السلوك: undo لإضافة/تعديل/حذف/إلغاء قريب؛ pattern مثل المخalفات.
+
+المرحلة ز: ضمانات — إكمال (56–59)
+المهمة 56 — صورة الضمانة في تعديل الضامنين
+الملفات: Manager.tsx (نموذج تعديل المضmون — ✏️).
+
+السلوك: رفع guaranteeImage لكل ضامن في القائمة (موجود جزئياً — إكمال الربط بالحفظ).
+
+المهمة 57 — minGuarantors = 0 → الجميع نشط
+الملفات: context.tsx, domain.ts (meetsMinGuarantors).
+
+السلوك: عند minGuarantors === 0: كل من ليس مخalfاً نشط تلقائياً؛ syncDriversAfterGuaranteeChange.
+
+المهمة 58 — «موقوف عن التحميل»
+الملفات: Drivers.tsx, GuaranteesScreen, StatusChip.
+
+السلوك: عند guarantor.suspended: المضmون يعرض chip «موقوف عن التحميل»؛ منع نهمة جديدة.
+
+المهمة 59 — إشعار إلغاء للمضmون
+الملفات: context.tsx.
+
+السلوك: نص: «إلغاء ضمانتك من قبل [الضامن]» — (جزء مُنفَّذ في 8؛ مراجعة اكتمال).
+
+المرحلة ح: التقارير (60–66)
+المهمة 60 — تقويم من–إلى
+الملفات: ReportsScreen.
+
+السلoك: <input type="date"> × 2؛ فلترة trips/violations/breakdowns بالنطاق.
+
+المهمة 61 — توزيع المحافظات
+السلوك: bar chart أو قائمة: عدد النهمات/المكتملة per province.
+
+المهمة 62 — توزيع الحمولات
+السلوك: parse payload → أعداد زيت/صابون/سمن.
+
+المهمة 63 — أكثر المخalفين
+السلوك: top N (موجود جزئياً — ربط بالفترة الزمنية).
+
+المهمة 64 — تصدير PDF فعلي
+السلوك: jsPDF أو print template للتقرير الحالي.
+
+المهمة 65 — تصدير Excel فعلي
+السلوك: xlsx أو CSV download للإحصائيات والجداول.
+
+المهمة 66 — تصدير/استيراد DB
+السلوك: JSON.stringify state → download؛ import → RESTORE_STATE مع validation.
+
+المرحلة ط: الإعدادات (67–69)
+المهمة 67 — ثيم تلقائي
+الملفات: context.tsx, More.tsx (Settings).
+
+السلوك: prefers-color-scheme listener عند themePreference === 'auto'.
+
+المهمة 68 — Dark mode #121212
+الملفات: components.tsx (T.dbg, T.dcard), index.css.
+
+السلوك: #121212, #1E1E1E, #E0E0E0 للنصوص الثانوية.
+
+المهمة 69 — نسخ احتياطي/استعادة فعلية
+السلوك: أزرار Settings → export/import JSON (يرتبط بـ 66).
+
+المرحلة ي: البحث الشامل (70–72)
+المهمة 70 — بحث بفاصل اللوحة
+الملفات: SearchScreen في More.tsx.
+
+السلوك: (موجود جزئياً) — التأكد من دمج separator في كل استعلام.
+
+المهمة 71 — Status Chip في كل نتيجة
+السلوك: StatusChip بجانب كل سائق في نتائج البحث.
+
+المهمة 72 — أيقونة بحث في Bottom Nav (اختياري)
+الملفات: BottomNav.
+
+المرحلة ك: إدارة السائقين (73–75)
+المهمة 73 — شاشة إدارة السائقين
+الملفات: شاشة جديدة أو توسيع Drivers؛ route للمدير.
+
+السلوك: عرض الكل + فلاتر متقدمة (حالة، نوع، ضمانات، مخalf).
+
+المهمة 74 — حذف سائق
+السلوك: DELETE_DRIVER إن: لا نهمات مفتوحة، لا مخalfات، لا ضمانات نشطة كضامن/مضmون.
+
+المهمة 75 — تعطيل بدل الحذف
+السلوك: status: غير_نشط, statusReason: ملغي عند وجود سجل تاريخي.
+
+المرحلة ل: موقع ويب التسجيل (76–79)
+المهمة 76 — Layout Desktop منفصل
+الملفات: App.tsx أو RegistrationWeb.tsx؛ كشف window.innerWidth أو route /register-web.
+
+السلوك: layout عريض (جدول + panel) لموظف التسجيل؛ ليس إطار 390px.
+
+المهمة 77 — بحث: اسم + لوحة + فاصل
+السلوك: 3 حقول في صف واحد؛ debounce.
+
+المهمة 78 — «إعادة تسجيل» فقط
+السلوك: بدون تعديل/حذف سائق؛ زر واحد «إعادة تسجيل».
+
+المهمة 79 — Driver جديد + seq جديد
+السلوك: نفس المهمة 33 ضمن واجهة الويب.
+
+المرحلة م: UX بصري (80–83)
+المهمة 80 — Scale/Fade للصفوف
+الملفات: index.css, قوائm Drivers/PendingTrips.
+
+السلوك: @keyframes عند insert/remove.
+
+المهمة 81 — Lottie/animation نجاح
+السلوك: overlay قصير بعد تسجيل/تأكيد (CSS bounce كبديل خفيف).
+
+المهمة 82 — Skeleton في كل القوائm
+الملفات: كل screens بقوائm.
+
+السلوك: SkeletonRow أثناء loading mock 400ms.
+
+المهمة 83 — Undo موحّد
+السلوك: تأكيد خروج، إلغاء نهمة، أعطال، حذف — pattern scheduleDeferred* + Snackbar.
+
+المرحلة ن: الإشعارات (84–85)
+المهمة 84 — نصوص محددة
+الملفات: context.tsx (كل pushNotif).
+
+السلوك: قاموس: رفع_مخalفة, إلغاء_ضمانة_للمضmون, نهمة_جديدة, تأكيد_خروج, بلاغ_عطل, طلب_استثناء — نصوص حرفية من §البرومпт.
+
+المهمة 85 — workflow طلب استثناء
+الملفات: Drivers.tsx, ViolationsScreen, context.tsx.
+
+السلوك: طلب → إشعار للمدير → موافقة/رفض → تحديث حالة السائق/المخalفة.
+
+المرحلة س: مزامنة وجلسة (86–87)
+المهمة 86 — مزامنة حقيقية (mock محسّن)
+الملفات: context.tsx (SYNC_NOW).
+
+السلوك: simulate fetch: merge drivers/violations من mockSyncPayload؛ reset pendingSyncCount.
+
+المهمة 87 — Persistence جلسة
+الملفات: context.tsx, Login.tsx.
+
+السلوك: (جزء موجود sessionUserId) — إكمال: حفظ role، استعادة screen؛ logout يمسح.
+
+المرحلة ع: Backend (88–92)
+المهمة 88 — API + DB
+السلوك: Express/FastAPI + SQLite/Postgres؛ endpoints CRUD للكيانات.
+
+المهمة 89 — نماذج منفصلة
+السلوك: Owner, Truck, Driver, ViolationLog, Guarantee, Trip — migration schema.
+
+المهمة 90 — مزامنة ثنائية
+السلوك: POST changes + GET since lastSyncAt; conflict: server wins أو timestamp.
+
+المهمة 91 — WebAuthn للبصمة
+الملفات: Login.tsx, backend.
+
+السلوك: @simplewebauthn/browser؛ toggle في Settings يربط credential.
+
+المهمة 92 — WhatsApp queue
+السلoك: queue في backend؛ إرسال فعلي أو mock webhook.
+
+المرحلة ف: منصة (93)
+المهمة 93 — تطبيق Android/iOS أصلي
+السلوك: خارج نطاق prototype — Capacitor/React Native wrapper للـ SPA الحالي؛ أو توثيق فقط.

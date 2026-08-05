@@ -1,121 +1,12 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { useApp, useSaveScrollPosition, useGetScrollPosition } from '../context'
-import { AppBar, StatusChip, SkeletonRow, useTheme, T, EmptyState, PullToRefresh, usePagination } from '../components'
-import type { Driver, TripType, ViolationType } from '../data'
+import { AppBar, StatusChip, SkeletonRow, useTheme, T, EmptyState, PullToRefresh, useInfiniteScroll } from '../components'
+import TripSheet from '../TripSheet'
+import { isViolator, sortDriversAllFilter } from '../domain'
+import type { Driver, ViolationType } from '../data'
 
 type Filter = 'الكل' | 'نشط' | 'غير_نشط' | 'مخالف'
 type SubFilter = 'الكل_نشط' | 'جاهز' | 'لديه_نهمة'
-
-// ─── Create Trip Bottom Sheet ──────────────────────────────
-function CreateTripSheet({ driver, onClose }: { driver: Driver; onClose: () => void }) {
-  const { dispatch, showSnackbar } = useApp()
-  const th = useTheme()
-  const [tripType, setTripType] = useState<TripType>('فرزة')
-  const [payload, setPayload] = useState('')
-  const [province, setProvince] = useState('')
-  const [destination, setDestination] = useState('')
-  const [breakNum, setBreakNum] = useState('')
-
-  const confirm = () => {
-    dispatch({ type: 'SET_TRIP', driverId: driver.id, tripType })
-    showSnackbar(`تم إنشاء نهمة (${tripType}) للسائق ${driver.ownerName} ✅`)
-    onClose()
-  }
-
-  return (
-    <div style={{ position: 'absolute', inset: 0, zIndex: 150 }}>
-      <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}
-        onClick={onClose} />
-      <div style={{
-        position: 'absolute', bottom: 0, left: 0, right: 0,
-        background: th.card, borderRadius: '20px 20px 0 0',
-        padding: '0 0 24px',
-        animation: 'slideUp 0.3s ease',
-        maxHeight: '85%', overflowY: 'auto',
-      }}>
-        {/* Handle */}
-        <div style={{ padding: '12px 0 8px', display: 'flex', justifyContent: 'center' }}>
-          <div style={{ width: 40, height: 4, borderRadius: 2, background: th.border }} />
-        </div>
-        <div style={{ padding: '0 20px' }}>
-          <h3 style={{ color: th.text, fontSize: 17, fontWeight: 700, margin: '0 0 4px' }}>إنشاء نهمة</h3>
-          <p style={{ color: th.sub, fontSize: 12, margin: '0 0 20px' }}>
-            {driver.ownerName} · {driver.plate}
-          </p>
-
-          {/* Trip Type */}
-          <p style={{ fontSize: 12, fontWeight: 600, color: th.sub, margin: '0 0 8px' }}>نوع النهمة</p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 16 }}>
-            {(['فرزة', 'م1', 'م2', 'تعويض'] as TripType[]).map(t => (
-              <button key={t} onClick={() => setTripType(t)}
-                style={{
-                  padding: '10px 4px', borderRadius: 10, border: 'none',
-                  background: tripType === t ? T.primary : th.inputBg,
-                  color: tripType === t ? '#fff' : th.text,
-                  fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit',
-                }}>{t}</button>
-            ))}
-          </div>
-
-          {/* Compensation Balance */}
-          {tripType === 'تعويض' && (
-            <div style={{
-              background: '#FEF9C3', borderRadius: 12, padding: '14px 16px',
-              marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10,
-            }}>
-              <span style={{ fontSize: 24 }}>💰</span>
-              <div>
-                <p style={{ margin: 0, fontSize: 11, color: '#92400E' }}>رصيد التعويض المتاح</p>
-                <p style={{ margin: '4px 0 0', fontSize: 20, fontWeight: 800, color: '#B45309' }}>
-                  {driver.compensationBalance.toLocaleString()} ريال
-                </p>
-              </div>
-            </div>
-          )}
-
-          {tripType !== 'تعويض' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16 }}>
-              {[
-                { label: 'الحمولة', value: payload, set: setPayload, placeholder: 'نوع البضاعة' },
-                { label: 'المحافظة', value: province, set: setProvince, placeholder: 'المحافظة' },
-                { label: 'الوجهة', value: destination, set: setDestination, placeholder: 'المقصد' },
-                { label: 'رقم الفك', value: breakNum, set: setBreakNum, placeholder: 'رقم الفك' },
-              ].map(f => (
-                <div key={f.label}>
-                  <label style={{ fontSize: 12, fontWeight: 600, color: th.sub, display: 'block', marginBottom: 6 }}>{f.label}</label>
-                  <input value={f.value} onChange={e => f.set(e.target.value)} placeholder={f.placeholder}
-                    style={{
-                      width: '100%', padding: '10px 12px', borderRadius: 10,
-                      border: `1px solid ${th.border}`, background: th.inputBg,
-                      color: th.text, fontSize: 14, outline: 'none',
-                      boxSizing: 'border-box', fontFamily: 'inherit', direction: 'rtl',
-                    }} />
-                </div>
-              ))}
-            </div>
-          )}
-
-          <div style={{ display: 'flex', gap: 10 }}>
-            <button onClick={onClose}
-              style={{
-                flex: 1, padding: '13px', borderRadius: 12,
-                border: `1px solid ${th.border}`, background: 'none',
-                color: th.sub, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit',
-              }}>حفظ كمسودة</button>
-            <button onClick={confirm}
-              style={{
-                flex: 2, padding: '13px', borderRadius: 12, border: 'none',
-                background: T.primary, color: '#fff',
-                fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
-              }}>تأكيد مبدئي ✓</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ─── Driver Row ────────────────────────────────────────────
 function DriverRow({ driver, isManager, onNahma, onViolation, highlighted }: {
   driver: Driver
   isManager: boolean
@@ -126,14 +17,33 @@ function DriverRow({ driver, isManager, onNahma, onViolation, highlighted }: {
   const { navigate, showSnackbar, dispatch } = useApp()
   const th = useTheme()
   const [showMenu, setShowMenu] = useState(false)
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const canNahma = driver.status === 'نشط' && !driver.currentTrip && !driver.violation
-  const canViolate = driver.status === 'نشط' && !driver.violation
+  const canViolate = !driver.violation
+
+  const clearLongPress = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current)
+      longPressTimer.current = null
+    }
+  }
+
+  const startLongPress = () => {
+    clearLongPress()
+    longPressTimer.current = setTimeout(() => setShowMenu(true), 500)
+  }
 
   return (
     <div style={{ position: 'relative' }}>
       <div
         onContextMenu={e => { e.preventDefault(); setShowMenu(true) }}
+        onTouchStart={startLongPress}
+        onTouchEnd={clearLongPress}
+        onTouchMove={clearLongPress}
+        onMouseDown={startLongPress}
+        onMouseUp={clearLongPress}
+        onMouseLeave={clearLongPress}
         style={{
           padding: '12px 16px',
           borderBottom: `1px solid ${th.border}`,
@@ -163,8 +73,12 @@ function DriverRow({ driver, isManager, onNahma, onViolation, highlighted }: {
                 color: driver.type === 'س' ? T.primary : T.success,
               }}>{driver.type}</span>
             </div>
-            <div style={{ display: 'flex', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 8, marginTop: 4, flexWrap: 'wrap', alignItems: 'center' }}>
               <span style={{ fontSize: 11, color: th.sub }}>🚗 {driver.plate}</span>
+              <span style={{ fontSize: 11, color: th.muted }}>ف {driver.separator}</span>
+              {driver.currentTrip && (
+                <span style={{ fontSize: 10, fontWeight: 700, color: T.warning }}>نهمة: {driver.currentTrip}</span>
+              )}
               {driver.compensationBalance > 0 && (
                 <span style={{ fontSize: 11, color: T.warning }}>💰 {driver.compensationBalance.toLocaleString()}</span>
               )}
@@ -250,14 +164,18 @@ function DriverRow({ driver, isManager, onNahma, onViolation, highlighted }: {
 
 // ─── Main Screen ───────────────────────────────────────────
 export default function DriversScreen() {
-  const { state, dispatch, showSnackbar, isManager } = useApp()
+  const { state, dispatch, showSnackbar, isManager, scheduleDeferredViolation } = useApp()
   const th = useTheme()
-  const [filter, setFilter] = useState<Filter>('الكل')
+  const [filter, setFilter] = useState<Filter>(() => {
+    const p = state.screenParams.filter as Filter | undefined
+    return p && ['الكل', 'نشط', 'غير_نشط', 'مخالف'].includes(p) ? p : 'الكل'
+  })
   const [subFilter, setSubFilter] = useState<SubFilter>('الكل_نشط')
   const [search, setSearch] = useState('')
   const [showSearch, setShowSearch] = useState(false)
+  const [showSubFilters, setShowSubFilters] = useState(false)
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null)
-  const [loading] = useState(false)
+  const [loading, setLoading] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const saveScroll = useSaveScrollPosition('drivers')
   const savedScroll = useGetScrollPosition('drivers')
@@ -268,7 +186,20 @@ export default function DriversScreen() {
     }
   }, [savedScroll])
 
-  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+  useEffect(() => {
+    const p = state.screenParams.filter as Filter | undefined
+    if (p && ['الكل', 'نشط', 'غير_نشط', 'مخالف'].includes(p)) {
+      setFilter(p)
+    }
+  }, [state.screenParams.filter])
+
+  useEffect(() => {
+    setLoading(true)
+    const t = setTimeout(() => setLoading(false), 350)
+    return () => clearTimeout(t)
+  }, [filter, subFilter, search])
+
+  const handleScroll = () => {
     if (scrollRef.current) {
       saveScroll(scrollRef.current.scrollTop)
     }
@@ -292,18 +223,17 @@ export default function DriversScreen() {
     } else if (filter === 'غير_نشط') {
       list = list.filter(d => d.status === 'غير_نشط' && !d.violation)
     } else if (filter === 'مخالف') {
-      list = list.filter(d => d.violation)
+      list = list.filter(d => isViolator(d))
+    } else if (filter === 'الكل') {
+      list = sortDriversAllFilter(list)
     }
     return list
   }, [state.drivers, filter, subFilter, search])
 
-  const { paginatedItems, page, setPage, totalPages, hasNextPage, totalItems } = usePagination(filtered, 20)
+  const { visibleItems, totalItems, hasMore } = useInfiniteScroll(filtered, 20, scrollRef)
 
-  const handleViolation = (driver: Driver, vType: 'ت' | 'ح') => {
-    dispatch({ type: 'ADD_VIOLATION', driverId: driver.id, vType })
-    showSnackbar(`تم تسجيل مخالفة (${vType}) للسائق ${driver.ownerName}`, () => {
-      dispatch({ type: 'UNDO_VIOLATION', driverId: driver.id, vType })
-    })
+  const handleViolation = (driver: Driver, vType: ViolationType) => {
+    scheduleDeferredViolation(driver.id, vType, driver.ownerName)
   }
 
   return (
@@ -313,6 +243,18 @@ export default function DriversScreen() {
         title="كشف البوابير"
         rightSlot={
           <div style={{ display: 'flex', gap: 6 }}>
+            <button
+              type="button"
+              onClick={() => setShowSubFilters(!showSubFilters)}
+              style={{
+                background: showSubFilters || filter === 'نشط' ? 'rgba(255,255,255,0.15)' : 'none',
+                border: 'none', color: '#CBD5E1', cursor: 'pointer', fontSize: 18, padding: 4,
+                borderRadius: 6,
+              }}
+              title="فلتر"
+            >
+              🎚
+            </button>
             <button onClick={() => setShowSearch(!showSearch)}
               style={{ background: 'none', border: 'none', color: '#CBD5E1', cursor: 'pointer', fontSize: 18, padding: 4 }}>🔍</button>
           </div>
@@ -337,11 +279,11 @@ export default function DriversScreen() {
         </div>
       )}
 
-      {/* Filters */}
+      {/* Filters — الصف الأول دائماً مرئي (§4.1) */}
       <div style={{ background: th.card, borderBottom: `1px solid ${th.border}`, flexShrink: 0 }}>
         <div style={{ display: 'flex', gap: 8, padding: '10px 16px', overflowX: 'auto' }}>
           {(['الكل', 'نشط', 'غير_نشط', 'مخالف'] as Filter[]).map(f => (
-            <button key={f} onClick={() => setFilter(f)}
+            <button key={f} onClick={() => { setFilter(f); if (f === 'نشط') setShowSubFilters(true) }}
               style={{
                 padding: '6px 16px', borderRadius: 99, border: 'none', whiteSpace: 'nowrap',
                 background: filter === f ? T.primary : (th.dark ? '#1E2D40' : '#F1F5F9'),
@@ -352,9 +294,9 @@ export default function DriversScreen() {
             </button>
           ))}
         </div>
-        {filter === 'نشط' && (
+        {filter === 'نشط' && showSubFilters && (
           <div style={{ display: 'flex', gap: 6, padding: '0 16px 10px' }}>
-            {([['الكل_نشط', 'الكل'], ['جاهز', 'جاهز'], ['لديه_نهمة', 'لديه نهمة']] as [SubFilter, string][]).map(([val, label]) => (
+            {([['الكل_نشط', 'الكل'], ['جاهز', 'جاهز للنهمة'], ['لديه_نهمة', 'لديه نهمة']] as [SubFilter, string][]).map(([val, label]) => (
               <button key={val} onClick={() => setSubFilter(val)}
                 style={{
                   padding: '4px 12px', borderRadius: 99, border: 'none',
@@ -367,10 +309,10 @@ export default function DriversScreen() {
         )}
       </div>
 
-      {/* Count and Pagination */}
+      {/* Count */}
       <div style={{ padding: '8px 16px', background: th.bg, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-        <span style={{ fontSize: 12, color: th.sub }}>{totalItems} بابور · صفحة {page} من {totalPages}</span>
-        <span style={{ fontSize: 11, color: th.muted }}>اضغط مطولاً للخيارات</span>
+        <span style={{ fontSize: 12, color: th.sub }}>{totalItems} بابور · يُعرض {visibleItems.length}</span>
+        <span style={{ fontSize: 11, color: th.muted }}>مرّر للأسفل للمزيد</span>
       </div>
 
       {/* List */}
@@ -381,7 +323,7 @@ export default function DriversScreen() {
           <EmptyState icon="📋" text="لا توجد نتائج" />
         ) : (
           <>
-            {paginatedItems.map(driver => (
+            {visibleItems.map(driver => (
               <DriverRow
                 key={driver.id}
                 driver={driver}
@@ -391,22 +333,9 @@ export default function DriversScreen() {
                 highlighted={state.lastHighlightedDriverId === driver.id}
               />
             ))}
-            {totalPages > 1 && (
-              <div style={{ padding: '16px', display: 'flex', gap: 8, justifyContent: 'center', background: th.bg, borderTop: `1px solid ${th.border}` }}>
-                <button onClick={() => setPage(p => p - 1)} disabled={page === 1}
-                  style={{
-                    padding: '8px 16px', borderRadius: 10, border: `1px solid ${th.border}`,
-                    background: page === 1 ? th.border : th.card,
-                    color: page === 1 ? th.muted : th.text,
-                    fontSize: 12, fontWeight: 700, cursor: page === 1 ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
-                  }}>السابق</button>
-                <button onClick={() => setPage(p => p + 1)} disabled={!hasNextPage}
-                  style={{
-                    padding: '8px 16px', borderRadius: 10, border: `1px solid ${th.border}`,
-                    background: !hasNextPage ? th.border : th.card,
-                    color: !hasNextPage ? th.muted : th.text,
-                    fontSize: 12, fontWeight: 700, cursor: !hasNextPage ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
-                  }}>التالي</button>
+            {hasMore && (
+              <div style={{ padding: '12px 16px', textAlign: 'center', background: th.bg, borderTop: `1px solid ${th.border}` }}>
+                <span style={{ fontSize: 11, color: th.muted }}>↓ مرّر للأسفل لتحميل المزيد ({visibleItems.length}/{totalItems})</span>
               </div>
             )}
           </>
@@ -415,7 +344,7 @@ export default function DriversScreen() {
 
       {/* Create Trip Bottom Sheet */}
       {selectedDriver && (
-        <CreateTripSheet
+        <TripSheet
           driver={selectedDriver}
           onClose={() => {
             dispatch({ type: 'SET_HIGHLIGHT', driverId: selectedDriver.id })
