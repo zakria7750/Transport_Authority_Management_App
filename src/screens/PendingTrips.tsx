@@ -1,6 +1,6 @@
 import { useState, useRef } from "react"
 import { useApp } from "../context"
-import { AppBar, useTheme, T, Card, EmptyState } from "../components"
+import { StandardAppBar, useTheme, T, Card, EmptyState } from "../components"
 import TripSheet from "../TripSheet"
 import BreakdownSheet from "../BreakdownSheet"
 import { isPendingTripStatus } from "../domain"
@@ -294,7 +294,7 @@ export default function PendingTripsScreen() {
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", background: th.bg, overflow: "hidden" }}>
-      <AppBar title="النهمات المعلقة" />
+      <StandardAppBar title="النهمات المعلقة" back="home" />
 
       <div
         style={{

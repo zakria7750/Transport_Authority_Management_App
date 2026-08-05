@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react"
 import { useApp } from "../context"
-import { AppBar, useTheme, T, Card, EmptyState, useInfiniteScroll, SkeletonRow } from "../components"
+import { StandardAppBar, useTheme, T, Card, EmptyState, useInfiniteScroll, SkeletonRow } from "../components"
 import TripSheet from "../TripSheet"
 import type { Trip, TripStatus, TripType } from "../data"
 
@@ -58,7 +58,7 @@ export default function AllTripsScreen() {
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", background: th.bg, overflow: "hidden" }}>
-      <AppBar title="لوحة النهمات" back="home" />
+      <StandardAppBar title="لوحة النهمات" back="home" />
 
       <div style={{ padding: "10px 16px", background: th.card, borderBottom: `1px solid ${th.border}`, display: "flex", flexDirection: "column", gap: 8 }}>
         <input

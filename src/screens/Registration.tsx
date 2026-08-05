@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
 import { useApp } from "../context"
-import { AppBar, useTheme, T, Input, Btn, EmptyState, SearchableRosterField } from "../components"
+import { StandardAppBar, useTheme, T, Input, Btn, EmptyState, SearchableRosterField } from "../components"
 import { ADDABLE_STATUS_REASONS } from "../constants"
 import { countActiveGuarantors, eligibleGuarantorDrivers, canBeGuarantor, guarantorFromRosterDriver, matchesNameOrPlate } from "../domain"
 import { nextId } from "../domain"
@@ -165,7 +165,7 @@ export default function RegistrationScreen() {
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", background: th.bg, overflow: "hidden" }}>
-      <AppBar title="تسجيل جديد" back={state.user?.role === "موظف_تسجيل" ? undefined : "home"} />
+      <StandardAppBar title="تسجيل جديد" back={state.user?.role === "موظف_تسجيل" ? undefined : "home"} />
 
       <div style={{ padding: "12px 16px", background: th.card, borderBottom: `1px solid ${th.border}` }}>
         <div

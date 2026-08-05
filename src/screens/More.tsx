@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useApp, type Screen } from '../context'
-import { AppBar, useTheme, T, Toggle, useDebounce, StatusChip, OFFICE_BRAND, APP_FULL_BRAND, APP_TAGLINE } from '../components'
+import { useTheme, T, Toggle, useDebounce, StatusChip, OFFICE_BRAND, APP_FULL_BRAND, APP_TAGLINE, StandardAppBar } from '../components'
 import type { ThemePreference } from '../context'
 
 // ══════════════════════════════════════════════════════════
@@ -17,7 +17,7 @@ export function MoreScreen() {
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: th.bg, overflow: 'hidden' }}>
-      <AppBar title="المزيد" />
+      <StandardAppBar title="المزيد" />
 
       <div style={{
         background: 'linear-gradient(135deg, #0F2040 0%, #1D4ED8 100%)',
@@ -181,7 +181,7 @@ export function SettingsScreen() {
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: th.bg, overflow: 'hidden' }}>
-      <AppBar title="الإعدادات" back="more" />
+      <StandardAppBar title="الإعدادات" back="more" />
 
       <div style={{ flex: 1, overflowY: 'auto' }}>
         {settings.map(section => (
@@ -278,7 +278,7 @@ export function SearchScreen() {
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: th.bg, overflow: 'hidden' }}>
-      <AppBar title="البحث الشامل" back="home" />
+      <StandardAppBar title="البحث الشامل" back="home" />
 
       <div style={{ padding: '12px 16px', background: th.card, borderBottom: `1px solid ${th.border}`, display: 'flex', flexDirection: 'column', gap: 8 }}>
         <div style={{ position: 'relative' }}>
@@ -406,12 +406,17 @@ export function NotificationsScreen() {
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: th.bg, overflow: 'hidden' }}>
-      <AppBar title="الإشعارات" back="home"
-        rightSlot={
+      <StandardAppBar
+        title="الإشعارات"
+        back="home"
+        extraRight={
           unread.length > 0 ? (
-            <button onClick={() => dispatch({ type: 'READ_ALL_NOTIFICATIONS' })}
-              style={{ background: 'none', border: 'none', color: T.primary, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
-              تعليم الكل مقروء
+            <button
+              type="button"
+              onClick={() => dispatch({ type: 'READ_ALL_NOTIFICATIONS' })}
+              style={{ background: 'none', border: 'none', color: T.primary, cursor: 'pointer', fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap' }}
+            >
+              تعليم الكل
             </button>
           ) : undefined
         }

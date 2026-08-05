@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useApp } from "../context"
-import { AppBar, StatusChip, useTheme, T, Card, Input, Btn } from "../components"
+import { StandardAppBar, StatusChip, useTheme, T, Card, Input, Btn } from "../components"
 import type { Driver, DriverType, DriverImages } from "../data"
 
 type Tab = "info" | "guarantees" | "trips" | "violations"
@@ -94,16 +94,16 @@ export default function DriverProfileScreen() {
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", background: th.bg, overflow: "hidden", position: "relative" }}>
-      <AppBar
+      <StandardAppBar
         title="ملف السائق"
         back="drivers"
-        rightSlot={
+        extraRight={
           <button
             type="button"
             onClick={openEdit}
-            style={{ background: "none", border: "none", color: "#CBD5E1", cursor: "pointer", fontSize: 13 }}
+            style={{ background: "none", border: "none", color: "#CBD5E1", cursor: "pointer", fontSize: 13, fontFamily: "inherit" }}
           >
-            ✏️ تعديل
+            ✏️
           </button>
         }
       />

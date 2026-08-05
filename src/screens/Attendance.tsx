@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react"
 import { useApp } from "../context"
-import { AppBar, useTheme, T, APP_PRINT_HEADER } from "../components"
+import { StandardAppBar, useTheme, T, APP_PRINT_HEADER } from "../components"
 import { isPendingTripStatus } from "../domain"
 
 export default function AttendanceScreen() {
@@ -145,7 +145,7 @@ export default function AttendanceScreen() {
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", background: th.bg, overflow: "hidden" }}>
-      <AppBar title="كشف التحضير" back="home" />
+      <StandardAppBar title="كشف التحضير" back="home" />
 
       <div style={{ padding: "10px 16px", background: th.card, borderBottom: `1px solid ${th.border}` }}>
         <input

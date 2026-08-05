@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react"
 import { useApp } from "../context"
-import { AppBar, useTheme, T, Card, EmptyState, SkeletonRow, SearchableField, SearchableRosterField, APP_FULL_BRAND } from "../components"
+import { useTheme, T, Card, EmptyState, SkeletonRow, SearchableField, SearchableRosterField, APP_FULL_BRAND, StandardAppBar } from "../components"
 import BreakdownSheet from "../BreakdownSheet"
 import {
   countActiveGuarantors,
@@ -70,10 +70,10 @@ export function ViolationsScreen() {
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", background: th.bg, overflow: "hidden", position: "relative" }}>
-      <AppBar
+      <StandardAppBar
         title="المخالفات"
         back="home"
-        leftSlot={
+        extraLeft={
           <button
             type="button"
             onClick={() => setShowAdd(true)}
@@ -539,6 +539,10 @@ export function GuaranteesScreen() {
       showSnackbar("لا يمكن للمخالف أن يكون ضامناً ⚠️")
       return
     }
+    if (source.id === editDriverId) {
+      showSnackbar("لا يمكن للمالك أن يضمن نفسه ⚠️")
+      return
+    }
     if (editGuarantors.some((g) => g.sourceDriverId === source.id || g.name === source.ownerName)) {
       showSnackbar("الضامن مضاف مسبقاً")
       return
@@ -583,7 +587,7 @@ export function GuaranteesScreen() {
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", background: th.bg, overflow: "hidden", position: "relative" }}>
-      <AppBar title="الضمانات" back="home" />
+      <StandardAppBar title="الضمانات" back="home" />
 
       <div
         style={{
@@ -888,7 +892,9 @@ export function GuaranteesScreen() {
               query={addGuarantorSearch}
               onQueryChange={setAddGuarantorSearch}
               items={guarantorCandidates.filter(
-                (d) => !editGuarantors.some((g) => g.sourceDriverId === d.id || g.name === d.ownerName),
+                (d) =>
+                  d.id !== editDriver.id &&
+                  !editGuarantors.some((g) => g.sourceDriverId === d.id || g.name === d.ownerName),
               )}
               getKey={(d) => d.id}
               formatLabel={(d) => d.ownerName}
@@ -1131,10 +1137,10 @@ export function BreakdownsScreen() {
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", background: th.bg, overflow: "hidden", position: "relative" }}>
-      <AppBar
+      <StandardAppBar
         title="الأعطال"
         back="home"
-        leftSlot={
+        extraLeft={
           <button
             type="button"
             onClick={() => setShowManualAdd(true)}
@@ -1419,7 +1425,7 @@ export function ReportsScreen() {
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: th.bg, overflow: 'hidden' }}>
-      <AppBar title="التقارير" back="home" />
+      <StandardAppBar title="التقارير" back="home" />
 
       <div style={{ padding: '10px 16px 0', textAlign: 'center' }}>
         <p style={{ margin: 0, fontSize: 11, color: th.sub, fontWeight: 600 }}>{APP_FULL_BRAND}</p>
@@ -1551,10 +1557,15 @@ export function UsersScreen() {
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: th.bg, overflow: 'hidden' }}>
-      <AppBar title="إدارة المستخدمين" back="home"
-        leftSlot={
-          <button onClick={() => setShowAdd(true)}
-            style={{ background: T.primary, border: 'none', borderRadius: 8, padding: '6px 12px', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+      <StandardAppBar
+        title="إدارة المستخدمين"
+        back="home"
+        extraLeft={
+          <button
+            type="button"
+            onClick={() => setShowAdd(true)}
+            style={{ background: T.primary, border: 'none', borderRadius: 8, padding: '6px 12px', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
+          >
             + إضافة
           </button>
         }
