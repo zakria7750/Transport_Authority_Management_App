@@ -40,7 +40,8 @@ export default function RegistrationScreen() {
   const [guarantorSearch, setGuarantorSearch] = useState("")
   const [guarantors, setGuarantors] = useState<Omit<Guarantor, "status">[]>([])
   const [saving, setSaving] = useState(false)
-  const [addSearch, setAddSearch] = useState("")
+  const [addNameSearch, setAddNameSearch] = useState("")
+  const [addPlateSearch, setAddPlateSearch] = useState("")
   const [guarantorDialog, setGuarantorDialog] = useState<{ driverId: number; name: string } | null>(null)
   const [extraGuarantorName, setExtraGuarantorName] = useState("")
 
@@ -53,7 +54,9 @@ export default function RegistrationScreen() {
   )
 
   const filteredInactive = addableDrivers.filter(
-    (d) => !addSearch || d.ownerName.includes(addSearch) || d.plate.includes(addSearch),
+    (d) =>
+      (!addNameSearch || d.ownerName.includes(addNameSearch)) &&
+      (!addPlateSearch || d.plate.includes(addPlateSearch)),
   )
 
   const handleImage = async (key: keyof DriverImages, file: File | undefined) => {
@@ -111,12 +114,15 @@ export default function RegistrationScreen() {
       })),
       images: Object.keys(images).length ? images : undefined,
     }
+    const name = form.ownerName
     dispatch({ type: "ADD_DRIVER", driver: newDriver })
     setSaving(false)
     setForm({ ownerName: "", plate: "", phone: "", type: "ع", separator: "" })
     setGuarantors([])
     setImages({})
-    showSnackbar(`تم تسجيل المالك ${form.ownerName} بنجاح ✅`)
+    showSnackbar(`تم تسجيل ${name} بنجاح ✅ — سيتم إرسال واتساب للضامنين`)
+    // Task 34: navigate home after registration
+    setTimeout(() => navigate("home"), 800)
   }
 
   const tryActivate = (driver: Driver) => {

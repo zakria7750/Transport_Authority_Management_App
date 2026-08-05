@@ -64,6 +64,7 @@ export type Screen =
   | "reports"
   | "settings"
   | "users"
+  | "driver-management"
   | "search"
   | "notifications"
   | "more"
@@ -137,7 +138,7 @@ type Action =
   | { type: "SYNC_NOW" }
   | { type: "SHOW_SNACKBAR"; message: string; undoFn?: () => void }
   | { type: "HIDE_SNACKBAR" }
-  | { type: "ADD_VIOLATION"; driverId: number; vType: ViolationType; date?: string }
+  | { type: "ADD_VIOLATION"; driverId: number; vType: ViolationType; date?: string; recordedBy?: string }
   | { type: "UNDO_VIOLATION"; violationId: number }
   | { type: "UNDO_VIOLATION_BY_DRIVER"; driverId: number }
   | { type: "RAISE_VIOLATION"; violationId: number; reason?: string }
@@ -170,8 +171,16 @@ type Action =
       targetDriverIds: number[]
     }
   | { type: "ADD_BREAKDOWN"; breakdown: BreakdownCreatePayload }
+  | {
+      type: "ADD_BREAKDOWN_MANUAL"
+      driverId: number
+      location: "قريب" | "بعيد"
+      date?: string
+      note?: string
+    }
   | { type: "UPDATE_BREAKDOWN"; breakdownId: number; patch: Partial<BreakdownCreatePayload> }
   | { type: "END_BREAKDOWN"; breakdownId: number }
+  | { type: "DELETE_BREAKDOWN"; breakdownId: number }
   | { type: "DISMISS_COMPLETED_TRIP"; tripId: number }
   | { type: "UPDATE_USER"; user: User }
   | { type: "ADD_USER"; user: User }
@@ -181,7 +190,7 @@ type Action =
   | { type: "SAVE_SCROLL"; screen: Screen; position: number }
 
 const REGISTRATION_SCREENS: Screen[] = ["registration", "settings", "login"]
-const MANAGER_ONLY: Screen[] = ["violations", "guarantees", "breakdowns", "reports", "users"]
+const MANAGER_ONLY: Screen[] = ["violations", "guarantees", "breakdowns", "reports", "users", "driver-management"]
 
 function getInitialBool(key: string, fallback = false): boolean {
   if (typeof window === "undefined") return fallback
@@ -223,6 +232,7 @@ const SCREEN_DEPTH: Partial<Record<Screen, number>> = {
   settings: 3,
   search: 3,
   notifications: 3,
+  "driver-management": 3,
 }
 
 function makeNotification(
@@ -282,6 +292,7 @@ function applyViolationToState(
   driverId: number,
   vType: ViolationType,
   date?: string,
+  recordedBy?: string,
 ): AppState {
   const driver = state.drivers.find((d) => d.id === driverId)
   if (!driver || driver.violation) return state
@@ -305,6 +316,7 @@ function applyViolationToState(
     date: now,
     raised: false,
     note: vType === "ت" ? "غياب عن كشف التحضير" : "مخالفة حمول",
+    ...(recordedBy ? { recordedBy } : {}),
     undoSnapshot: {
       status: driver.status,
       statusReason: driver.statusReason,
@@ -402,6 +414,7 @@ const initialState: AppState = {
     reports: 0,
     settings: 0,
     users: 0,
+    "driver-management": 0,
     search: 0,
     notifications: 0,
     more: 0,
@@ -476,7 +489,7 @@ function reducer(state: AppState, action: Action): AppState {
       return { ...state, snackbar: null }
 
     case "ADD_VIOLATION":
-      return applyViolationToState(state, action.driverId, action.vType, action.date)
+      return applyViolationToState(state, action.driverId, action.vType, action.date, action.recordedBy)
 
     case "UNDO_VIOLATION_BY_DRIVER": {
       const viol = state.violations.find((v) => v.driverId === action.driverId && !v.raised)
@@ -741,6 +754,9 @@ function reducer(state: AppState, action: Action): AppState {
       const trip = getDriverOpenTrip(state.trips, action.driverId)
       if (!driver || !trip) return state
 
+      // Task 23: deduct 1 more from compensationBalance for تعويض trips on final exit confirm
+      const isCompTrip = trip.type === "تعويض"
+
       let drivers = state.drivers.map((d) => {
         if (d.id !== action.driverId) return d
         if (trip.type === "فرزة") {
@@ -752,7 +768,15 @@ function reducer(state: AppState, action: Action): AppState {
             seq: 0,
           }
         }
-        return { ...d, currentTrip: null, status: "نشط" as const, statusReason: null }
+        return {
+          ...d,
+          currentTrip: null,
+          status: "نشط" as const,
+          statusReason: null,
+          compensationBalance: isCompTrip
+            ? Math.max(0, d.compensationBalance - 1)
+            : d.compensationBalance,
+        }
       })
       drivers = reindexActiveDrivers(drivers)
 
@@ -761,7 +785,13 @@ function reducer(state: AppState, action: Action): AppState {
         drivers,
         trips: state.trips.map((t) =>
           t.id === trip.id
-            ? { ...t, status: "مكتملة", completedAt: new Date().toLocaleString("ar-SA") }
+            ? {
+                ...t,
+                status: "مكتملة",
+                completedAt: new Date().toLocaleString("ar-SA"),
+                // track total deducted: 1 on create + 1 on complete = 2
+                ...(isCompTrip ? { compensationAmount: (t.compensationAmount ?? 1) + 1 } : {}),
+              }
             : t,
         ),
         notifications: pushNotif(state, {
@@ -868,23 +898,29 @@ function reducer(state: AppState, action: Action): AppState {
     }
 
     case "RE_REGISTER_DRIVER": {
+      // Task 33: re-register creates a brand NEW driver record, archives the old one
       const source = state.drivers.find((d) => d.id === action.driverId)
       if (!source || source.violation || source.status === "نشط") return state
       if (!meetsMinGuarantors(countActiveGuarantors(source), state.minGuarantors)) return state
 
-      let drivers = state.drivers.map((d) =>
-        d.id === source.id
-          ? {
-              ...d,
-              status: "نشط" as const,
-              statusReason: null,
-              violation: null,
-              currentTrip: null,
-              seq: 0,
-            }
-          : d,
-      )
-      drivers = appendActiveDriver(drivers, source.id)
+      // Archive old driver
+      const archivedOld = { ...source, status: "غير_نشط" as const, statusReason: "ملغي" as const, seq: 0 }
+
+      // Create new driver record with fresh id/seq, copy guarantors/images
+      const newDriver: Driver = {
+        ...source,
+        id: nextId(),
+        seq: 0,
+        status: "نشط" as const,
+        statusReason: null,
+        violation: null,
+        currentTrip: null,
+        compensationBalance: 0,
+      }
+
+      let drivers = state.drivers.map((d) => (d.id === source.id ? archivedOld : d))
+      drivers = [...drivers, newDriver]
+      drivers = appendActiveDriver(drivers, newDriver.id)
       drivers = reindexActiveDrivers(drivers)
 
       return {
@@ -894,7 +930,7 @@ function reducer(state: AppState, action: Action): AppState {
           icon: "✅",
           type: "تسجيل",
           title: "إعادة تسجيل",
-          message: `تم إعادة تسجيل ${source.ownerName} في الكشف النشط`,
+          message: `تم إعادة تسجيل ${source.ownerName} (سجل جديد) في الكشف النشط`,
         }),
         pendingSyncCount: bumpPendingSync(state),
       }
@@ -1121,12 +1157,46 @@ function reducer(state: AppState, action: Action): AppState {
       }
     }
 
+    case "ADD_BREAKDOWN_MANUAL": {
+      const driver = state.drivers.find((d) => d.id === action.driverId)
+      if (!driver) return state
+      const b: Breakdown = {
+        id: nextId(),
+        tripId: undefined,
+        tripType: "فرزة",
+        driverId: driver.id,
+        driverName: driver.ownerName,
+        plate: driver.plate,
+        location: action.location,
+        date: action.date ?? new Date().toLocaleDateString("ar-SA"),
+        status: "نشط",
+      }
+      return {
+        ...state,
+        breakdowns: [b, ...state.breakdowns],
+        notifications: pushNotif(state, {
+          icon: "🔧",
+          type: "عطل",
+          title: "عطل يدوي",
+          message: `تم تسجيل عطل يدوي للسائق ${driver.ownerName}`,
+        }),
+        pendingSyncCount: bumpPendingSync(state),
+      }
+    }
+
     case "END_BREAKDOWN":
       return {
         ...state,
         breakdowns: state.breakdowns.map((b) =>
           b.id === action.breakdownId ? { ...b, status: "منتهي" } : b,
         ),
+      }
+
+    case "DELETE_BREAKDOWN":
+      return {
+        ...state,
+        breakdowns: state.breakdowns.filter((b) => b.id !== action.breakdownId),
+        pendingSyncCount: bumpPendingSync(state),
       }
 
     case "UPDATE_BREAKDOWN": {

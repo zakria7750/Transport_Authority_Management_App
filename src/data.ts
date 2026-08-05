@@ -92,12 +92,14 @@ export interface Violation {
   raised: boolean
   raisedDate?: string
   note: string
+  recordedBy?: string
+  raiseReason?: string
   undoSnapshot?: ViolationUndoSnapshot
 }
 
 export interface Breakdown {
   id: number
-  tripId: number
+  tripId?: number
   tripType: TripType
   driverId: number
   driverName: string

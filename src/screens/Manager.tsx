@@ -26,7 +26,10 @@ export function ViolationsScreen() {
   const [loading, setLoading] = useState(false)
   const [raiseDialog, setRaiseDialog] = useState<{ id: number; name: string } | null>(null)
   const [raiseReason, setRaiseReason] = useState("")
+  // Task 38: date field for adding violation
+  const [addDate, setAddDate] = useState(() => new Date().toLocaleDateString("ar-SA"))
 
+  // Task 36: eligible drivers includes inactive (all drivers without active violation)
   const eligibleDrivers = state.drivers.filter((d) => !d.violation)
   const driverOptions = eligibleDrivers.map((d) => `${d.ownerName} · ${d.plate} · ${d.status === "نشط" ? "نشط" : "غير نشط"}`)
 
@@ -46,9 +49,12 @@ export function ViolationsScreen() {
   const handleAdd = () => {
     const driver = eligibleDrivers.find((d) => `${d.ownerName} · ${d.plate} · ${d.status === "نشط" ? "نشط" : "غير نشط"}` === addDriverLabel)
     if (!driver) return
-    scheduleDeferredViolation(driver.id, addType, driver.ownerName)
+    // Task 38: pass date; Task 39: pass recordedBy
+    dispatch({ type: "ADD_VIOLATION", driverId: driver.id, vType: addType, date: addDate, recordedBy: state.user?.name })
+    showSnackbar(`تم تسجيل مخالفة (${addType}) للسائق ${driver.ownerName} ✅`)
     setShowAdd(false)
     setAddDriverLabel("")
+    setAddDate(new Date().toLocaleDateString("ar-SA"))
   }
 
   const toggleType = (vId: number, current: ViolationType) => {
@@ -133,6 +139,10 @@ export function ViolationsScreen() {
                     <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: th.text }}>{v.driverName}</p>
                     <p style={{ margin: "3px 0 0", fontSize: 12, color: th.sub }}>{v.note}</p>
                     <p style={{ margin: "3px 0 0", fontSize: 11, color: th.muted }}>📅 {v.date}</p>
+                    {/* Task 39: show recordedBy */}
+                    {v.recordedBy && (
+                      <p style={{ margin: "2px 0 0", fontSize: 11, color: th.muted }}>👤 {v.recordedBy}</p>
+                    )}
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
                     <span
@@ -249,7 +259,21 @@ export function ViolationsScreen() {
               options={driverOptions}
               placeholder="ابحث بالاسم أو اللوحة..."
             />
-            <div style={{ marginBottom: 16 }} />
+            <div style={{ marginBottom: 12 }} />
+            {/* Task 38: date field */}
+            <label style={{ fontSize: 12, color: th.sub, display: "block", marginBottom: 6 }}>تاريخ المخالفة</label>
+            <input
+              type="text"
+              value={addDate}
+              onChange={(e) => setAddDate(e.target.value)}
+              placeholder="مثال: 01/08/2026"
+              style={{
+                width: "100%", padding: "10px 12px", borderRadius: 10,
+                border: `1px solid ${th.border}`, background: th.inputBg,
+                color: th.text, fontSize: 14, marginBottom: 12,
+                fontFamily: "inherit", direction: "rtl", boxSizing: "border-box",
+              }}
+            />
             <label style={{ fontSize: 12, color: th.sub, display: "block", marginBottom: 6 }}>نوع المخالفة</label>
             <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
               {(["ت", "ح"] as ViolationType[]).map((t) => (
@@ -1049,185 +1073,316 @@ export function GuaranteesScreen() {
 }
 
 // ══════════════════════════════════════════════════════════
-//  BREAKDOWNS SCREEN
+//  BREAKDOWNS SCREEN  (tasks 44-49, 55)
 // ══════════════════════════════════════════════════════════
 export function BreakdownsScreen() {
   const { state, dispatch, showSnackbar } = useApp()
   const th = useTheme()
   const [breakdownTrip, setBreakdownTrip] = useState<Trip | null>(null)
-  const [editBreakdown, setEditBreakdown] = useState<{ trip: Trip; breakdown: import("../data").Breakdown } | null>(null)
+  const [editBreakdownId, setEditBreakdownId] = useState<number | null>(null)
+  const [search, setSearch] = useState("")
+  const [statusFilter, setStatusFilter] = useState<"all" | "نشط" | "منتهي">("all")
+  // Task 48: manual add state
+  const [showManualAdd, setShowManualAdd] = useState(false)
+  const [manualDriverSearch, setManualDriverSearch] = useState("")
+  const [manualDriverId, setManualDriverId] = useState<number | null>(null)
+  const [manualLocation, setManualLocation] = useState<"قريب" | "بعيد">("قريب")
 
-  const completedTrips = state.trips.filter((t) => t.status === "مكتملة")
+  // All breakdowns (tasks 44-45: search + full list)
+  const allBreakdowns = state.breakdowns.filter((b) => {
+    const matchesSearch = !search ||
+      b.driverName.includes(search) ||
+      b.plate.includes(search) ||
+      b.tripType?.includes(search)
+    const matchesStatus = statusFilter === "all" || b.status === statusFilter
+    return matchesSearch && matchesStatus
+  })
+
+  // Completed trips without a breakdown (for registering new breakdown)
+  const completedTripsWithoutBreakdown = state.trips.filter(
+    (t) => t.status === "مكتملة" && !state.breakdowns.find((b) => b.tripId === t.id)
+  )
+
+  const editTrip = editBreakdownId !== null
+    ? state.trips.find((t) => t.id === state.breakdowns.find((b) => b.id === editBreakdownId)?.tripId)
+    : undefined
+
+  const handleDeleteBreakdown = (b: import("../data").Breakdown) => {
+    const snap = { ...b }
+    dispatch({ type: "DELETE_BREAKDOWN", breakdownId: b.id })
+    showSnackbar(`تم حذف عطل ${b.driverName}`, () => {
+      // Restore (re-add breakdown snapshot)
+      dispatch({ type: "ADD_BREAKDOWN_MANUAL", driverId: b.driverId, location: b.location, date: b.date })
+    })
+  }
+
+  const handleManualAdd = () => {
+    if (!manualDriverId) return
+    dispatch({ type: "ADD_BREAKDOWN_MANUAL", driverId: manualDriverId, location: manualLocation })
+    showSnackbar("تم تسجيل العطل اليدوي ✅")
+    setShowManualAdd(false)
+    setManualDriverSearch("")
+    setManualDriverId(null)
+  }
+
+  const filteredDriversForManual = state.drivers.filter(
+    (d) => !manualDriverSearch || d.ownerName.includes(manualDriverSearch) || d.plate.includes(manualDriverSearch)
+  ).slice(0, 6)
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", background: th.bg, overflow: "hidden", position: "relative" }}>
-      <AppBar title="الأعطال" back="home" />
+      <AppBar
+        title="الأعطال"
+        back="home"
+        leftSlot={
+          <button
+            type="button"
+            onClick={() => setShowManualAdd(true)}
+            style={{
+              background: T.warning, border: "none", borderRadius: 8,
+              padding: "6px 12px", color: "#fff", fontSize: 12,
+              fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+            }}
+          >
+            + إضافة
+          </button>
+        }
+      />
 
-      <div style={{ flex: 1, overflowY: "auto" }}>
-        <div style={{ padding: "12px 16px 0" }}>
-          <p style={{ fontSize: 12, fontWeight: 700, color: th.sub, textTransform: "uppercase", letterSpacing: 1, margin: "0 0 10px" }}>
-            النهمات المكتملة
-          </p>
+      {/* Task 44: search field */}
+      <div style={{ background: th.card, borderBottom: `1px solid ${th.border}`, padding: "10px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="🔍 بحث بالاسم أو اللوحة..."
+          style={{
+            width: "100%", padding: "9px 12px", borderRadius: 10,
+            border: `1px solid ${th.border}`, background: th.inputBg,
+            color: th.text, fontSize: 13, boxSizing: "border-box",
+            fontFamily: "inherit", outline: "none",
+          }}
+        />
+        <div style={{ display: "flex", gap: 6 }}>
+          {([["all", "الكل"], ["نشط", "جارية"], ["منتهي", "منتهية"]] as const).map(([k, l]) => (
+            <button key={k} type="button"
+              onClick={() => setStatusFilter(k)}
+              style={{
+                padding: "5px 14px", borderRadius: 99, border: "none",
+                background: statusFilter === k ? T.warning : (th.dark ? "#1E2D40" : "#F1F5F9"),
+                color: statusFilter === k ? "#fff" : th.sub,
+                fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
+              }}
+            >{l}</button>
+          ))}
         </div>
+      </div>
 
-        {completedTrips.length === 0 ? (
-          <EmptyState icon="🔧" text="لا توجد نهمات مكتملة" />
-        ) : (
-          completedTrips.map((trip) => {
-            const driver = state.drivers.find((d) => d.id === trip.driverId)
-            const breakdown = state.breakdowns.find((b) => b.tripId === trip.id)
-            return (
-              <div
-                key={trip.id}
-                style={{
-                  margin: "0 16px 10px",
-                  background: th.card,
-                  borderRadius: 14,
-                  border: `1px solid ${th.border}`,
-                  padding: "14px 16px",
-                }}
-              >
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                  <div>
-                    <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: th.text }}>{driver?.ownerName}</p>
-                    <p style={{ margin: "3px 0 0", fontSize: 11, color: th.sub }}>
-                      {trip.type} · {trip.breakNum}
-                    </p>
-                    {trip.type !== "تعويض" && (
-                      <p style={{ margin: "2px 0 0", fontSize: 11, color: th.muted }}>
-                        {trip.province} → {trip.destination}
-                      </p>
-                    )}
+      <div style={{ flex: 1, overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
+
+        {/* Completed trips available for breakdown registration */}
+        {completedTripsWithoutBreakdown.length > 0 && !search && statusFilter === "all" && (
+          <>
+            <p style={{ fontSize: 12, fontWeight: 700, color: th.sub, textTransform: "uppercase", letterSpacing: 1, margin: "0 0 4px" }}>
+              نهمات تحتاج تسجيل عطل
+            </p>
+            {completedTripsWithoutBreakdown.slice(0, 5).map((trip) => {
+              const driver = state.drivers.find((d) => d.id === trip.driverId)
+              return (
+                <div
+                  key={trip.id}
+                  style={{
+                    background: th.card, borderRadius: 14,
+                    border: `2px dashed ${T.warning}`, padding: "12px 14px",
+                    display: "flex", alignItems: "center", gap: 12,
+                  }}
+                >
+                  <div style={{ flex: 1 }}>
+                    <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: th.text }}>{driver?.ownerName}</p>
+                    <p style={{ margin: "2px 0 0", fontSize: 11, color: th.sub }}>{trip.type} · {trip.breakNum}</p>
                   </div>
-                  <span
+                  <button type="button" onClick={() => setBreakdownTrip(trip)}
                     style={{
-                      fontSize: 11,
-                      fontWeight: 700,
-                      padding: "3px 10px",
-                      borderRadius: 99,
-                      background: breakdown ? "#FEF9C3" : "#D1FAE5",
-                      color: breakdown ? "#B45309" : "#065F46",
+                      padding: "7px 12px", borderRadius: 8, border: "none",
+                      background: T.warning, color: "#fff", fontSize: 11,
+                      fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
                     }}
-                  >
-                    {breakdown ? "🔧 عطل مسجل" : "✅ سليم"}
-                  </span>
+                  >🔧 تسجيل</button>
                 </div>
-
-                {breakdown && (
-                  <div
-                    style={{
-                      marginTop: 10,
-                      background: th.dark ? "#1E2D40" : "#FEF9C3",
-                      borderRadius: 10,
-                      padding: "8px 12px",
-                      fontSize: 12,
-                      color: "#92400E",
-                    }}
-                  >
-                    📍 {breakdown.location} · {breakdown.action?.replace("_", " ")}
-                    {breakdown.rescuerName && ` · مسعف: ${breakdown.rescuerName}`}
-                    {breakdown.compensationGiven != null && ` · تعويض: ${breakdown.compensationGiven} ر`}
-                  </div>
-                )}
-
-                {!breakdown && (
-                  <button
-                    type="button"
-                    onClick={() => setBreakdownTrip(trip)}
-                    style={{
-                      width: "100%",
-                      marginTop: 10,
-                      padding: "8px",
-                      borderRadius: 10,
-                      border: `1px solid ${th.border}`,
-                      background: "none",
-                      color: T.warning,
-                      fontSize: 12,
-                      fontWeight: 600,
-                      cursor: "pointer",
-                      fontFamily: "inherit",
-                    }}
-                  >
-                    🔧 تسجيل عطل
-                  </button>
-                )}
-              </div>
-            )
-          })
+              )
+            })}
+            <div style={{ height: 1, background: th.border, margin: "4px 0" }} />
+          </>
         )}
 
-        {state.breakdowns.length > 0 && (
-          <div style={{ padding: "12px 16px 0" }}>
-            <p style={{ fontSize: 12, fontWeight: 700, color: th.sub, textTransform: "uppercase", letterSpacing: 1, margin: "0 0 10px" }}>
-              سجل الأعطال
-            </p>
-            {state.breakdowns.map((b) => (
+        {/* Tasks 45-49: full breakdown list with actions */}
+        {allBreakdowns.length === 0 ? (
+          <EmptyState icon="🔧" text="لا توجد أعطال" />
+        ) : (
+          allBreakdowns.map((b) => {
+            const trip = b.tripId ? state.trips.find((t) => t.id === b.tripId) : undefined
+            return (
               <div
                 key={b.id}
                 style={{
-                  margin: "0 0 10px",
-                  background: th.card,
-                  borderRadius: 14,
-                  border: `1px solid ${th.border}`,
+                  background: th.card, borderRadius: 14,
+                  border: `1px solid ${b.status === "نشط" ? T.warning : th.border}`,
                   padding: "14px 16px",
+                  animation: "rowInsert 0.25s ease",
                 }}
               >
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: th.text }}>{b.driverName}</p>
+                    {/* Task 45: full columns */}
                     <p style={{ margin: "3px 0 0", fontSize: 11, color: th.sub }}>
-                      {b.plate} · {b.tripType} · {b.date}
+                      {b.plate}
+                      {b.tripType && ` · ${b.tripType}`}
+                      {b.date && ` · ${b.date}`}
+                    </p>
+                    <p style={{ margin: "3px 0 0", fontSize: 11, color: th.muted }}>
+                      📍 {b.location}
+                      {b.action && ` · ${b.action.replace("_", " ")}`}
+                      {b.rescuerName && ` · مسعف: ${b.rescuerName}`}
+                      {b.rescuerTripType && ` (${b.rescuerTripType})`}
+                      {b.compensationGiven != null && ` · تعويض: ${b.compensationGiven} ر`}
                     </p>
                   </div>
                   <span
                     style={{
-                      fontSize: 11,
-                      padding: "3px 10px",
-                      borderRadius: 99,
-                      fontWeight: 700,
+                      fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 99,
                       background: b.status === "نشط" ? "#FEF9C3" : "#F1F5F9",
                       color: b.status === "نشط" ? "#B45309" : th.sub,
+                      flexShrink: 0,
                     }}
                   >
-                    {b.status}
+                    {b.status === "نشط" ? "🔧 جارٍ" : "✅ منتهٍ"}
                   </span>
                 </div>
-                <div style={{ marginTop: 8, fontSize: 12, color: th.sub }}>
-                  📍 {b.location} {b.action && `· ${b.action.replace("_", " ")}`}
-                  {b.rescuerName && ` · مسعف: ${b.rescuerName}`}
-                </div>
-                {b.status === "نشط" && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      dispatch({ type: "END_BREAKDOWN", breakdownId: b.id })
-                      showSnackbar(`تم إنهاء عطل ${b.driverName} ✅`)
-                    }}
+
+                <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
+                  {/* Task 47: end trip button */}
+                  {b.status === "نشط" && (
+                    <button type="button"
+                      onClick={() => {
+                        dispatch({ type: "END_BREAKDOWN", breakdownId: b.id })
+                        showSnackbar(`تم إنهاء عطل ${b.driverName} ✅`)
+                      }}
+                      style={{
+                        flex: 1, minWidth: 80, padding: "7px 10px", borderRadius: 8, border: "none",
+                        background: "#D1FAE5", color: "#065F46", fontSize: 11,
+                        fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+                      }}
+                    >✅ إنهاء</button>
+                  )}
+                  {/* Task 46: edit button */}
+                  {trip && (
+                    <button type="button"
+                      onClick={() => setEditBreakdownId(b.id)}
+                      style={{
+                        flex: 1, minWidth: 70, padding: "7px 10px", borderRadius: 8,
+                        border: `1px solid ${th.border}`, background: "none",
+                        color: T.primary, fontSize: 11,
+                        fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+                      }}
+                    >✏️ تعديل</button>
+                  )}
+                  {/* Task 49: delete with undo */}
+                  <button type="button"
+                    onClick={() => handleDeleteBreakdown(b)}
                     style={{
-                      width: "100%",
-                      marginTop: 10,
-                      padding: "8px",
-                      borderRadius: 10,
-                      border: `1px solid ${th.border}`,
-                      background: "none",
-                      color: T.success,
-                      fontSize: 12,
-                      fontWeight: 600,
-                      cursor: "pointer",
-                      fontFamily: "inherit",
+                      padding: "7px 10px", borderRadius: 8, border: "none",
+                      background: "#FEE2E2", color: T.danger, fontSize: 11,
+                      fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
                     }}
-                  >
-                    ✅ إنهاء العطل
-                  </button>
-                )}
+                  >🗑</button>
+                </div>
               </div>
-            ))}
-          </div>
+            )
+          })
         )}
       </div>
 
       {breakdownTrip && (
         <BreakdownSheet trip={breakdownTrip} onClose={() => setBreakdownTrip(null)} />
+      )}
+
+      {/* Task 46: edit breakdown via BreakdownSheet */}
+      {editBreakdownId !== null && editTrip && (
+        <BreakdownSheet
+          trip={editTrip}
+          breakdownId={editBreakdownId}
+          onClose={() => setEditBreakdownId(null)}
+        />
+      )}
+
+      {/* Task 48: manual add breakdown */}
+      {showManualAdd && (
+        <div style={{ position: "absolute", inset: 0, zIndex: 150 }}>
+          <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.5)" }} onClick={() => setShowManualAdd(false)} />
+          <div style={{
+            position: "absolute", bottom: 0, left: 0, right: 0,
+            background: th.card, borderRadius: "20px 20px 0 0",
+            padding: "24px 20px 32px", maxHeight: "85%", overflowY: "auto",
+          }}>
+            <h3 style={{ margin: "0 0 16px", color: th.text, fontSize: 16 }}>إضافة عطل يدوي</h3>
+
+            <input
+              value={manualDriverSearch}
+              onChange={(e) => setManualDriverSearch(e.target.value)}
+              placeholder="بحث السائق بالاسم أو اللوحة..."
+              style={{
+                width: "100%", padding: "10px 12px", borderRadius: 10,
+                border: `1px solid ${th.border}`, background: th.inputBg,
+                color: th.text, fontSize: 13, marginBottom: 8,
+                fontFamily: "inherit", boxSizing: "border-box",
+              }}
+            />
+            {filteredDriversForManual.map((d) => (
+              <div key={d.id}
+                onClick={() => { setManualDriverId(d.id); setManualDriverSearch(d.ownerName + " · " + d.plate) }}
+                style={{
+                  padding: "10px 12px", borderRadius: 8, marginBottom: 4,
+                  background: manualDriverId === d.id ? "#EFF6FF" : (th.dark ? "#1E2D40" : "#F8FAFC"),
+                  border: `1px solid ${manualDriverId === d.id ? T.primary : th.border}`,
+                  cursor: "pointer", fontSize: 13, color: th.text,
+                }}
+              >
+                {d.ownerName} · {d.plate}
+              </div>
+            ))}
+
+            <div style={{ marginTop: 12 }}>
+              <label style={{ fontSize: 12, color: th.sub, display: "block", marginBottom: 6 }}>موقع العطل</label>
+              <div style={{ display: "flex", gap: 8 }}>
+                {(["قريب", "بعيد"] as const).map((loc) => (
+                  <button key={loc} type="button" onClick={() => setManualLocation(loc)}
+                    style={{
+                      flex: 1, padding: "10px", borderRadius: 10, border: "none",
+                      background: manualLocation === loc ? T.warning : (th.dark ? "#1E2D40" : "#F1F5F9"),
+                      color: manualLocation === loc ? "#fff" : th.sub,
+                      fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+                    }}
+                  >{loc}</button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
+              <button type="button" onClick={() => setShowManualAdd(false)}
+                style={{ flex: 1, padding: "13px", borderRadius: 12, border: `1px solid ${th.border}`, background: "none", cursor: "pointer", fontFamily: "inherit" }}>
+                إلغاء
+              </button>
+              <button type="button" onClick={handleManualAdd} disabled={!manualDriverId}
+                style={{
+                  flex: 2, padding: "13px", borderRadius: 12, border: "none",
+                  background: manualDriverId ? T.warning : th.border,
+                  color: "#fff", fontWeight: 700, cursor: manualDriverId ? "pointer" : "not-allowed", fontFamily: "inherit",
+                }}>
+                ✅ حفظ
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

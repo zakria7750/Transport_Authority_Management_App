@@ -13,7 +13,7 @@ import AttendanceScreen from './screens/Attendance'
 import RegistrationScreen from './screens/Registration'
 import {
   ViolationsScreen, GuaranteesScreen, BreakdownsScreen,
-  ReportsScreen, UsersScreen
+  ReportsScreen, UsersScreen, DriverManagementScreen
 } from './screens/Manager'
 import {
   MoreScreen, SettingsScreen, SearchScreen, NotificationsScreen
@@ -136,6 +136,7 @@ function Router() {
     breakdowns: BreakdownsScreen,
     reports: ReportsScreen,
     users: UsersScreen,
+    'driver-management': DriverManagementScreen,
     more: MoreScreen,
     settings: SettingsScreen,
     search: SearchScreen,
@@ -203,6 +204,19 @@ export default function App() {
         @keyframes bounce {
           0%, 100% { transform: translateY(0); }
           50% { transform: translateY(-8px); }
+        }
+        @keyframes rowInsert {
+          from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+          to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes rowRemove {
+          from { opacity: 1; transform: scale(1); max-height: 200px; }
+          to   { opacity: 0; transform: scale(0.96); max-height: 0; }
+        }
+        @keyframes successOverlay {
+          0%   { opacity: 0; transform: scale(0.8); }
+          40%  { opacity: 1; transform: scale(1.1); }
+          100% { opacity: 0; transform: scale(1.2); }
         }
         * {
           transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;

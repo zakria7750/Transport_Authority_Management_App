@@ -562,6 +562,11 @@ export function StatusChip({ driver }: { driver: Driver }) {
       label = `مخالف (${driver.violation ?? (driver.statusReason === "مخالف_ح" ? "ح" : "ت")})`
       bg = "#FEE2E2"
       color = T.danger
+    } else if (driver.statusReason === "معطل") {
+      // Task 58: موقوف عن التحميل chip
+      label = "موقوف عن التحميل"
+      bg = "#FFF7ED"
+      color = T.warning
     } else {
       label = driver.statusReason === "مفروز" ? "مفروز" : driver.statusReason === "بدون_ضمانة" ? "بدون ضمانة" : "غير نشط"
       bg = "#F1F5F9"
