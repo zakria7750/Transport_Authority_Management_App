@@ -10,6 +10,7 @@ import DriverProfileScreen from './screens/DriverProfile'
 import PendingTripsScreen from './screens/PendingTrips'
 import AllTripsScreen from './screens/AllTrips'
 import AttendanceScreen from './screens/Attendance'
+import { AttendanceSheet } from './screens/AttendanceSheet'
 import RegistrationScreen from './screens/Registration'
 import {
   ViolationsScreen, GuaranteesScreen, BreakdownsScreen,
@@ -130,6 +131,7 @@ function Router() {
     'pending-trips': PendingTripsScreen,
     'all-trips': AllTripsScreen,
     attendance: AttendanceScreen,
+    'attendance-sheet': AttendanceSheet,
     registration: RegistrationScreen,
     violations: ViolationsScreen,
     guarantees: GuaranteesScreen,

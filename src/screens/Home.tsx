@@ -55,6 +55,21 @@ export default function HomeScreen() {
     onQuickAdd: () => setShowQuickMenu(!showQuickMenu),
   })
 
+  // Screens for manager/trip officer
+  const availableScreens: { label: string; icon: string; screen: Screen; roles: any[] }[] = [
+    { label: 'كشف البوابير', icon: '📋', screen: 'drivers', roles: ['موظف_نهمة', 'مدير_مكتب'] },
+    { label: 'كشف التحضير', icon: '📝', screen: 'attendance-sheet', roles: ['موظف_نهمة', 'مدير_مكتب'] },
+    { label: 'النهمات المعلقة', icon: '🚛', screen: 'pending-trips', roles: ['موظف_نهمة', 'مدير_مكتب'] },
+    { label: 'سجل الأعطال', icon: '🔧', screen: 'breakdowns', roles: ['موظف_نهمة', 'مدير_مكتب'] },
+    ...(isManager ? [
+      { label: 'المخالفات', icon: '⚠️', screen: 'violations' as Screen, roles: ['مدير_مكتب'] },
+      { label: 'الضمانات', icon: '🏦', screen: 'guarantees' as Screen, roles: ['مدير_مكتب'] },
+      { label: 'التقارير', icon: '📊', screen: 'reports' as Screen, roles: ['مدير_مكتب'] },
+      { label: 'المستخدمين', icon: '👥', screen: 'users' as Screen, roles: ['مدير_مكتب'] },
+      { label: 'إدارة السائقين', icon: '🚗', screen: 'driver-management' as Screen, roles: ['مدير_مكتب'] },
+    ] : []),
+  ]
+
   return (
     <PullToRefresh onRefresh={handleRefresh} containerRef={scrollRef}>
       <div ref={scrollRef} onScroll={handleScroll} style={{ flex: 1, overflowY: 'auto', background: th.bg, display: 'flex', flexDirection: 'column' }}>
@@ -74,6 +89,7 @@ export default function HomeScreen() {
                 {[
                   { label: 'تسجيل مالك جديد', icon: '👤', action: () => { navigate('registration', { tab: 'register' }); setShowQuickMenu(false) } },
                   { label: 'إضافة مالك للكشف', icon: '📋', action: () => { navigate('registration', { tab: 'add' }); setShowQuickMenu(false) } },
+                  { label: 'كشف التحضير', icon: '📝', action: () => { navigate('attendance-sheet'); setShowQuickMenu(false) } },
                   ...(isManager ? [
                     { label: 'إضافة مخالفة', icon: '⚠️', action: () => { navigate('violations'); setShowQuickMenu(false) } },
                     { label: 'إضافة مستخدم', icon: '🔑', action: () => { navigate('users'); setShowQuickMenu(false) } },

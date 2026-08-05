@@ -55,6 +55,7 @@ export type Screen =
   | "drivers"
   | "driver-profile"
   | "attendance"
+  | "attendance-sheet"
   | "registration"
   | "pending-trips"
   | "all-trips"
