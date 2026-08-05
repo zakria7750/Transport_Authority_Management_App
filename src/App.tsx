@@ -182,11 +182,11 @@ export default function App() {
           to { transform: translateY(0); opacity: 1; }
         }
         @keyframes slideInForward {
-          from { transform: translateX(-24px); opacity: 0; }
+          from { transform: translateX(24px); opacity: 0; }
           to { transform: translateX(0); opacity: 1; }
         }
         @keyframes slideInBack {
-          from { transform: translateX(24px); opacity: 0; }
+          from { transform: translateX(-24px); opacity: 0; }
           to { transform: translateX(0); opacity: 1; }
         }
         @keyframes fadeIn {

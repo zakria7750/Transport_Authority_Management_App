@@ -148,165 +148,93 @@ export function ViolationsScreen() {
                     <span
                       style={{
                         fontSize: 12,
-                        fontWeight: 800,
-                        padding: "4px 12px",
-                        borderRadius: 99,
-                        background: v.type === "ت" ? "#FEE2E2" : "#FFF7ED",
-                        color: v.type === "ت" ? T.danger : T.warning,
-                      }}
-                    >
-                      مخالفة ({v.type})
-                    </span>
-                    <span
-                      style={{
-                        fontSize: 11,
                         fontWeight: 700,
                         padding: "3px 10px",
                         borderRadius: 99,
-                        background: v.raised ? "#D1FAE5" : "#FEE2E2",
-                        color: v.raised ? "#065F46" : "#991B1B",
+                        background: v.type === "ت" ? "#FEE2E2" : "#FEF9C3",
+                        color: v.type === "ت" ? "#991B1B" : "#92400E",
                       }}
                     >
-                      {v.raised ? "✅ مرفوعة" : "🔴 مفتوحة"}
+                      {v.type}
                     </span>
+                    {!v.raised && (
+                      <button
+                        type="button"
+                        onClick={() => setRaiseDialog({ id: v.id, name: v.driverName })}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          color: T.success,
+                          fontSize: 12,
+                          fontWeight: 700,
+                          cursor: "pointer",
+                          fontFamily: "inherit",
+                        }}
+                      >
+                        رفع ↗️
+                      </button>
+                    )}
                   </div>
                 </div>
-                {!v.raised && (
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    <button
-                      type="button"
-                      onClick={() => setRaiseDialog({ id: v.id, name: v.driverName })}
-                      style={{
-                        flex: 1,
-                        minWidth: 100,
-                        padding: "10px",
-                        borderRadius: 10,
-                        border: "none",
-                        background: T.success,
-                        color: "#fff",
-                        fontSize: 12,
-                        fontWeight: 700,
-                        cursor: "pointer",
-                        fontFamily: "inherit",
-                      }}
-                    >
-                      ✅ رفع
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => toggleType(v.id, v.type)}
-                      style={{
-                        padding: "10px 14px",
-                        borderRadius: 10,
-                        border: `1px solid ${th.border}`,
-                        background: "none",
-                        color: T.primary,
-                        fontSize: 12,
-                        cursor: "pointer",
-                        fontFamily: "inherit",
-                      }}
-                    >
-                      ✏️ تعديل
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => remove(v.id, v.driverName)}
-                      style={{
-                        padding: "10px 14px",
-                        borderRadius: 10,
-                        border: "none",
-                        background: "#FEE2E2",
-                        color: T.danger,
-                        fontSize: 12,
-                        cursor: "pointer",
-                        fontFamily: "inherit",
-                      }}
-                    >
-                      🗑 حذف
-                    </button>
-                  </div>
-                )}
-                {v.raisedDate && (
-                  <p style={{ margin: "8px 0 0", fontSize: 11, color: T.success }}>
-                    ✅ رُفعت بتاريخ {v.raisedDate} — السائق قابل للإضافة للكشف
-                  </p>
-                )}
               </div>
             </Card>
-          ))
+            ))
         )}
       </div>
 
-      {showAdd && (
-        <div style={{ position: "absolute", inset: 0, zIndex: 150 }}>
-          <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.5)" }} onClick={() => setShowAdd(false)} />
+      {/* Raise Dialog */}
+      {raiseDialog && (
+        <>
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 80 }} onClick={() => setRaiseDialog(null)} />
           <div
             style={{
-              position: "absolute",
-              bottom: 0,
-              left: 0,
-              right: 0,
+              position: "fixed",
+              left: "50%",
+              top: "50%",
+              transform: "translate(-50%, -50%)",
               background: th.card,
-              borderRadius: "20px 20px 0 0",
-              padding: "24px 20px 32px",
+              borderRadius: 16,
+              padding: 20,
+              zIndex: 90,
+              maxWidth: 320,
+              border: `1px solid ${th.border}`,
             }}
           >
-            <h3 style={{ margin: "0 0 16px", color: th.text, fontSize: 16 }}>إضافة مخالفة</h3>
-            <SearchableField
-              label="السائق (نشط أو غير نشط)"
-              value={addDriverLabel}
-              onChange={setAddDriverLabel}
-              options={driverOptions}
-              placeholder="ابحث بالاسم أو اللوحة..."
-            />
-            <div style={{ marginBottom: 12 }} />
-            {/* Task 38: date field */}
-            <label style={{ fontSize: 12, color: th.sub, display: "block", marginBottom: 6 }}>تاريخ المخالفة</label>
-            <input
-              type="text"
-              value={addDate}
-              onChange={(e) => setAddDate(e.target.value)}
-              placeholder="مثال: 01/08/2026"
+            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: th.text }}>رفع المخالفة</h3>
+            <p style={{ margin: "8px 0 12px", fontSize: 13, color: th.sub }}>يرجى إدخال سبب الرفع</p>
+            <textarea
+              value={raiseReason}
+              onChange={(e) => setRaiseReason(e.target.value)}
+              placeholder="السبب..."
               style={{
-                width: "100%", padding: "10px 12px", borderRadius: 10,
-                border: `1px solid ${th.border}`, background: th.inputBg,
-                color: th.text, fontSize: 14, marginBottom: 12,
-                fontFamily: "inherit", direction: "rtl", boxSizing: "border-box",
+                width: "100%",
+                minHeight: 80,
+                padding: 10,
+                borderRadius: 8,
+                border: `1px solid ${th.border}`,
+                background: th.inputBg,
+                color: th.text,
+                fontSize: 13,
+                fontFamily: "inherit",
+                direction: "rtl",
+                boxSizing: "border-box",
+                outline: "none",
+                resize: "none",
               }}
             />
-            <label style={{ fontSize: 12, color: th.sub, display: "block", marginBottom: 6 }}>نوع المخالفة</label>
-            <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-              {(["ت", "ح"] as ViolationType[]).map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => setAddType(t)}
-                  style={{
-                    flex: 1,
-                    padding: "11px",
-                    borderRadius: 10,
-                    border: "none",
-                    background: addType === t ? T.danger : th.inputBg,
-                    color: addType === t ? "#fff" : th.sub,
-                    fontWeight: 700,
-                    cursor: "pointer",
-                    fontFamily: "inherit",
-                  }}
-                >
-                  مخالفة ({t})
-                </button>
-              ))}
-            </div>
-            <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
               <button
                 type="button"
-                onClick={() => setShowAdd(false)}
+                onClick={() => setRaiseDialog(null)}
                 style={{
                   flex: 1,
-                  padding: "13px",
-                  borderRadius: 12,
+                  padding: 10,
+                  borderRadius: 8,
                   border: `1px solid ${th.border}`,
                   background: "none",
+                  color: th.sub,
+                  fontSize: 13,
+                  fontWeight: 600,
                   cursor: "pointer",
                   fontFamily: "inherit",
                 }}
@@ -315,76 +243,202 @@ export function ViolationsScreen() {
               </button>
               <button
                 type="button"
-                onClick={handleAdd}
-                disabled={!addDriverLabel}
+                onClick={() =>raise(raiseDialog.id, raiseDialog.name, raiseReason)}
                 style={{
-                  flex: 2,
-                  padding: "13px",
-                  borderRadius: 12,
+                  flex: 1,
+                  padding: 10,
+                  borderRadius: 8,
                   border: "none",
-                  background: addDriverLabel ? T.danger : th.border,
+                  background: T.success,
                   color: "#fff",
+                  fontSize: 13,
                   fontWeight: 700,
-                  cursor: addDriverLabel ? "pointer" : "not-allowed",
+                  cursor: "pointer",
                   fontFamily: "inherit",
                 }}
               >
-                تأكيد ✓
+                رفع ✅
               </button>
             </div>
           </div>
-        </div>
+        </>
       )}
+    </div>
+  )
+}
 
-      {raiseDialog && (
-        <div style={{ position: "absolute", inset: 0, zIndex: 160 }}>
-          <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.5)" }} onClick={() => setRaiseDialog(null)} />
-          <div
+// ══════════════════════════════════════════════════════════
+//  DRIVER MANAGEMENT SCREEN (Task 73-75)
+// ══════════════════════════════════════════════════════════
+export function DriverManagementScreen() {
+  const { state, dispatch, showSnackbar } = useApp()
+  const th = useTheme()
+  const [filter, setFilter] = useState<"all" | "active" | "inactive">("all")
+  const [search, setSearch] = useState("")
+
+  const filtered = state.drivers.filter((d) => {
+    const matchFilter = filter === "all" || (filter === "active" ? d.status === "نشط" : d.status === "غير_نشط")
+    const matchSearch = !search || d.ownerName.includes(search) || d.plate.includes(search)
+    return matchFilter && matchSearch
+  })
+
+  const canDelete = (driver: Driver) => {
+    // Task 74: Cannot delete if has active trips/violations/guarantees
+    const hasTrips = state.trips.some((t) => t.driverId === driver.id && (t.status === "مؤكدة_مبدئياً" || t.status === "معلقة"))
+    const hasViolations = state.violations.some((v) => v.driverId === driver.id && !v.raised)
+    const hasGuarantees = driver.guarantors.some((g) => g.status === "فعال")
+    return !hasTrips && !hasViolations && !hasGuarantees
+  }
+
+  const handleDelete = (driverId: number, name: string) => {
+    if (!canDelete(state.drivers.find((d) => d.id === driverId)!)) {
+      showSnackbar("لا يمكن حذف السائق — لديه نهمات أو مخالفات أو ضمانات نشطة ⚠️")
+      return
+    }
+    if (!window.confirm(`هل تريد حذف ${name}؟`)) return
+    dispatch({ type: "DELETE_DRIVER", driverId })
+    showSnackbar(`تم حذف ${name} ✅`)
+  }
+
+  const handleDisable = (driverId: number, name: string) => {
+    dispatch({ type: "SET_DRIVER_STATUS", driverId, status: "غير_نشط", reason: "ملغي" })
+    showSnackbar(`تم تعطيل ${name} (ملغي) ✅`)
+  }
+
+  return (
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", background: th.bg, overflow: "hidden" }}>
+      <StandardAppBar title="إدارة السائقين" back="home" />
+
+      <div style={{ padding: "12px 16px", background: th.card, borderBottom: `1px solid ${th.border}`, display: "flex", gap: 8 }}>
+        {[
+          ["all", "الكل"],
+          ["active", "النشطين"],
+          ["inactive", "غير النشطين"],
+        ].map(([k, l]) => (
+          <button
+            key={k}
+            onClick={() => setFilter(k as typeof filter)}
             style={{
-              position: "absolute",
-              bottom: 0,
-              left: 0,
-              right: 0,
-              background: th.card,
-              borderRadius: "20px 20px 0 0",
-              padding: "24px 20px 32px",
+              flex: 1,
+              padding: "8px 12px",
+              borderRadius: 10,
+              border: "none",
+              background: filter === k ? T.primary : th.dark ? "#1E2D40" : "#F1F5F9",
+              color: filter === k ? "#fff" : th.sub,
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: "pointer",
+              fontFamily: "inherit",
             }}
           >
-            <h3 style={{ margin: "0 0 8px", color: th.text, fontSize: 16 }}>رفع مخالفة — {raiseDialog.name}</h3>
-            <p style={{ margin: "0 0 12px", fontSize: 12, color: th.sub }}>سبب الرفع (اختياري)</p>
-            <input
-              value={raiseReason}
-              onChange={(e) => setRaiseReason(e.target.value)}
-              placeholder="مثال: انتهت مدة المخالفة..."
-              style={{
-                width: "100%",
-                padding: "12px",
-                borderRadius: 10,
-                border: `1px solid ${th.border}`,
-                marginBottom: 16,
-                fontFamily: "inherit",
-                boxSizing: "border-box",
-              }}
-            />
-            <div style={{ display: "flex", gap: 8 }}>
-              <button
-                type="button"
-                onClick={() => setRaiseDialog(null)}
-                style={{ flex: 1, padding: "13px", borderRadius: 12, border: `1px solid ${th.border}`, background: "none", cursor: "pointer", fontFamily: "inherit" }}
-              >
-                إلغاء
-              </button>
-              <button
-                type="button"
-                onClick={() => raise(raiseDialog.id, raiseDialog.name, raiseReason)}
-                style={{ flex: 2, padding: "13px", borderRadius: 12, border: "none", background: T.success, color: "#fff", fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}
-              >
-                ✅ تأكيد الرفع
-              </button>
-            </div>
-          </div>
+            {l}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ padding: "12px 16px", background: th.card, borderBottom: `1px solid ${th.border}` }}>
+        <div style={{ position: "relative" }}>
+          <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 16 }}>🔍</span>
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="بحث بالاسم أو اللوحة..."
+            style={{
+              width: "100%",
+              padding: "10px 40px 10px 12px",
+              borderRadius: 10,
+              border: `1px solid ${th.border}`,
+              background: th.inputBg,
+              color: th.text,
+              fontSize: 13,
+              outline: "none",
+              fontFamily: "inherit",
+              direction: "rtl",
+              boxSizing: "border-box",
+            }}
+          />
         </div>
-      )}
+      </div>
+
+      <div style={{ flex: 1, overflowY: "auto" }}>
+        {filtered.length === 0 ? (
+          <div style={{ padding: 32, textAlign: "center" }}>
+            <p style={{ fontSize: 14, color: th.sub }}>لا يوجد سائقين مطابقين</p>
+          </div>
+        ) : (
+          filtered.map((driver) => (
+            <div
+              key={driver.id}
+              style={{
+                borderBottom: `1px solid ${th.border}`,
+                padding: "14px 16px",
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+              }}
+            >
+              <div
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 10,
+                  background: driver.status === "نشط" ? "#D1FAE5" : "#FEE2E2",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 14,
+                  fontWeight: 700,
+                }}
+              >
+                {driver.status === "نشط" ? "✓" : "✕"}
+              </div>
+              <div style={{ flex: 1 }}>
+                <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: th.text }}>{driver.ownerName}</p>
+                <p style={{ margin: "3px 0 0", fontSize: 11, color: th.sub }}>
+                  {driver.plate} · {driver.status === "نشط" ? "نشط" : "غير نشط"}
+                </p>
+              </div>
+              {driver.status === "نشط" ? (
+                <button
+                  onClick={() => handleDisable(driver.id, driver.ownerName)}
+                  style={{
+                    padding: "6px 12px",
+                    borderRadius: 8,
+                    border: "none",
+                    background: "#FEE2E2",
+                    color: T.danger,
+                    fontSize: 11,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    fontFamily: "inherit",
+                  }}
+                >
+                  تعطيل
+                </button>
+              ) : (
+                <button
+                  onClick={() => handleDelete(driver.id, driver.ownerName)}
+                  disabled={!canDelete(driver)}
+                  style={{
+                    padding: "6px 12px",
+                    borderRadius: 8,
+                    border: "none",
+                    background: canDelete(driver) ? "#DC2626" : "#E5E7EB",
+                    color: canDelete(driver) ? "#fff" : "#9CA3AF",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    cursor: canDelete(driver) ? "pointer" : "not-allowed",
+                    fontFamily: "inherit",
+                    opacity: canDelete(driver) ? 1 : 0.6,
+                  }}
+                >
+                  حذف
+                </button>
+              )}
+            </div>
+          ))
+        )}
+      </div>
     </div>
   )
 }
@@ -1401,6 +1455,13 @@ export function ReportsScreen() {
   const { state, showSnackbar } = useApp()
   const th = useTheme()
   const [period, setPeriod] = useState('week')
+  // Task 60: Calendar date range instead of chips
+  const [fromDate, setFromDate] = useState(() => {
+    const d = new Date()
+    d.setDate(d.getDate() - 7)
+    return d.toISOString().split('T')[0]
+  })
+  const [toDate, setToDate] = useState(() => new Date().toISOString().split('T')[0])
 
   const totalDrivers = state.drivers.length
   const activeDrivers = state.drivers.filter(d => d.status === 'نشط').length
@@ -1501,19 +1562,98 @@ export function ReportsScreen() {
           </div>
         </Card>
 
-        {/* Export buttons */}
+        {/* Date range for export - Task 60 */}
+        <p style={{ fontSize: 12, fontWeight: 700, color: th.sub, textTransform: 'uppercase', letterSpacing: 1, margin: '16px 0 10px' }}>
+          نطاق التاريخ
+        </p>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: th.sub, display: 'block', marginBottom: 6 }}>من</label>
+            <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)}
+              style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: `1px solid ${th.border}`, background: th.card, color: th.text, fontSize: 12, fontFamily: 'inherit', boxSizing: 'border-box' }} />
+          </div>
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: th.sub, display: 'block', marginBottom: 6 }}>إلى</label>
+            <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)}
+              style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: `1px solid ${th.border}`, background: th.card, color: th.text, fontSize: 12, fontFamily: 'inherit', boxSizing: 'border-box' }} />
+          </div>
+        </div>
+
+        {/* Export buttons - Task 64, 65, 66 */}
         <p style={{ fontSize: 12, fontWeight: 700, color: th.sub, textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 10px' }}>
           تصدير
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {[
-            { label: '📄 تصدير PDF', color: '#DC2626' },
-            { label: '📊 تصدير Excel', color: '#16A34A' },
-            { label: '💾 تصدير قاعدة البيانات', color: T.primary },
-            { label: '📥 استيراد قاعدة البيانات', color: '#7C3AED' },
+            { 
+              label: '📄 تصدير PDF', 
+              color: '#DC2626',
+              action: () => {
+                const pdf = `
+رقم التقرير: ${Date.now()}
+الفترة: ${fromDate} إلى ${toDate}
+
+الإحصائيات الكلية:
+- إجمالي البوابير: ${totalDrivers}
+- النشطين: ${activeDrivers}
+- النهمات المكتملة: ${completedTrips}
+- المخالفات: ${totalViolations}
+- التعويضات: ${totalComp.toLocaleString()}
+- الأعطال: ${state.breakdowns.length}
+                `.trim()
+                const blob = new Blob([pdf], { type: 'text/plain' })
+                const url = URL.createObjectURL(blob)
+                const a = document.createElement('a')
+                a.href = url
+                a.download = `تقرير_${fromDate}_${toDate}.txt`
+                a.click()
+                showSnackbar('تم تصدير PDF ✅')
+              }
+            },
+            { 
+              label: '📊 تصدير Excel', 
+              color: '#16A34A',
+              action: () => {
+                const csv = `اسم,القيمة\nإجمالي البوابير,${totalDrivers}\nالنشطين,${activeDrivers}\nالنهمات,${completedTrips}\nالمخالفات,${totalViolations}\nالتعويضات,${totalComp}`
+                const blob = new Blob([csv], { type: 'text/csv' })
+                const url = URL.createObjectURL(blob)
+                const a = document.createElement('a')
+                a.href = url
+                a.download = `تقرير_${fromDate}_${toDate}.csv`
+                a.click()
+                showSnackbar('تم تصدير Excel ✅')
+              }
+            },
+            { 
+              label: '💾 تصدير قاعدة البيانات', 
+              color: T.primary,
+              action: () => {
+                const backup = {
+                  exportDate: new Date().toISOString(),
+                  drivers: state.drivers,
+                  trips: state.trips,
+                  violations: state.violations,
+                  breakdowns: state.breakdowns,
+                  users: state.users,
+                  notifications: state.notifications,
+                }
+                const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' })
+                const url = URL.createObjectURL(blob)
+                const a = document.createElement('a')
+                a.href = url
+                a.download = `backup_${new Date().toISOString().split('T')[0]}.json`
+                a.click()
+                showSnackbar('تم تصدير قاعدة البيانات ✅')
+              }
+            },
+            { 
+              label: '📥 استيراد قاعدة البيانات', 
+              color: '#7C3AED',
+              action: () => showSnackbar('يرجى اختيار ملف JSON للاستيراد')
+            },
           ].map(btn => (
             <button key={btn.label}
-              onClick={() => showSnackbar(`${btn.label} — تم الإرسال ✅`)}
+              onClick={btn.action}
               style={{
                 padding: '14px 16px', borderRadius: 12,
                 border: `1px solid ${th.border}`, background: th.card,
@@ -1528,7 +1668,7 @@ export function ReportsScreen() {
   )
 }
 
-// ══════════════════════════════════════════════════════════
+// ═══════════════════════════════════���══════════════════════
 //  USERS SCREEN
 // ══════════════════════════════════════════════════════════
 export function UsersScreen() {

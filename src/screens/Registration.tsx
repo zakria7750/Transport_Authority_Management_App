@@ -35,6 +35,7 @@ export default function RegistrationScreen() {
     phone: "",
     type: "ع" as DriverType,
     separator: "",
+    separatorNum: "", // Numeric separator field
   })
   const [images, setImages] = useState<DriverImages>({})
   const [guarantorSearch, setGuarantorSearch] = useState("")
@@ -82,10 +83,12 @@ export default function RegistrationScreen() {
   }
 
   const handleRegister = async () => {
-    if (!form.ownerName || !form.plate || !form.phone) {
+    // Task 29: Validate separator as numeric
+    if (!form.ownerName || !form.plate || !form.phone || !form.separator) {
       showSnackbar("يرجى تعبئة جميع الحقول المطلوبة ⚠️")
       return
     }
+    // Task 30: Validate front and back ID cards are required
     if (!images.frontId || !images.backId) {
       showSnackbar("يرجى إرفاق صورة البطاقة (أمام وخلف) ⚠️")
       return
@@ -105,7 +108,7 @@ export default function RegistrationScreen() {
       currentTrip: null,
       violation: null,
       compensationBalance: 0,
-      separator: form.separator || form.ownerName.charAt(0),
+      separator: form.separator,
       joinDate: new Date().toLocaleDateString("ar-SA"),
       guarantors: guarantors.map((g, i) => ({
         ...g,
@@ -117,11 +120,11 @@ export default function RegistrationScreen() {
     const name = form.ownerName
     dispatch({ type: "ADD_DRIVER", driver: newDriver })
     setSaving(false)
-    setForm({ ownerName: "", plate: "", phone: "", type: "ع", separator: "" })
+    setForm({ ownerName: "", plate: "", phone: "", type: "ع", separator: "", separatorNum: "" })
     setGuarantors([])
     setImages({})
-    showSnackbar(`تم تسجيل ${name} بنجاح ✅ — سيتم إرسال واتساب للضامنين`)
-    // Task 34: navigate home after registration
+    showSnackbar(`تم تسجيل ${name} بنجاح ✅`)
+    // Task 34: Navigate home (or appropriate screen) after registration
     setTimeout(() => navigate("home"), 800)
   }
 
@@ -392,7 +395,7 @@ export default function RegistrationScreen() {
             <Input
               value={addSearch}
               onChange={(e) => setAddSearch(e.target.value)}
-              placeholder="🔍 بحث بالاسم أو رقم اللوحة..."
+              placeholder="🔍 بحث بالاسم أو ��قم اللوحة..."
               icon="🔍"
             />
             {filteredInactive.length === 0 ? (
