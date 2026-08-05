@@ -764,6 +764,7 @@ const NAV_ITEMS: { screen: Screen; icon: string; label: string }[] = [
   { screen: 'drivers',       icon: '📋', label: 'الكشف' },
   { screen: 'registration',  icon: '➕', label: 'تسجيل' },
   { screen: 'pending-trips', icon: '🚛', label: 'النهمات' },
+  { screen: 'search',        icon: '🔍', label: 'بحث' },
   { screen: 'more',          icon: '☰',  label: 'المزيد' },
 ]
 
@@ -787,6 +788,7 @@ export function BottomNav() {
       borderTop: `1px solid ${th.border}`,
       display: 'flex',
       flexShrink: 0,
+      justifyContent: 'space-around',
     }}>
       {items.map(item => {
         const active = state.screen === item.screen
@@ -798,12 +800,14 @@ export function BottomNav() {
               padding: '8px 4px 10px',
               display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
               color: active ? T.primary : th.sub,
-              transition: 'color 0.2s',
+              transition: 'color 0.2s, transform 0.15s ease',
+              transform: active ? 'scale(1.1)' : 'scale(1)',
+              position: 'relative',
             }}>
             <span style={{ fontSize: 20 }}>{item.icon}</span>
             <span style={{ fontSize: 10, fontWeight: active ? 700 : 400 }}>{item.label}</span>
             {active && (
-              <div style={{ width: 20, height: 2, borderRadius: 1, background: T.primary, position: 'absolute', bottom: 0 }} />
+              <div style={{ width: 20, height: 2, borderRadius: 1, background: T.primary, position: 'absolute', bottom: 0, animation: 'pulse 0.5s ease-out' }} />
             )}
           </button>
         )
