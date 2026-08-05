@@ -11,6 +11,7 @@ import PendingTripsScreen from './screens/PendingTrips'
 import AllTripsScreen from './screens/AllTrips'
 import AttendanceScreen from './screens/Attendance'
 import { AttendanceSheet } from './screens/AttendanceSheet'
+import { TripsManagementScreen } from './screens/TripsManagement'
 import RegistrationScreen from './screens/Registration'
 import {
   ViolationsScreen, GuaranteesScreen, BreakdownsScreen,
@@ -130,6 +131,7 @@ function Router() {
     'driver-profile': DriverProfileScreen,
     'pending-trips': PendingTripsScreen,
     'all-trips': AllTripsScreen,
+    'trips-management': TripsManagementScreen,
     attendance: AttendanceScreen,
     'attendance-sheet': AttendanceSheet,
     registration: RegistrationScreen,
@@ -224,9 +226,11 @@ export default function App() {
           transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
         }
       `}</style>
-      <PhoneFrame>
-        <Router />
-      </PhoneFrame>
+      <div style={{ width: '100%', height: '100%', background: '#fff', position: 'relative', overflow: 'hidden' }}>
+        <PhoneFrame>
+          <Router />
+        </PhoneFrame>
+      </div>
     </AppProvider>
   )
 }

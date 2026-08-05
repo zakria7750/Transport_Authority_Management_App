@@ -59,6 +59,7 @@ export type Screen =
   | "registration"
   | "pending-trips"
   | "all-trips"
+  | "trips-management"
   | "violations"
   | "guarantees"
   | "breakdowns"
@@ -148,6 +149,7 @@ type Action =
   | { type: "DELETE_VIOLATION"; violationId: number }
   | { type: "CREATE_TRIP"; trip: TripCreatePayload }
   | { type: "EDIT_TRIP"; edit: TripEditPayload }
+  | { type: "UPDATE_TRIP"; trip: Trip }
   | { type: "DELETE_TRIP"; tripId: number }
   | { type: "COMPLETE_TRIP"; driverId: number }
   | { type: "CANCEL_TRIP"; driverId: number }
@@ -224,6 +226,7 @@ const SCREEN_DEPTH: Partial<Record<Screen, number>> = {
   more: 2,
   "driver-profile": 3,
   "all-trips": 3,
+  "trips-management": 3,
   attendance: 3,
   violations: 3,
   guarantees: 3,
@@ -409,17 +412,19 @@ const initialState: AppState = {
       registration: 0,
       "pending-trips": 0,
       "all-trips": 0,
+      "trips-management": 0,
       violations: 0,
-    guarantees: 0,
-    breakdowns: 0,
-    reports: 0,
-    settings: 0,
-    users: 0,
-    "driver-management": 0,
-    search: 0,
-    notifications: 0,
-    more: 0,
-  },
+      guarantees: 0,
+      breakdowns: 0,
+      reports: 0,
+      settings: 0,
+      users: 0,
+      "driver-management": 0,
+      search: 0,
+      notifications: 0,
+      more: 0,
+      "attendance-sheet": 0,
+    },
 }
 
 function reducer(state: AppState, action: Action): AppState {
@@ -724,25 +729,31 @@ function reducer(state: AppState, action: Action): AppState {
       }
     }
 
+    case "UPDATE_TRIP": {
+      return {
+        ...state,
+        trips: state.trips.map((t) =>
+          t.id === action.trip.id ? action.trip : t,
+        ),
+      }
+    }
+
     case "DELETE_TRIP": {
       const trip = state.trips.find((t) => t.id === action.tripId)
       if (!trip) return state
-      const driver = state.drivers.find((d) => d.id === trip.driverId)
-      let drivers = state.drivers
-      if (driver && isOpenTripStatus(trip.status)) {
-        drivers = drivers.map((d) =>
-          d.id === trip.driverId
-            ? {
-                ...d,
-                currentTrip: null,
-                compensationBalance:
-                  trip.type === "تعويض" && trip.compensationAmount
-                    ? d.compensationBalance + trip.compensationAmount
-                    : d.compensationBalance,
-              }
-            : d,
-        )
-      }
+
+      const drivers = state.drivers.map((d) =>
+        d.id === trip.driverId
+          ? {
+              ...d,
+              currentTrip: null,
+              compensationBalance:
+                trip.type === "تعويض" && trip.compensationAmount
+                  ? d.compensationBalance + trip.compensationAmount
+                  : d.compensationBalance,
+            }
+          : d,
+      )
       return {
         ...state,
         trips: state.trips.filter((t) => t.id !== action.tripId),

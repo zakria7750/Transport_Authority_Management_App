@@ -763,8 +763,6 @@ const NAV_ITEMS: { screen: Screen; icon: string; label: string }[] = [
   { screen: 'home',          icon: '🏠', label: 'الرئيسية' },
   { screen: 'drivers',       icon: '📋', label: 'الكشف' },
   { screen: 'registration',  icon: '➕', label: 'تسجيل' },
-  { screen: 'pending-trips', icon: '🚛', label: 'النهمات' },
-  { screen: 'search',        icon: '🔍', label: 'بحث' },
   { screen: 'more',          icon: '☰',  label: 'المزيد' },
 ]
 
