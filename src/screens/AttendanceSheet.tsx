@@ -2,26 +2,38 @@ import { useState, useMemo } from 'react'
 import { useApp } from '../context'
 import { useTheme } from '../components'
 
+import TripSheet from '../TripSheet'
+import type { Driver } from '../data'
+
 export function AttendanceSheet() {
   const { state, dispatch, showSnackbar } = useApp()
   const th = useTheme()
   
   const [attendance, setAttendance] = useState<Record<number, boolean>>({})
   const [printing, setPrinting] = useState<'none' | 'attendance' | 'trips'>('none')
+  const [showTripSheet, setShowTripSheet] = useState(false)
+  const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null)
 
   // Load active drivers only
   const activeDrivers = useMemo(() => {
     return state.drivers.filter(d => d.status === 'نشط')
   }, [state.drivers])
 
-  // Initialize attendance on mount
+  // Initialize attendance based on successful trips (م1 type)
   useMemo(() => {
     const init: Record<number, boolean> = {}
     activeDrivers.forEach(d => {
-      init[d.id] = true // Default to present (صح)
+      // Check if driver has completed a م1 trip today
+      const hasCompletedM1 = state.trips.some(t => 
+        t.driverId === d.id && 
+        t.type === 'م1' && 
+        t.status === 'مكتملة' &&
+        t.createdAt === new Date().toLocaleDateString('ar-SA')
+      )
+      init[d.id] = hasCompletedM1 // Only check if had successful م1 trip
     })
     setAttendance(init)
-  }, [activeDrivers])
+  }, [activeDrivers, state.trips])
 
   const handleSaveAttendance = () => {
     // Find absent drivers (false in attendance)
@@ -70,46 +82,55 @@ export function AttendanceSheet() {
   }
 
   const handlePrintAttendance = () => {
+    // Format: م-المالك-النوع-اللوحة (البوابير النشطة)
+    const rows = activeDrivers.map((d, i) => {
+      const d2 = activeDrivers[i + Math.ceil(activeDrivers.length / 2)]
+      return `
+        <tr>
+          <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${d.seq}</td>
+          <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${d.ownerName}</td>
+          <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${d.type}</td>
+          <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${d.plate}</td>
+          <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${d2?.seq || ''}</td>
+          <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${d2?.ownerName || ''}</td>
+          <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${d2?.type || ''}</td>
+          <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${d2?.plate || ''}</td>
+        </tr>
+      `
+    }).join('')
+    
     const html = `
       <html dir="rtl">
         <head>
           <title>كشف التحضير</title>
+          <meta charset="UTF-8">
           <style>
-            body { font-family: Arial; margin: 20px; }
+            body { font-family: Arial, sans-serif; margin: 20px; direction: rtl; }
+            h2 { text-align: center; }
             table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            th, td { border: 1px solid #ddd; padding: 8px; text-align: right; }
-            th { background: #f0f0f0; font-weight: bold; }
+            th { border: 1px solid #ddd; padding: 10px; text-align: right; background: #f0f0f0; font-weight: bold; }
+            td { border: 1px solid #ddd; padding: 8px; text-align: right; }
           </style>
         </head>
         <body>
           <h2>كشف التحضير</h2>
-          <p>التاريخ: ${new Date().toLocaleDateString('ar-SA')}</p>
+          <p style="text-align: center;">التاريخ: ${new Date().toLocaleDateString('ar-SA')}</p>
           <table>
-            <tr>
-              <th>م</th>
-              <th>النوع</th>
-              <th>المالك</th>
-              <th>اللوحة</th>
-              <th>م</th>
-              <th>النوع</th>
-              <th>المالك</th>
-              <th>اللوحة</th>
-            </tr>
-            ${activeDrivers.map((d, i) => {
-              const d2 = activeDrivers[i + activeDrivers.length / 2]
-              return `
-                <tr>
-                  <td>${d.seq}</td>
-                  <td>${d.type}</td>
-                  <td>${d.ownerName}</td>
-                  <td>${d.plate}</td>
-                  <td>${d2?.seq || ''}</td>
-                  <td>${d2?.type || ''}</td>
-                  <td>${d2?.ownerName || ''}</td>
-                  <td>${d2?.plate || ''}</td>
-                </tr>
-              `
-            }).join('')}
+            <thead>
+              <tr>
+                <th>م</th>
+                <th>المالك</th>
+                <th>النوع</th>
+                <th>اللوحة</th>
+                <th>م</th>
+                <th>المالك</th>
+                <th>النوع</th>
+                <th>اللوحة</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows}
+            </tbody>
           </table>
         </body>
       </html>
@@ -124,58 +145,67 @@ export function AttendanceSheet() {
   }
 
   const handlePrintTrips = () => {
+    // Format: م-المالك-النوع-اللوحة-ف-م1-م2 (البوابير النشطة)
+    const rows = activeDrivers.map((d, i) => {
+      const d2 = activeDrivers[i + Math.ceil(activeDrivers.length / 2)]
+      return `
+        <tr>
+          <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${d.seq}</td>
+          <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${d.ownerName}</td>
+          <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${d.type}</td>
+          <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${d.plate}</td>
+          <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${d.separator}</td>
+          <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${d.currentTrip?.type === 'م1' ? 'ن' : ''}</td>
+          <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${d.currentTrip?.type === 'م2' ? 'ن' : ''}</td>
+          <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${d2?.seq || ''}</td>
+          <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${d2?.ownerName || ''}</td>
+          <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${d2?.type || ''}</td>
+          <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${d2?.plate || ''}</td>
+          <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${d2?.separator || ''}</td>
+          <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${d2?.currentTrip?.type === 'م1' ? 'ن' : ''}</td>
+          <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${d2?.currentTrip?.type === 'م2' ? 'ن' : ''}</td>
+        </tr>
+      `
+    }).join('')
+    
     const html = `
       <html dir="rtl">
         <head>
           <title>كشف النهمات</title>
+          <meta charset="UTF-8">
           <style>
-            body { font-family: Arial; margin: 20px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            th, td { border: 1px solid #ddd; padding: 8px; text-align: right; }
-            th { background: #f0f0f0; font-weight: bold; }
+            body { font-family: Arial, sans-serif; margin: 20px; direction: rtl; }
+            h2 { text-align: center; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 13px; }
+            th { border: 1px solid #ddd; padding: 10px; text-align: center; background: #f0f0f0; font-weight: bold; }
+            td { border: 1px solid #ddd; padding: 8px; }
           </style>
         </head>
         <body>
           <h2>كشف النهمات</h2>
-          <p>التاريخ: ${new Date().toLocaleDateString('ar-SA')}</p>
+          <p style="text-align: center;">التاريخ: ${new Date().toLocaleDateString('ar-SA')}</p>
           <table>
-            <tr>
-              <th>م</th>
-              <th>النوع</th>
-              <th>المالك</th>
-              <th>اللوحة</th>
-              <th>ف</th>
-              <th>م1</th>
-              <th>م2</th>
-              <th>م</th>
-              <th>النوع</th>
-              <th>المالك</th>
-              <th>اللوحة</th>
-              <th>ف</th>
-              <th>م1</th>
-              <th>م2</th>
-            </tr>
-            ${activeDrivers.map((d, i) => {
-              const d2 = activeDrivers[i + Math.ceil(activeDrivers.length / 2)]
-              return `
-                <tr>
-                  <td>${d.seq}</td>
-                  <td>${d.type}</td>
-                  <td>${d.ownerName}</td>
-                  <td>${d.plate}</td>
-                  <td>${d.separator}</td>
-                  <td>${d.currentTrip?.type === 'م1' ? 'ن' : ''}</td>
-                  <td>${d.currentTrip?.type === 'م2' ? 'ن' : ''}</td>
-                  <td>${d2?.seq || ''}</td>
-                  <td>${d2?.type || ''}</td>
-                  <td>${d2?.ownerName || ''}</td>
-                  <td>${d2?.plate || ''}</td>
-                  <td>${d2?.separator || ''}</td>
-                  <td>${d2?.currentTrip?.type === 'م1' ? 'ن' : ''}</td>
-                  <td>${d2?.currentTrip?.type === 'م2' ? 'ن' : ''}</td>
-                </tr>
-              `
-            }).join('')}
+            <thead>
+              <tr>
+                <th>م</th>
+                <th>المالك</th>
+                <th>النوع</th>
+                <th>اللوحة</th>
+                <th>ف</th>
+                <th>م1</th>
+                <th>م2</th>
+                <th>م</th>
+                <th>المالك</th>
+                <th>النوع</th>
+                <th>اللوحة</th>
+                <th>ف</th>
+                <th>م1</th>
+                <th>م2</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows}
+            </tbody>
           </table>
         </body>
       </html>
@@ -219,7 +249,8 @@ export function AttendanceSheet() {
                 <th style={{ padding: '10px', textAlign: 'right', fontWeight: 700, color: th.text }}>اللوحة</th>
                 <th style={{ padding: '10px', textAlign: 'right', fontWeight: 700, color: th.text }}>م1</th>
                 <th style={{ padding: '10px', textAlign: 'right', fontWeight: 700, color: th.text }}>م2</th>
-                <th style={{ padding: '10px', textAlign: 'right', fontWeight: 700, color: th.text }}>ت</th>
+                <th style={{ padding: '10px', textAlign: 'center', fontWeight: 700, color: th.text }}>ن</th>
+                <th style={{ padding: '10px', textAlign: 'center', fontWeight: 700, color: th.text }}>ت</th>
               </tr>
             </thead>
             <tbody>
@@ -236,9 +267,30 @@ export function AttendanceSheet() {
                     {driver.currentTrip?.type === 'م2' ? 'ن' : ''}
                   </td>
                   <td style={{ padding: '10px', textAlign: 'center' }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedDriver(driver)
+                        setShowTripSheet(true)
+                      }}
+                      style={{
+                        background: '#3B82F6',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: 6,
+                        padding: '4px 8px',
+                        cursor: 'pointer',
+                        fontWeight: 700,
+                        fontSize: 12,
+                      }}
+                    >
+                      ن
+                    </button>
+                  </td>
+                  <td style={{ padding: '10px', textAlign: 'center' }}>
                     <input
                       type="checkbox"
-                      checked={attendance[driver.id] ?? true}
+                      checked={attendance[driver.id] ?? false}
                       onChange={(e) => setAttendance({ ...attendance, [driver.id]: e.target.checked })}
                       style={{ width: 20, height: 20, cursor: 'pointer' }}
                     />
@@ -314,6 +366,33 @@ export function AttendanceSheet() {
           طباعة كشف النهمات 📄
         </button>
       </div>
+
+      {/* Trip Sheet Modal */}
+      {showTripSheet && selectedDriver && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0,0,0,0.5)',
+          zIndex: 100,
+          display: 'flex',
+          alignItems: 'flex-end',
+        }}>
+          <div style={{
+            width: '100%',
+            maxHeight: '85vh',
+            background: th.bg,
+            borderRadius: '16px 16px 0 0',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+          }}>
+            <TripSheet
+              driver={selectedDriver}
+              onClose={() => setShowTripSheet(false)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -158,9 +158,53 @@ export default function HomeScreen() {
         ))}
       </div>
 
+      {/* Screens Grid - ShortCuts */}
+      <div style={{ padding: '16px 16px 0' }}>
+        <p style={{ fontSize: 12, fontWeight: 700, color: th.sub, textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 10px' }}>
+          الشاشات المتاحة
+        </p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 16 }}>
+          {availableScreens.map(screen => (
+            <button
+              key={screen.screen}
+              type="button"
+              onClick={() => navigate(screen.screen)}
+              style={{
+                background: th.card,
+                border: `1px solid ${th.border}`,
+                borderRadius: 12,
+                padding: '16px 12px',
+                cursor: 'pointer',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                fontFamily: 'inherit',
+                textAlign: 'center',
+                transition: 'all 0.2s',
+              }}
+              onMouseEnter={(e) => {
+                const elem = e.currentTarget as HTMLElement
+                elem.style.background = th.border
+                elem.style.transform = 'scale(1.05)'
+              }}
+              onMouseLeave={(e) => {
+                const elem = e.currentTarget as HTMLElement
+                elem.style.background = th.card
+                elem.style.transform = 'scale(1)'
+              }}
+            >
+              <span style={{ fontSize: 24 }}>{screen.icon}</span>
+              <span style={{ fontSize: 12, fontWeight: 600, color: th.text }}>{screen.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Manager Quick Actions */}
       {isManager && (
-        <div style={{ padding: '16px 16px 0' }}>
+        <div style={{ padding: '0 16px' }}>
           <p style={{ fontSize: 12, fontWeight: 700, color: th.sub, textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 10px' }}>
             إجراءات سريعة
           </p>
