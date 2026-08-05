@@ -1,8 +1,8 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { useApp, useSaveScrollPosition, useGetScrollPosition } from '../context'
-import { AppBar, StatusChip, SkeletonRow, useTheme, T, EmptyState, PullToRefresh, usePagination } from '../components'
+import { AppBar, StatusChip, SkeletonRow, useTheme, T, EmptyState, PullToRefresh, useInfiniteScroll } from '../components'
 import TripSheet from '../TripSheet'
-import { isViolator } from '../domain'
+import { isViolator, sortDriversAllFilter } from '../domain'
 import type { Driver, ViolationType } from '../data'
 
 type Filter = 'الكل' | 'نشط' | 'غير_نشط' | 'مخالف'
@@ -20,7 +20,7 @@ function DriverRow({ driver, isManager, onNahma, onViolation, highlighted }: {
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const canNahma = driver.status === 'نشط' && !driver.currentTrip && !driver.violation
-  const canViolate = driver.status === 'نشط' && !driver.violation
+  const canViolate = !driver.violation
 
   const clearLongPress = () => {
     if (longPressTimer.current) {
@@ -164,7 +164,7 @@ function DriverRow({ driver, isManager, onNahma, onViolation, highlighted }: {
 
 // ─── Main Screen ───────────────────────────────────────────
 export default function DriversScreen() {
-  const { state, dispatch, showSnackbar, isManager } = useApp()
+  const { state, dispatch, showSnackbar, isManager, scheduleDeferredViolation } = useApp()
   const th = useTheme()
   const [filter, setFilter] = useState<Filter>(() => {
     const p = state.screenParams.filter as Filter | undefined
@@ -173,6 +173,7 @@ export default function DriversScreen() {
   const [subFilter, setSubFilter] = useState<SubFilter>('الكل_نشط')
   const [search, setSearch] = useState('')
   const [showSearch, setShowSearch] = useState(false)
+  const [showSubFilters, setShowSubFilters] = useState(false)
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null)
   const [loading, setLoading] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -223,17 +224,16 @@ export default function DriversScreen() {
       list = list.filter(d => d.status === 'غير_نشط' && !d.violation)
     } else if (filter === 'مخالف') {
       list = list.filter(d => isViolator(d))
+    } else if (filter === 'الكل') {
+      list = sortDriversAllFilter(list)
     }
     return list
   }, [state.drivers, filter, subFilter, search])
 
-  const { paginatedItems, page, setPage, totalPages, hasNextPage, totalItems } = usePagination(filtered, 20)
+  const { visibleItems, totalItems, hasMore } = useInfiniteScroll(filtered, 20, scrollRef)
 
   const handleViolation = (driver: Driver, vType: ViolationType) => {
-    dispatch({ type: 'ADD_VIOLATION', driverId: driver.id, vType })
-    showSnackbar(`تم تسجيل مخالفة (${vType}) للسائق ${driver.ownerName}`, () => {
-      dispatch({ type: 'UNDO_VIOLATION_BY_DRIVER', driverId: driver.id })
-    })
+    scheduleDeferredViolation(driver.id, vType, driver.ownerName)
   }
 
   return (
@@ -243,6 +243,18 @@ export default function DriversScreen() {
         title="كشف البوابير"
         rightSlot={
           <div style={{ display: 'flex', gap: 6 }}>
+            <button
+              type="button"
+              onClick={() => setShowSubFilters(!showSubFilters)}
+              style={{
+                background: showSubFilters || filter === 'نشط' ? 'rgba(255,255,255,0.15)' : 'none',
+                border: 'none', color: '#CBD5E1', cursor: 'pointer', fontSize: 18, padding: 4,
+                borderRadius: 6,
+              }}
+              title="فلتر"
+            >
+              🎚
+            </button>
             <button onClick={() => setShowSearch(!showSearch)}
               style={{ background: 'none', border: 'none', color: '#CBD5E1', cursor: 'pointer', fontSize: 18, padding: 4 }}>🔍</button>
           </div>
@@ -267,11 +279,11 @@ export default function DriversScreen() {
         </div>
       )}
 
-      {/* Filters */}
+      {/* Filters — الصف الأول دائماً مرئي (§4.1) */}
       <div style={{ background: th.card, borderBottom: `1px solid ${th.border}`, flexShrink: 0 }}>
         <div style={{ display: 'flex', gap: 8, padding: '10px 16px', overflowX: 'auto' }}>
           {(['الكل', 'نشط', 'غير_نشط', 'مخالف'] as Filter[]).map(f => (
-            <button key={f} onClick={() => setFilter(f)}
+            <button key={f} onClick={() => { setFilter(f); if (f === 'نشط') setShowSubFilters(true) }}
               style={{
                 padding: '6px 16px', borderRadius: 99, border: 'none', whiteSpace: 'nowrap',
                 background: filter === f ? T.primary : (th.dark ? '#1E2D40' : '#F1F5F9'),
@@ -282,9 +294,9 @@ export default function DriversScreen() {
             </button>
           ))}
         </div>
-        {filter === 'نشط' && (
+        {filter === 'نشط' && showSubFilters && (
           <div style={{ display: 'flex', gap: 6, padding: '0 16px 10px' }}>
-            {([['الكل_نشط', 'الكل'], ['جاهز', 'جاهز'], ['لديه_نهمة', 'لديه نهمة']] as [SubFilter, string][]).map(([val, label]) => (
+            {([['الكل_نشط', 'الكل'], ['جاهز', 'جاهز للنهمة'], ['لديه_نهمة', 'لديه نهمة']] as [SubFilter, string][]).map(([val, label]) => (
               <button key={val} onClick={() => setSubFilter(val)}
                 style={{
                   padding: '4px 12px', borderRadius: 99, border: 'none',
@@ -297,10 +309,10 @@ export default function DriversScreen() {
         )}
       </div>
 
-      {/* Count and Pagination */}
+      {/* Count */}
       <div style={{ padding: '8px 16px', background: th.bg, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-        <span style={{ fontSize: 12, color: th.sub }}>{totalItems} بابور · صفحة {page} من {totalPages}</span>
-        <span style={{ fontSize: 11, color: th.muted }}>اضغط مطولاً للخيارات</span>
+        <span style={{ fontSize: 12, color: th.sub }}>{totalItems} بابور · يُعرض {visibleItems.length}</span>
+        <span style={{ fontSize: 11, color: th.muted }}>مرّر للأسفل للمزيد</span>
       </div>
 
       {/* List */}
@@ -311,7 +323,7 @@ export default function DriversScreen() {
           <EmptyState icon="📋" text="لا توجد نتائج" />
         ) : (
           <>
-            {paginatedItems.map(driver => (
+            {visibleItems.map(driver => (
               <DriverRow
                 key={driver.id}
                 driver={driver}
@@ -321,22 +333,9 @@ export default function DriversScreen() {
                 highlighted={state.lastHighlightedDriverId === driver.id}
               />
             ))}
-            {totalPages > 1 && (
-              <div style={{ padding: '16px', display: 'flex', gap: 8, justifyContent: 'center', background: th.bg, borderTop: `1px solid ${th.border}` }}>
-                <button onClick={() => setPage(p => p - 1)} disabled={page === 1}
-                  style={{
-                    padding: '8px 16px', borderRadius: 10, border: `1px solid ${th.border}`,
-                    background: page === 1 ? th.border : th.card,
-                    color: page === 1 ? th.muted : th.text,
-                    fontSize: 12, fontWeight: 700, cursor: page === 1 ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
-                  }}>السابق</button>
-                <button onClick={() => setPage(p => p + 1)} disabled={!hasNextPage}
-                  style={{
-                    padding: '8px 16px', borderRadius: 10, border: `1px solid ${th.border}`,
-                    background: !hasNextPage ? th.border : th.card,
-                    color: !hasNextPage ? th.muted : th.text,
-                    fontSize: 12, fontWeight: 700, cursor: !hasNextPage ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
-                  }}>التالي</button>
+            {hasMore && (
+              <div style={{ padding: '12px 16px', textAlign: 'center', background: th.bg, borderTop: `1px solid ${th.border}` }}>
+                <span style={{ fontSize: 11, color: th.muted }}>↓ مرّر للأسفل لتحميل المزيد ({visibleItems.length}/{totalItems})</span>
               </div>
             )}
           </>

@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react"
 import { useApp } from "./context"
-import { BottomSheet, useTheme, T } from "./components"
-import { YEMEN_PROVINCES, PAYLOAD_OPTIONS, DESTINATION_TYPES } from "./constants"
+import { BottomSheet, useTheme, T, SearchableField } from "./components"
+import { YEMEN_PROVINCES, PAYLOAD_OPTIONS, DESTINATION_TYPES, DESTINATION_SUGGESTIONS } from "./constants"
 import { suggestNextBreakNum, formatPayload } from "./domain"
 import type { Driver, Trip, TripType, DestinationType } from "./data"
 
@@ -208,83 +208,34 @@ export default function TripSheet({ driver, existingTrip, onClose }: Props) {
             </div>
           </div>
 
-          <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: th.sub, display: "block", marginBottom: 6 }}>
-              المحافظة
-            </label>
-            <select
-              value={province}
-              onChange={(e) => setProvince(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "10px 12px",
-                borderRadius: 10,
-                border: `1px solid ${th.border}`,
-                background: th.inputBg,
-                color: th.text,
-                fontSize: 14,
-                fontFamily: "inherit",
-              }}
-            >
-              {YEMEN_PROVINCES.map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
-            </select>
-          </div>
+          <SearchableField
+            label="المحافظة"
+            value={province}
+            onChange={setProvince}
+            options={[...YEMEN_PROVINCES]}
+            placeholder="ابحث عن محافظة..."
+          />
 
-          <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: th.sub, display: "block", marginBottom: 6 }}>
-              نوع الوجهة
-            </label>
-            <div style={{ display: "flex", gap: 8 }}>
-              {DESTINATION_TYPES.map((dt) => (
-                <button
-                  key={dt}
-                  type="button"
-                  onClick={() => setDestinationType(dt)}
-                  style={{
-                    flex: 1,
-                    padding: "8px",
-                    borderRadius: 10,
-                    border: "none",
-                    background: destinationType === dt ? T.primary : th.inputBg,
-                    color: destinationType === dt ? "#fff" : th.text,
-                    fontSize: 12,
-                    cursor: "pointer",
-                    fontFamily: "inherit",
-                  }}
-                >
-                  {dt}
-                </button>
-              ))}
-            </div>
-          </div>
+          <SearchableField
+            label="نوع الوجهة"
+            value={destinationType}
+            onChange={(v) => {
+              if ((DESTINATION_TYPES as readonly string[]).includes(v)) {
+                setDestinationType(v as DestinationType)
+              }
+            }}
+            options={[...DESTINATION_TYPES]}
+            placeholder="ابحث عن نوع الوجهة (وكيل، فرع، تصدير)..."
+          />
 
-          <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: th.sub, display: "block", marginBottom: 6 }}>
-              الوجهة
-            </label>
-            <input
-              value={destination}
-              onChange={(e) => setDestination(e.target.value)}
-              placeholder="المقصد"
-              style={{
-                width: "100%",
-                padding: "10px 12px",
-                borderRadius: 10,
-                border: `1px solid ${th.border}`,
-                background: th.inputBg,
-                color: th.text,
-                fontSize: 14,
-                outline: "none",
-                boxSizing: "border-box",
-                fontFamily: "inherit",
-                direction: "rtl",
-              }}
-            />
-          </div>
+          <SearchableField
+            label="الوجهة"
+            value={destination}
+            onChange={setDestination}
+            options={[...DESTINATION_SUGGESTIONS]}
+            placeholder="ابحث عن وجهة..."
+            allowCustom
+          />
 
           <div>
             <label style={{ fontSize: 12, fontWeight: 600, color: th.sub, display: "block", marginBottom: 6 }}>

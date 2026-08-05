@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-//  هيئة النقل — نظام البوابير | Data Types & Mock Data
+//  هيئة النقل — مكتب تعز — نظام البوابير | Data Types & Mock Data
 // ═══════════════════════════════════════════════════════════
 
 export type UserRole = "موظف_نهمة" | "مدير_مكتب" | "موظف_تسجيل"
@@ -10,10 +10,13 @@ export type StatusReason =
   | "مخالف_ح"
   | "بدون_ضمانة"
   | "ملغي"
+  | "معطل"
   | "قابل_للإضافة"
   | null
 export type DriverType = "س" | "ع"
 export type TripType = "فرزة" | "م1" | "م2" | "تعويض"
+/** نوع نهمة المسعف — «بدون» = لا تُنشأ نهمة للمسعف */
+export type RescuerTripType = TripType | "بدون"
 export type ViolationType = "ت" | "ح"
 export type TripStatus = "مسودة" | "مؤكدة_مبدئياً" | "معلقة" | "مكتملة" | "ملغاة"
 export type DestinationType = "وكيل" | "فرع" | "تصدير"
@@ -43,6 +46,16 @@ export interface Guarantor {
   suspended?: boolean
   suspendedForViolatorId?: number
   guaranteeImage?: string
+  /** السائق في الكشف الذي يمثّل الضامن */
+  sourceDriverId?: number
+}
+
+export interface PreTripSnapshot {
+  currentTrip: TripType | null
+  compensationBalance: number
+  status: DriverStatus
+  statusReason: StatusReason
+  seq: number
 }
 
 export interface Trip {
@@ -58,6 +71,8 @@ export interface Trip {
   createdAt: string
   completedAt?: string
   compensationAmount?: number
+  preTripSnapshot?: PreTripSnapshot
+  dismissedFromBreakdown?: boolean
 }
 
 export interface ViolationUndoSnapshot {
@@ -91,7 +106,7 @@ export interface Breakdown {
   action?: "إلغاء_النهمة" | "إبقاء_النهمة"
   rescuerId?: number
   rescuerName?: string
-  rescuerTripType?: TripType
+  rescuerTripType?: RescuerTripType
   breakNum?: string
   compensation?: number
   compensationGiven?: number
@@ -102,7 +117,7 @@ export interface Breakdown {
 export interface Notification {
   id: number
   icon: string
-  type: "مخالفة" | "نهمة" | "استثناء" | "عطل" | "ضمانة" | "عام"
+  type: "مخالفة" | "نهمة" | "استثناء" | "عطل" | "ضمانة" | "تسجيل" | "عام"
   title: string
   message: string
   date: string

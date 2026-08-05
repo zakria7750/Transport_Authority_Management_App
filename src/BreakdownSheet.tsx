@@ -1,35 +1,84 @@
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { useApp } from "./context"
-import { BottomSheet, useTheme, T } from "./components"
-import { suggestNextBreakNum } from "./domain"
-import type { Trip, TripType } from "./data"
+import { BottomSheet, useTheme, T, SearchableRosterField } from "./components"
+import { suggestNextBreakNum, eligibleRescueDrivers, matchesNameOrPlate } from "./domain"
+import type { Trip, Breakdown } from "./data"
+import type { RescuerTripType } from "./data"
 
 type Props = {
   trip: Trip
+  breakdown?: Breakdown
   onClose: () => void
 }
 
-export default function BreakdownSheet({ trip, onClose }: Props) {
+const RESCUER_TRIP_TYPES: RescuerTripType[] = ["م1", "م2", "فرزة", "بدون"]
+
+export default function BreakdownSheet({ trip, breakdown, onClose }: Props) {
   const { state, dispatch, showSnackbar } = useApp()
   const th = useTheme()
+  const isEdit = !!breakdown
   const driver = state.drivers.find((d) => d.id === trip.driverId)
 
-  const [location, setLocation] = useState<"قريب" | "بعيد">("قريب")
-  const [action, setAction] = useState<"إلغاء_النهمة" | "إبقاء_النهمة">("إبقاء_النهمة")
-  const [rescuerId, setRescuerId] = useState<number | "">("")
-  const [rescuerTripType, setRescuerTripType] = useState<TripType>("م2")
-  const [breakNum, setBreakNum] = useState(suggestNextBreakNum(state.trips))
-  const [compensationGiven, setCompensationGiven] = useState(500)
-
-  const rescuers = state.drivers.filter(
-    (d) => d.status === "نشط" && d.id !== trip.driverId && !d.currentTrip,
+  const [location, setLocation] = useState<"قريب" | "بعيد">(breakdown?.location ?? "قريب")
+  const [action, setAction] = useState<"إلغاء_النهمة" | "إبقاء_النهمة">(
+    breakdown?.action ?? "إبقاء_النهمة",
   )
+  const [rescuerSearch, setRescuerSearch] = useState("")
+  const [rescuerLabel, setRescuerLabel] = useState(
+    breakdown?.rescuerName && breakdown.rescuerId
+      ? (() => {
+          const r = state.drivers.find((d) => d.id === breakdown.rescuerId)
+          return r ? `${r.ownerName} · ${r.plate}` : breakdown.rescuerName
+        })()
+      : "",
+  )
+  const [rescuerTripType, setRescuerTripType] = useState<RescuerTripType>(
+    breakdown?.rescuerTripType ?? "م2",
+  )
+  const [breakNum, setBreakNum] = useState(breakdown?.breakNum ?? suggestNextBreakNum(state.trips))
+  const [compensationGiven, setCompensationGiven] = useState(breakdown?.compensationGiven ?? 500)
+
+  const rescuers = useMemo(() => {
+    const base = eligibleRescueDrivers(state.drivers, trip.driverId)
+    if (breakdown?.rescuerId && !base.some((d) => d.id === breakdown.rescuerId)) {
+      const existing = state.drivers.find((d) => d.id === breakdown.rescuerId)
+      if (existing) return [...base, existing]
+    }
+    return base
+  }, [state.drivers, trip.driverId, breakdown?.rescuerId])
+
+  const selectedRescuer = useMemo(() => {
+    if (!rescuerLabel) return undefined
+    return state.drivers.find((r) => `${r.ownerName} · ${r.plate}` === rescuerLabel)
+  }, [state.drivers, rescuerLabel])
 
   const submit = () => {
-    if (location === "بعيد" && !rescuerId) {
+    if (location === "بعيد" && !selectedRescuer) {
       showSnackbar("يرجى اختيار المسعف ⚠️")
       return
     }
+
+    if (isEdit && breakdown) {
+      dispatch({
+        type: "UPDATE_BREAKDOWN",
+        breakdownId: breakdown.id,
+        patch: {
+          location,
+          ...(location === "قريب"
+            ? { action }
+            : {
+                rescuerId: selectedRescuer!.id,
+                rescuerTripType,
+                breakNum,
+                compensationGiven,
+              }),
+        },
+      })
+      showSnackbar(`تم تحديث عطل ${driver?.ownerName ?? ""} ✅`)
+      onClose()
+      return
+    }
+
     dispatch({
       type: "ADD_BREAKDOWN",
       breakdown: {
@@ -38,7 +87,7 @@ export default function BreakdownSheet({ trip, onClose }: Props) {
         ...(location === "قريب"
           ? { action }
           : {
-              rescuerId: Number(rescuerId),
+              rescuerId: selectedRescuer!.id,
               rescuerTripType,
               breakNum,
               compensationGiven,
@@ -51,7 +100,7 @@ export default function BreakdownSheet({ trip, onClose }: Props) {
 
   return (
     <BottomSheet
-      title="تسجيل عطل"
+      title={isEdit ? "تعديل العطل" : "تسجيل عطل"}
       subtitle={`${driver?.ownerName ?? ""} · ${trip.type} · ${trip.breakNum}`}
       onClose={onClose}
     >
@@ -114,44 +163,32 @@ export default function BreakdownSheet({ trip, onClose }: Props) {
         </>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 16 }}>
-          <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: th.sub, display: "block", marginBottom: 6 }}>
-              المسعف
-            </label>
-            <select
-              value={rescuerId}
-              onChange={(e) => setRescuerId(e.target.value ? Number(e.target.value) : "")}
-              style={{
-                width: "100%",
-                padding: "10px 12px",
-                borderRadius: 10,
-                border: `1px solid ${th.border}`,
-                background: th.inputBg,
-                color: th.text,
-                fontSize: 14,
-                fontFamily: "inherit",
-              }}
-            >
-              <option value="">اختر مسعفاً...</option>
-              {rescuers.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.ownerName} · {r.plate}
-                </option>
-              ))}
-            </select>
-          </div>
+          <SearchableRosterField
+            label="المسعف"
+            query={rescuerSearch}
+            onQueryChange={setRescuerSearch}
+            selectedLabel={rescuerLabel || undefined}
+            items={rescuers}
+            getKey={(d) => d.id}
+            formatLabel={(d) => d.ownerName}
+            formatSubLabel={(d) => `${d.plate} · ${d.status === "نشط" ? "نشط" : "غير نشط"}`}
+            filterItem={(d, q) => matchesNameOrPlate(q, d.ownerName, d.plate)}
+            onPick={(d) => setRescuerLabel(`${d.ownerName} · ${d.plate}`)}
+            placeholder="ابحث بالاسم أو اللوحة..."
+            emptyHint="لا يوجد مسعف مطابق في الكشف"
+          />
           <div>
             <label style={{ fontSize: 12, fontWeight: 600, color: th.sub, display: "block", marginBottom: 6 }}>
               نوع نهمة المسعف
             </label>
-            <div style={{ display: "flex", gap: 8 }}>
-              {(["م1", "م2", "فرزة"] as TripType[]).map((t) => (
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {RESCUER_TRIP_TYPES.map((t) => (
                 <button
                   key={t}
                   type="button"
                   onClick={() => setRescuerTripType(t)}
                   style={{
-                    flex: 1,
+                    flex: t === "بدون" ? "1 1 100%" : 1,
                     padding: "8px",
                     borderRadius: 10,
                     border: "none",
@@ -162,7 +199,7 @@ export default function BreakdownSheet({ trip, onClose }: Props) {
                     fontFamily: "inherit",
                   }}
                 >
-                  {t}
+                  {t === "بدون" ? "بدون (لا تُنشأ نهمة)" : t}
                 </button>
               ))}
             </div>
@@ -245,7 +282,7 @@ export default function BreakdownSheet({ trip, onClose }: Props) {
             fontFamily: "inherit",
           }}
         >
-          تأكيد التسجيل ✓
+          {isEdit ? "حفظ التعديل ✓" : "تأكيد التسجيل ✓"}
         </button>
       </div>
     </BottomSheet>

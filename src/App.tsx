@@ -1,5 +1,6 @@
 import { AppProvider, useApp } from './context'
 import { BottomNav, Snackbar } from './components'
+import { APP_FULL_BRAND } from './components'
 
 // Screens
 import LoginScreen from './screens/Login'
@@ -7,6 +8,7 @@ import HomeScreen from './screens/Home'
 import DriversScreen from './screens/Drivers'
 import DriverProfileScreen from './screens/DriverProfile'
 import PendingTripsScreen from './screens/PendingTrips'
+import AllTripsScreen from './screens/AllTrips'
 import AttendanceScreen from './screens/Attendance'
 import RegistrationScreen from './screens/Registration'
 import {
@@ -109,7 +111,7 @@ function PhoneFrame({ children }: { children: React.ReactNode }) {
         color: 'rgba(148,163,184,0.3)', fontSize: 11, textAlign: 'center',
         fontFamily: 'Cairo, sans-serif', letterSpacing: 2,
       }}>
-        هيئة النقل · نظام البوابير
+        {APP_FULL_BRAND}
       </div>
     </div>
   )
@@ -118,7 +120,7 @@ function PhoneFrame({ children }: { children: React.ReactNode }) {
 // ─── Router ───────────────────────────────────────────────
 function Router() {
   const { state } = useApp()
-  const { screen } = state
+  const { screen, navDirection } = state
 
   const SCREEN_MAP: Record<string, React.ComponentType> = {
     login: LoginScreen,
@@ -126,6 +128,7 @@ function Router() {
     drivers: DriversScreen,
     'driver-profile': DriverProfileScreen,
     'pending-trips': PendingTripsScreen,
+    'all-trips': AllTripsScreen,
     attendance: AttendanceScreen,
     registration: RegistrationScreen,
     violations: ViolationsScreen,
@@ -141,13 +144,21 @@ function Router() {
 
   const ActiveScreen = SCREEN_MAP[screen] ?? HomeScreen
 
+  const slideAnim = navDirection === 'back' ? 'slideInBack 0.3s ease' : 'slideInForward 0.3s ease'
+
   return (
     <div style={{
       flex: 1, display: 'flex', flexDirection: 'column',
       overflow: 'hidden', position: 'relative',
-      animation: 'fadeIn 0.2s ease',
     }}>
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
+      <div
+        key={screen}
+        style={{
+          flex: 1, display: 'flex', flexDirection: 'column',
+          overflow: 'hidden', position: 'relative',
+          animation: slideAnim,
+        }}
+      >
         <ActiveScreen />
         <Snackbar />
       </div>
@@ -168,6 +179,14 @@ export default function App() {
         @keyframes slideDown {
           from { transform: translateY(-100%); opacity: 0; }
           to { transform: translateY(0); opacity: 1; }
+        }
+        @keyframes slideInForward {
+          from { transform: translateX(-24px); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes slideInBack {
+          from { transform: translateX(24px); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
         }
         @keyframes fadeIn {
           from { opacity: 0; }

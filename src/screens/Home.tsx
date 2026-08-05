@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useApp, useSaveScrollPosition, useGetScrollPosition } from '../context'
-import { AppBar, useTheme, T, PullToRefresh } from '../components'
+import { AppBar, useTheme, T, PullToRefresh, AppBarStandardSlots, APP_FULL_BRAND } from '../components'
 import { isPendingTripStatus, violatorCount } from '../domain'
 import type { Screen } from '../context'
 
@@ -51,29 +51,19 @@ export default function HomeScreen() {
         ? 'موظف تسجيل'
         : 'موظف نهمة'
 
+  const { rightSlot, leftSlot } = AppBarStandardSlots({
+    onQuickAdd: () => setShowQuickMenu(!showQuickMenu),
+  })
+
   return (
     <PullToRefresh onRefresh={handleRefresh} containerRef={scrollRef}>
       <div ref={scrollRef} onScroll={handleScroll} style={{ flex: 1, overflowY: 'auto', background: th.bg, display: 'flex', flexDirection: 'column' }}>
         <AppBar
         title="الرئيسية"
-        rightSlot={
-          <div style={{ display: 'flex', gap: 6 }}>
-            <button onClick={() => navigate('search')}
-              style={{ background: 'none', border: 'none', color: '#CBD5E1', cursor: 'pointer', fontSize: 18, padding: 4 }}>🔍</button>
-            <button onClick={() => navigate('settings')}
-              style={{ background: 'none', border: 'none', color: '#CBD5E1', cursor: 'pointer', fontSize: 18, padding: 4 }}>⚙️</button>
-          </div>
-        }
+        rightSlot={rightSlot}
         leftSlot={
           <div style={{ position: 'relative' }}>
-            <button onClick={() => setShowQuickMenu(!showQuickMenu)}
-              style={{
-                width: 32, height: 32, borderRadius: 8,
-                background: T.primaryLight, border: 'none',
-                color: '#fff', fontSize: 20, cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontWeight: 300,
-              }}>+</button>
+            {leftSlot}
             {showQuickMenu && (
               <div style={{
                 position: 'absolute', left: 0, top: 38, zIndex: 100,
@@ -117,7 +107,7 @@ export default function HomeScreen() {
         <p style={{ color: '#94A3B8', fontSize: 13, margin: '0 0 4px' }}>مرحباً،</p>
         <h2 style={{ color: '#F1F5F9', fontSize: 20, fontWeight: 800, margin: '0 0 4px' }}>{state.user?.name}</h2>
         <p style={{ color: '#64748B', fontSize: 12, margin: 0 }}>
-          {roleLabel} ·&nbsp;
+          {roleLabel} · {APP_FULL_BRAND} ·&nbsp;
           {new Date().toLocaleDateString('ar-SA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
         </p>
       </div>
@@ -285,6 +275,7 @@ export default function HomeScreen() {
             </div>
           ))}
         </div>
+        <p style={{ margin: '12px 0 0', fontSize: 10, color: th.muted, textAlign: 'center' }}>{APP_FULL_BRAND}</p>
       </div>
       </div>
     </PullToRefresh>

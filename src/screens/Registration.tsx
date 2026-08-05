@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react"
 import { useApp } from "../context"
-import { AppBar, useTheme, T, Input, Btn, EmptyState } from "../components"
+import { AppBar, useTheme, T, Input, Btn, EmptyState, SearchableRosterField } from "../components"
 import { ADDABLE_STATUS_REASONS } from "../constants"
-import { countActiveGuarantors } from "../domain"
+import { countActiveGuarantors, eligibleGuarantorDrivers, canBeGuarantor, guarantorFromRosterDriver, matchesNameOrPlate } from "../domain"
 import { nextId } from "../domain"
 import type { Driver, DriverType, DriverImages, Guarantor } from "../data"
 
@@ -62,9 +62,29 @@ export default function RegistrationScreen() {
     setImages((prev) => ({ ...prev, [key]: data }))
   }
 
+  const guarantorCandidates = eligibleGuarantorDrivers(state.drivers)
+
+  const addGuarantorFromDriver = (driver: Driver) => {
+    if (!canBeGuarantor(driver)) {
+      showSnackbar("لا يمكن للمخالف أن يكون ضامناً ⚠️")
+      return
+    }
+    if (guarantors.some((g) => g.name === driver.ownerName)) {
+      showSnackbar("الضامن مضاف مسبقاً")
+      return
+    }
+    setGuarantors((p) => [...p, guarantorFromRosterDriver(driver, nextId())])
+    setGuarantorSearch("")
+    showSnackbar(`تم إضافة ${driver.ownerName} كضامن ✅`)
+  }
+
   const handleRegister = async () => {
     if (!form.ownerName || !form.plate || !form.phone) {
       showSnackbar("يرجى تعبئة جميع الحقول المطلوبة ⚠️")
+      return
+    }
+    if (!images.frontId || !images.backId) {
+      showSnackbar("يرجى إرفاق صورة البطاقة (أمام وخلف) ⚠️")
       return
     }
     setSaving(true)
@@ -104,10 +124,8 @@ export default function RegistrationScreen() {
       setGuarantorDialog({ driverId: driver.id, name: driver.ownerName })
       return
     }
-    dispatch({ type: "ACTIVATE_DRIVER", driverId: driver.id })
-    showSnackbar(`تم إضافة ${driver.ownerName} للكشف النشط ✅`, () => {
-      dispatch({ type: "NAVIGATE", screen: "registration", params: { tab: "add" } })
-    })
+    dispatch({ type: "RE_REGISTER_DRIVER", driverId: driver.id })
+    showSnackbar(`تم إعادة تسجيل ${driver.ownerName} في الكشف النشط ✅`)
   }
 
   const addGuarantorToDriver = () => {
@@ -238,11 +256,12 @@ export default function RegistrationScreen() {
               icon="📞"
             />
             <Input
-              label="الفاصل"
+              label="الفاصل (رقم) *"
               value={form.separator}
-              onChange={(e) => setForm((p) => ({ ...p, separator: e.target.value }))}
-              placeholder="الحرف الفاصل"
-              icon="🔤"
+              onChange={(e) => setForm((p) => ({ ...p, separator: e.target.value.replace(/[^\d\u0660-\u0669]/g, "") }))}
+              placeholder="مثال: 12"
+              icon="🔢"
+              inputMode="numeric"
             />
 
             <div
@@ -256,7 +275,7 @@ export default function RegistrationScreen() {
                 gap: 10,
               }}
             >
-              <span style={{ fontSize: 13, fontWeight: 700, color: th.text }}>📷 المرفقات</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: th.text }}>📷 المرفقات (إلزامي: أمام + خلف)</span>
               {imageFields.map(({ key, label }) => (
                 <label
                   key={key}
@@ -266,7 +285,7 @@ export default function RegistrationScreen() {
                     justifyContent: "space-between",
                     padding: "8px 12px",
                     borderRadius: 10,
-                    border: `1px dashed ${th.border}`,
+                    border: `1px dashed ${(key === "frontId" || key === "backId") && !images[key] ? T.danger : th.border}`,
                     cursor: "pointer",
                     fontSize: 12,
                     color: th.sub,
@@ -312,54 +331,22 @@ export default function RegistrationScreen() {
                   {guarantors.length}/{state.minGuarantors} مطلوب
                 </span>
               </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <input
-                  value={guarantorSearch}
-                  onChange={(e) => setGuarantorSearch(e.target.value)}
-                  placeholder="ابحث عن ضامن بالاسم..."
-                  style={{
-                    flex: 1,
-                    padding: "10px 12px",
-                    borderRadius: 10,
-                    border: `1px solid ${th.border}`,
-                    background: th.inputBg,
-                    color: th.text,
-                    fontSize: 13,
-                    outline: "none",
-                    fontFamily: "inherit",
-                    direction: "rtl",
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!guarantorSearch.trim()) return
-                    setGuarantors((p) => [
-                      ...p,
-                      {
-                        id: nextId(),
-                        name: guarantorSearch,
-                        phone: "05" + Math.floor(10000000 + Math.random() * 90000000),
-                        nationalId: "10" + Math.floor(10000000 + Math.random() * 90000000),
-                      },
-                    ])
-                    setGuarantorSearch("")
-                  }}
-                  style={{
-                    padding: "10px 16px",
-                    borderRadius: 10,
-                    border: "none",
-                    background: T.primary,
-                    color: "#fff",
-                    fontSize: 13,
-                    fontWeight: 700,
-                    cursor: "pointer",
-                    fontFamily: "inherit",
-                  }}
-                >
-                  + إضافة
-                </button>
-              </div>
+              <SearchableRosterField
+                label="بحث ضامن من الكشف"
+                query={guarantorSearch}
+                onQueryChange={setGuarantorSearch}
+                items={guarantorCandidates.filter(canBeGuarantor).filter(
+                  (d) => !guarantors.some((g) => g.name === d.ownerName),
+                )}
+                getKey={(d) => d.id}
+                formatLabel={(d) => d.ownerName}
+                formatSubLabel={(d) => `${d.plate} · ${d.status === "نشط" ? "نشط" : "غير نشط"}`}
+                filterItem={(d, q) => matchesNameOrPlate(q, d.ownerName, d.plate)}
+                onAction={addGuarantorFromDriver}
+                actionLabel="إضافة"
+                placeholder="ابحث بالاسم أو اللوحة..."
+                emptyHint="لا يوجد ضامن مطابق — جرّب اسم أو لوحة أخرى"
+              />
               {guarantors.map((g) => (
                 <div
                   key={g.id}

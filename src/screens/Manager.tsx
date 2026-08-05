@@ -1,26 +1,34 @@
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { useApp } from "../context"
-import { AppBar, useTheme, T, Card, EmptyState, SkeletonRow } from "../components"
+import { AppBar, useTheme, T, Card, EmptyState, SkeletonRow, SearchableField, SearchableRosterField, APP_FULL_BRAND } from "../components"
 import BreakdownSheet from "../BreakdownSheet"
-import { countActiveGuarantors } from "../domain"
-import type { ViolationType, UserRole, Trip, Guarantor } from "../data"
+import {
+  countActiveGuarantors,
+  canBeGuarantor,
+  canPersonGuarantee,
+  guarantorFromRosterDriver,
+  matchesNameOrPlate,
+  eligibleGuarantorDrivers,
+} from "../domain"
+import type { ViolationType, UserRole, Trip, Guarantor, Driver } from "../data"
 import { nextId } from "../domain"
 
 // ══════════════════════════════════════════════════════════
 //  VIOLATIONS SCREEN
 // ══════════════════════════════════════════════════════════
 export function ViolationsScreen() {
-  const { state, dispatch, showSnackbar } = useApp()
+  const { state, dispatch, showSnackbar, scheduleDeferredViolation } = useApp()
   const th = useTheme()
   const [filterRaised, setFilterRaised] = useState<"all" | "open" | "raised">("all")
   const [showAdd, setShowAdd] = useState(false)
-  const [addDriverId, setAddDriverId] = useState<number | "">("")
+  const [addDriverLabel, setAddDriverLabel] = useState("")
   const [addType, setAddType] = useState<ViolationType>("ت")
   const [loading, setLoading] = useState(false)
+  const [raiseDialog, setRaiseDialog] = useState<{ id: number; name: string } | null>(null)
+  const [raiseReason, setRaiseReason] = useState("")
 
-  const eligibleDrivers = state.drivers.filter(
-    (d) => d.status === "نشط" && !d.violation,
-  )
+  const eligibleDrivers = state.drivers.filter((d) => !d.violation)
+  const driverOptions = eligibleDrivers.map((d) => `${d.ownerName} · ${d.plate} · ${d.status === "نشط" ? "نشط" : "غير نشط"}`)
 
   const filtered = state.violations.filter((v) => {
     if (filterRaised === "open") return !v.raised
@@ -28,21 +36,19 @@ export function ViolationsScreen() {
     return true
   })
 
-  const raise = (id: number, driverName: string) => {
-    dispatch({ type: "RAISE_VIOLATION", violationId: id })
+  const raise = (id: number, driverName: string, reason?: string) => {
+    dispatch({ type: "RAISE_VIOLATION", violationId: id, reason })
     showSnackbar(`تم رفع مخالفة السائق ${driverName} — أصبح قابل للإضافة ✅`)
+    setRaiseDialog(null)
+    setRaiseReason("")
   }
 
   const handleAdd = () => {
-    if (!addDriverId) return
-    const driver = state.drivers.find((d) => d.id === addDriverId)
+    const driver = eligibleDrivers.find((d) => `${d.ownerName} · ${d.plate} · ${d.status === "نشط" ? "نشط" : "غير نشط"}` === addDriverLabel)
     if (!driver) return
-    dispatch({ type: "ADD_VIOLATION", driverId: addDriverId, vType: addType })
-    showSnackbar(`تم تسجيل مخالفة (${addType}) للسائق ${driver.ownerName}`, () => {
-      dispatch({ type: "UNDO_VIOLATION_BY_DRIVER", driverId: addDriverId })
-    })
+    scheduleDeferredViolation(driver.id, addType, driver.ownerName)
     setShowAdd(false)
-    setAddDriverId("")
+    setAddDriverLabel("")
   }
 
   const toggleType = (vId: number, current: ViolationType) => {
@@ -60,7 +66,7 @@ export function ViolationsScreen() {
     <div style={{ flex: 1, display: "flex", flexDirection: "column", background: th.bg, overflow: "hidden", position: "relative" }}>
       <AppBar
         title="المخالفات"
-        back="more"
+        back="home"
         leftSlot={
           <button
             type="button"
@@ -159,7 +165,7 @@ export function ViolationsScreen() {
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     <button
                       type="button"
-                      onClick={() => raise(v.id, v.driverName)}
+                      onClick={() => setRaiseDialog({ id: v.id, name: v.driverName })}
                       style={{
                         flex: 1,
                         minWidth: 100,
@@ -236,27 +242,14 @@ export function ViolationsScreen() {
             }}
           >
             <h3 style={{ margin: "0 0 16px", color: th.text, fontSize: 16 }}>إضافة مخالفة</h3>
-            <label style={{ fontSize: 12, color: th.sub, display: "block", marginBottom: 6 }}>السائق</label>
-            <select
-              value={addDriverId}
-              onChange={(e) => setAddDriverId(e.target.value ? Number(e.target.value) : "")}
-              style={{
-                width: "100%",
-                padding: "10px 12px",
-                borderRadius: 10,
-                border: `1px solid ${th.border}`,
-                marginBottom: 12,
-                fontFamily: "inherit",
-                boxSizing: "border-box",
-              }}
-            >
-              <option value="">اختر سائقاً نشطاً...</option>
-              {eligibleDrivers.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.ownerName} · {d.plate}
-                </option>
-              ))}
-            </select>
+            <SearchableField
+              label="السائق (نشط أو غير نشط)"
+              value={addDriverLabel}
+              onChange={setAddDriverLabel}
+              options={driverOptions}
+              placeholder="ابحث بالاسم أو اللوحة..."
+            />
+            <div style={{ marginBottom: 16 }} />
             <label style={{ fontSize: 12, color: th.sub, display: "block", marginBottom: 6 }}>نوع المخالفة</label>
             <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
               {(["ت", "ح"] as ViolationType[]).map((t) => (
@@ -299,20 +292,70 @@ export function ViolationsScreen() {
               <button
                 type="button"
                 onClick={handleAdd}
-                disabled={!addDriverId}
+                disabled={!addDriverLabel}
                 style={{
                   flex: 2,
                   padding: "13px",
                   borderRadius: 12,
                   border: "none",
-                  background: addDriverId ? T.danger : th.border,
+                  background: addDriverLabel ? T.danger : th.border,
                   color: "#fff",
                   fontWeight: 700,
-                  cursor: addDriverId ? "pointer" : "not-allowed",
+                  cursor: addDriverLabel ? "pointer" : "not-allowed",
                   fontFamily: "inherit",
                 }}
               >
                 تأكيد ✓
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {raiseDialog && (
+        <div style={{ position: "absolute", inset: 0, zIndex: 160 }}>
+          <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.5)" }} onClick={() => setRaiseDialog(null)} />
+          <div
+            style={{
+              position: "absolute",
+              bottom: 0,
+              left: 0,
+              right: 0,
+              background: th.card,
+              borderRadius: "20px 20px 0 0",
+              padding: "24px 20px 32px",
+            }}
+          >
+            <h3 style={{ margin: "0 0 8px", color: th.text, fontSize: 16 }}>رفع مخالفة — {raiseDialog.name}</h3>
+            <p style={{ margin: "0 0 12px", fontSize: 12, color: th.sub }}>سبب الرفع (اختياري)</p>
+            <input
+              value={raiseReason}
+              onChange={(e) => setRaiseReason(e.target.value)}
+              placeholder="مثال: انتهت مدة المخالفة..."
+              style={{
+                width: "100%",
+                padding: "12px",
+                borderRadius: 10,
+                border: `1px solid ${th.border}`,
+                marginBottom: 16,
+                fontFamily: "inherit",
+                boxSizing: "border-box",
+              }}
+            />
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                type="button"
+                onClick={() => setRaiseDialog(null)}
+                style={{ flex: 1, padding: "13px", borderRadius: 12, border: `1px solid ${th.border}`, background: "none", cursor: "pointer", fontFamily: "inherit" }}
+              >
+                إلغاء
+              </button>
+              <button
+                type="button"
+                onClick={() => raise(raiseDialog.id, raiseDialog.name, raiseReason)}
+                style={{ flex: 2, padding: "13px", borderRadius: 12, border: "none", background: T.success, color: "#fff", fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}
+              >
+                ✅ تأكيد الرفع
               </button>
             </div>
           </div>
@@ -325,6 +368,80 @@ export function ViolationsScreen() {
 // ══════════════════════════════════════════════════════════
 //  GUARANTEES SCREEN
 // ══════════════════════════════════════════════════════════
+
+type GuarantorGroup = {
+  nationalId: string
+  name: string
+  phone: string
+  sourceDriverId?: number
+  entries: { driverId: number; driverName: string; plate: string; guarantorId: number }[]
+}
+
+function buildGuarantorGroups(drivers: Driver[]): GuarantorGroup[] {
+  const map = new Map<string, GuarantorGroup>()
+  for (const d of drivers) {
+    for (const g of d.guarantors) {
+      if (g.status !== "فعال" || g.suspended) continue
+      let group = map.get(g.nationalId)
+      if (!group) {
+        group = {
+          nationalId: g.nationalId,
+          name: g.name,
+          phone: g.phone,
+          sourceDriverId: g.sourceDriverId,
+          entries: [],
+        }
+        map.set(g.nationalId, group)
+      }
+      group.entries.push({
+        driverId: d.id,
+        driverName: d.ownerName,
+        plate: d.plate,
+        guarantorId: g.id,
+      })
+    }
+  }
+  return [...map.values()].sort((a, b) => a.name.localeCompare(b.name, "ar"))
+}
+
+function ActionIconBtn({
+  icon,
+  title,
+  color,
+  bg,
+  onClick,
+}: {
+  icon: string
+  title: string
+  color: string
+  bg: string
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      title={title}
+      onClick={onClick}
+      style={{
+        width: 34,
+        height: 34,
+        borderRadius: 10,
+        border: "none",
+        background: bg,
+        color,
+        fontSize: 15,
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        flexShrink: 0,
+      }}
+    >
+      {icon}
+    </button>
+  )
+}
+
 export function GuaranteesScreen() {
   const { state, dispatch, showSnackbar } = useApp()
   const th = useTheme()
@@ -332,41 +449,117 @@ export function GuaranteesScreen() {
   const [guaranteeFilter, setGuaranteeFilter] = useState<"all" | "complete" | "incomplete">("all")
   const [editDriverId, setEditDriverId] = useState<number | null>(null)
   const [editGuarantors, setEditGuarantors] = useState<Guarantor[]>([])
+  const [addGuarantorSearch, setAddGuarantorSearch] = useState("")
+  const [editGuarantorGroup, setEditGuarantorGroup] = useState<GuarantorGroup | null>(null)
+  const [editGuaranteedIds, setEditGuaranteedIds] = useState<number[]>([])
+  const [addGuaranteedSearch, setAddGuaranteedSearch] = useState("")
 
-  const driversWithGuarantors = state.drivers.filter((d) => {
-    if (d.guarantors.length === 0 && guaranteeFilter !== "all") return false
-    const count = countActiveGuarantors(d)
-    if (guaranteeFilter === "complete") return count >= state.minGuarantors
-    if (guaranteeFilter === "incomplete") return count < state.minGuarantors
-    return d.guarantors.length > 0 || guaranteeFilter === "all"
-  })
-
-  const allGuarantors = state.drivers.flatMap((d) =>
-    d.guarantors.map((g) => ({ ...g, driverName: d.ownerName, driverId: d.id })),
+  const guarantorCandidates = useMemo(
+    () => eligibleGuarantorDrivers(state.drivers).filter(canBeGuarantor),
+    [state.drivers],
   )
 
-  const openEdit = (driverId: number) => {
+  const driversWithGuarantors = state.drivers.filter((d) => {
+    const activeGuarantors = d.guarantors.filter((g) => g.status === "فعال" && !g.suspended)
+    if (activeGuarantors.length === 0 && guaranteeFilter !== "all") return false
+    const count = countActiveGuarantors(d)
+    if (guaranteeFilter === "complete") return count >= state.minGuarantors
+    if (guaranteeFilter === "incomplete") return count < state.minGuarantors && activeGuarantors.length > 0
+    return activeGuarantors.length > 0 || guaranteeFilter === "all"
+  })
+
+  const guarantorGroups = useMemo(() => buildGuarantorGroups(state.drivers), [state.drivers])
+
+  const editDriver = editDriverId !== null ? state.drivers.find((d) => d.id === editDriverId) : undefined
+
+  const openGuaranteedEdit = (driverId: number) => {
     const driver = state.drivers.find((d) => d.id === driverId)
     if (!driver) return
     setEditDriverId(driverId)
-    setEditGuarantors(driver.guarantors.map((g) => ({ ...g })))
+    setEditGuarantors(
+      driver.guarantors.filter((g) => g.status === "فعال" && !g.suspended).map((g) => ({ ...g })),
+    )
+    setAddGuarantorSearch("")
   }
 
-  const saveGuarantors = () => {
-    if (editDriverId === null) return
-    dispatch({ type: "UPDATE_GUARANTORS", driverId: editDriverId, guarantors: editGuarantors })
-    showSnackbar("تم حفظ الضمانات ✅")
+  const saveGuaranteedEdit = () => {
+    if (editDriverId === null || !editDriver) return
+    const activeIds = new Set(editGuarantors.map((g) => g.id))
+    const historical = editDriver.guarantors.filter((g) => g.status === "منتهي")
+    const newlyEnded = editDriver.guarantors
+      .filter((g) => g.status === "فعال" && !activeIds.has(g.id))
+      .map((g) => ({ ...g, status: "منتهي" as const, suspended: false }))
+    dispatch({
+      type: "UPDATE_GUARANTORS",
+      driverId: editDriverId,
+      guarantors: [...historical, ...newlyEnded, ...editGuarantors],
+    })
+    showSnackbar(`تم حفظ ضامنين ${editDriver.ownerName} ✅`)
     setEditDriverId(null)
   }
 
+  const deleteGuaranteesForDriver = (driverId: number, name: string) => {
+    if (!window.confirm(`حذف جميع ضمانات ${name}؟`)) return
+    const driver = state.drivers.find((d) => d.id === driverId)
+    if (!driver) return
+    const ended = driver.guarantors
+      .filter((g) => g.status === "فعال")
+      .map((g) => ({ ...g, status: "منتهي" as const, suspended: false }))
+    const historical = driver.guarantors.filter((g) => g.status === "منتهي")
+    dispatch({ type: "UPDATE_GUARANTORS", driverId, guarantors: [...historical, ...ended] })
+    showSnackbar(`تم حذف جميع ضمانات ${name}`)
+  }
+
+  const addGuarantorToEdit = (source: Driver) => {
+    if (!canBeGuarantor(source)) {
+      showSnackbar("لا يمكن للمخالف أن يكون ضامناً ⚠️")
+      return
+    }
+    if (editGuarantors.some((g) => g.sourceDriverId === source.id || g.name === source.ownerName)) {
+      showSnackbar("الضامن مضاف مسبقاً")
+      return
+    }
+    setEditGuarantors((p) => [...p, guarantorFromRosterDriver(source, nextId())])
+    setAddGuarantorSearch("")
+    showSnackbar(`تمت إضافة ${source.ownerName} كضامن`)
+  }
+
+  const openGuarantorEdit = (group: GuarantorGroup) => {
+    setEditGuarantorGroup(group)
+    setEditGuaranteedIds(group.entries.map((e) => e.driverId))
+    setAddGuaranteedSearch("")
+  }
+
+  const saveGuarantorEdit = () => {
+    if (!editGuarantorGroup) return
+    const template = {
+      name: editGuarantorGroup.name,
+      phone: editGuarantorGroup.phone,
+      nationalId: editGuarantorGroup.nationalId,
+      sourceDriverId: editGuarantorGroup.sourceDriverId,
+    }
+    if (editGuaranteedIds.length > 0 && !canPersonGuarantee(state.drivers, template)) {
+      showSnackbar("لا يمكن للمخالف ضمان الآخرين ⚠️")
+      return
+    }
+    dispatch({
+      type: "SET_GUARANTOR_TARGETS",
+      template,
+      targetDriverIds: editGuaranteedIds,
+    })
+    showSnackbar(`تم حفظ مضمونين ${editGuarantorGroup.name} ✅`)
+    setEditGuarantorGroup(null)
+  }
+
   const cancelAllForGuarantor = (nationalId: string, name: string) => {
+    if (!window.confirm(`إلغاء ضمان ${name} لجميع المالكين المضمونين؟`)) return
     dispatch({ type: "CANCEL_GUARANTOR", guarantorNationalId: nationalId })
-    showSnackbar(`تم إلغاء جميع ضمانات ${name}`, () => {})
+    showSnackbar(`تم إلغاء جميع ضمانات ${name} لكل المالكين`)
   }
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", background: th.bg, overflow: "hidden", position: "relative" }}>
-      <AppBar title="الضمانات" back="more" />
+      <AppBar title="الضمانات" back="home" />
 
       <div
         style={{
@@ -382,7 +575,7 @@ export function GuaranteesScreen() {
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <button
             type="button"
-            onClick={() => dispatch({ type: "SET_MIN_GUARANTORS", min: Math.max(1, state.minGuarantors - 1) })}
+            onClick={() => dispatch({ type: "SET_MIN_GUARANTORS", min: Math.max(0, state.minGuarantors - 1) })}
             style={{
               width: 28,
               height: 28,
@@ -481,11 +674,12 @@ export function GuaranteesScreen() {
           ) : (
             driversWithGuarantors.map((driver) => {
               const active = countActiveGuarantors(driver)
+              const activeGuarantors = driver.guarantors.filter((g) => g.status === "فعال" && !g.suspended)
               return (
                 <Card key={driver.id}>
                   <div style={{ padding: "14px 16px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                      <div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10, gap: 8 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
                         <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: th.text }}>{driver.ownerName}</p>
                         <p style={{ margin: "3px 0 0", fontSize: 12, color: th.sub }}>{driver.plate}</p>
                       </div>
@@ -497,110 +691,116 @@ export function GuaranteesScreen() {
                           borderRadius: 99,
                           background: active >= state.minGuarantors ? "#D1FAE5" : "#FEE2E2",
                           color: active >= state.minGuarantors ? "#065F46" : "#991B1B",
+                          flexShrink: 0,
                         }}
                       >
                         {active}/{state.minGuarantors}
                       </span>
+                      <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                        <ActionIconBtn
+                          icon="✏️"
+                          title="تعديل الضامنين"
+                          color={T.primary}
+                          bg={th.dark ? "#1E3A5F" : "#EFF6FF"}
+                          onClick={() => openGuaranteedEdit(driver.id)}
+                        />
+                        <ActionIconBtn
+                          icon="🗑"
+                          title="حذف جميع الضمانات"
+                          color={T.danger}
+                          bg="#FEE2E2"
+                          onClick={() => deleteGuaranteesForDriver(driver.id, driver.ownerName)}
+                        />
+                      </div>
                     </div>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
-                      {driver.guarantors.map((g) => (
-                        <span
-                          key={g.id}
-                          style={{
-                            fontSize: 11,
-                            padding: "4px 10px",
-                            borderRadius: 99,
-                            background: g.suspended ? "#FEE2E2" : g.status === "فعال" ? "#DBEAFE" : "#F1F5F9",
-                            color: g.suspended ? T.danger : g.status === "فعال" ? T.primary : th.sub,
-                            fontWeight: 600,
-                          }}
-                        >
-                          🏦 {g.name}
-                          {g.suspended ? " (معلّق)" : ""}
-                        </span>
-                      ))}
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                      {activeGuarantors.length === 0 ? (
+                        <span style={{ fontSize: 11, color: th.sub }}>لا يوجد ضامنون نشطون</span>
+                      ) : (
+                        activeGuarantors.map((g) => (
+                          <span
+                            key={g.id}
+                            style={{
+                              fontSize: 11,
+                              padding: "4px 10px",
+                              borderRadius: 99,
+                              background: "#DBEAFE",
+                              color: T.primary,
+                              fontWeight: 600,
+                            }}
+                          >
+                            🏦 {g.name}
+                          </span>
+                        ))
+                      )}
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => openEdit(driver.id)}
-                      style={{
-                        width: "100%",
-                        padding: "9px",
-                        borderRadius: 10,
-                        border: `1px solid ${th.border}`,
-                        background: "none",
-                        color: T.primary,
-                        fontSize: 12,
-                        fontWeight: 600,
-                        cursor: "pointer",
-                        fontFamily: "inherit",
-                      }}
-                    >
-                      ✏️ تعديل الضامنين
-                    </button>
                   </div>
                 </Card>
               )
             })
           )
-        ) : allGuarantors.length === 0 ? (
+        ) : guarantorGroups.length === 0 ? (
           <EmptyState icon="👥" text="لا يوجد ضامنون مسجلون" />
         ) : (
-          allGuarantors.map((g) => (
-            <Card key={`${g.driverId}-${g.id}`}>
-              <div style={{ padding: "14px 16px", display: "flex", alignItems: "center", gap: 12 }}>
-                <div
-                  style={{
-                    width: 42,
-                    height: 42,
-                    borderRadius: 12,
-                    background: "#DBEAFE",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 18,
-                  }}
-                >
-                  🏦
-                </div>
-                <div style={{ flex: 1 }}>
-                  <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: th.text }}>{g.name}</p>
-                  <p style={{ margin: "3px 0 0", fontSize: 11, color: th.sub }}>
-                    {g.phone} · يضمن: {g.driverName}
-                  </p>
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end" }}>
-                  <span
+          guarantorGroups.map((group) => (
+            <Card key={group.nationalId}>
+              <div style={{ padding: "14px 16px" }}>
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+                  <div
                     style={{
-                      fontSize: 11,
-                      padding: "3px 10px",
-                      borderRadius: 99,
-                      fontWeight: 700,
-                      background: g.status === "فعال" && !g.suspended ? "#D1FAE5" : "#FEE2E2",
-                      color: g.status === "فعال" && !g.suspended ? "#065F46" : "#991B1B",
+                      width: 42,
+                      height: 42,
+                      borderRadius: 12,
+                      background: "#DBEAFE",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 18,
+                      flexShrink: 0,
                     }}
                   >
-                    {g.suspended ? "معلّق" : g.status}
-                  </span>
-                  {g.status === "فعال" && (
-                    <button
-                      type="button"
-                      onClick={() => cancelAllForGuarantor(g.nationalId, g.name)}
+                    🏦
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                      <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: th.text }}>{group.name}</p>
+                      <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                        <ActionIconBtn
+                          icon="✏️"
+                          title="تعديل المضمونين"
+                          color={T.primary}
+                          bg={th.dark ? "#1E3A5F" : "#EFF6FF"}
+                          onClick={() => openGuarantorEdit(group)}
+                        />
+                        <ActionIconBtn
+                          icon="🗑"
+                          title="إلغاء الضمانة لكل المالكين"
+                          color={T.danger}
+                          bg="#FEE2E2"
+                          onClick={() => cancelAllForGuarantor(group.nationalId, group.name)}
+                        />
+                      </div>
+                    </div>
+                    <p style={{ margin: "4px 0 0", fontSize: 11, color: th.sub }}>{group.phone}</p>
+                    <p style={{ margin: "6px 0 0", fontSize: 11, color: th.text, lineHeight: 1.5 }}>
+                      يضمن:{" "}
+                      {group.entries.map((e) => e.driverName).join(" · ")}
+                    </p>
+                    <span
                       style={{
-                        padding: "4px 10px",
-                        borderRadius: 8,
-                        border: "none",
-                        background: "#FEE2E2",
-                        color: T.danger,
-                        fontSize: 10,
+                        display: "inline-block",
+                        marginTop: 8,
+                        fontSize: 11,
+                        padding: "3px 10px",
+                        borderRadius: 99,
                         fontWeight: 700,
-                        cursor: "pointer",
-                        fontFamily: "inherit",
+                        background: "#D1FAE5",
+                        color: "#065F46",
                       }}
                     >
-                      إلغاء الضمانات
-                    </button>
-                  )}
+                      {group.entries.length} مضمون
+                    </span>
+                  </div>
                 </div>
               </div>
             </Card>
@@ -608,7 +808,7 @@ export function GuaranteesScreen() {
         )}
       </div>
 
-      {editDriverId !== null && (
+      {editDriverId !== null && editDriver && (
         <div style={{ position: "absolute", inset: 0, zIndex: 150 }}>
           <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.5)" }} onClick={() => setEditDriverId(null)} />
           <div
@@ -620,96 +820,63 @@ export function GuaranteesScreen() {
               background: th.card,
               borderRadius: "20px 20px 0 0",
               padding: "24px 20px 32px",
-              maxHeight: "80%",
+              maxHeight: "85%",
               overflowY: "auto",
             }}
           >
-            <h3 style={{ margin: "0 0 16px", color: th.text, fontSize: 16 }}>تعديل الضامنين</h3>
-            {editGuarantors.map((g, idx) => (
-              <div key={g.id} style={{ marginBottom: 12 }}>
-                <input
-                  value={g.name}
-                  onChange={(e) => {
-                    const next = [...editGuarantors]
-                    next[idx] = { ...g, name: e.target.value }
-                    setEditGuarantors(next)
-                  }}
-                  placeholder="اسم الضامن"
-                  style={{
-                    width: "100%",
-                    padding: "10px 12px",
-                    borderRadius: 10,
-                    border: `1px solid ${th.border}`,
-                    marginBottom: 6,
-                    fontFamily: "inherit",
-                    boxSizing: "border-box",
-                  }}
-                />
-                <label
+            <h3 style={{ margin: "0 0 4px", color: th.text, fontSize: 16 }}>تعديل ضامنين — {editDriver.ownerName}</h3>
+            <p style={{ margin: "0 0 16px", fontSize: 12, color: th.sub }}>{editDriver.plate}</p>
+
+            <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 600, color: th.sub }}>الضامنون الحاليون</p>
+            {editGuarantors.length === 0 ? (
+              <p style={{ margin: "0 0 12px", fontSize: 12, color: th.sub }}>لا يوجد ضامنون — أضف من الكشف</p>
+            ) : (
+              editGuarantors.map((g) => (
+                <div
+                  key={g.id}
                   style={{
                     display: "flex",
                     alignItems: "center",
-                    justifyContent: "space-between",
-                    padding: "8px 12px",
+                    gap: 10,
+                    padding: "10px 12px",
                     borderRadius: 10,
-                    border: `1px dashed ${th.border}`,
-                    fontSize: 12,
-                    color: th.sub,
-                    cursor: "pointer",
+                    background: th.dark ? "#1E2D40" : "#F8FAFC",
+                    marginBottom: 8,
+                    border: `1px solid ${th.border}`,
                   }}
                 >
-                  صورة الضمانة
-                  <input
-                    type="file"
-                    accept="image/*"
-                    style={{ display: "none" }}
-                    onChange={(e) => {
-                      const file = e.target.files?.[0]
-                      if (!file) return
-                      const reader = new FileReader()
-                      reader.onload = () => {
-                        const next = [...editGuarantors]
-                        next[idx] = { ...g, guaranteeImage: reader.result as string }
-                        setEditGuarantors(next)
-                      }
-                      reader.readAsDataURL(file)
-                    }}
-                  />
-                  <span style={{ color: g.guaranteeImage ? T.success : T.primary }}>
-                    {g.guaranteeImage ? "✓ مرفق" : "رفع"}
-                  </span>
-                </label>
-              </div>
-            ))}
-            <button
-              type="button"
-              onClick={() =>
-                setEditGuarantors([
-                  ...editGuarantors,
-                  {
-                    id: nextId(),
-                    name: "",
-                    phone: "05" + Math.floor(10000000 + Math.random() * 90000000),
-                    nationalId: "10" + Math.floor(10000000 + Math.random() * 90000000),
-                    status: "فعال",
-                  },
-                ])
-              }
-              style={{
-                width: "100%",
-                padding: "10px",
-                borderRadius: 10,
-                border: `1px dashed ${T.primary}`,
-                background: "none",
-                color: T.primary,
-                marginBottom: 12,
-                cursor: "pointer",
-                fontFamily: "inherit",
-              }}
-            >
-              + إضافة ضامن
-            </button>
-            <div style={{ display: "flex", gap: 8 }}>
+                  <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: th.text }}>{g.name}</span>
+                  <span style={{ fontSize: 11, color: th.sub }}>{g.phone}</span>
+                  <button
+                    type="button"
+                    onClick={() => setEditGuarantors((p) => p.filter((x) => x.id !== g.id))}
+                    style={{ background: "none", border: "none", color: T.danger, cursor: "pointer", fontSize: 16 }}
+                    title="إلغاء الضامن"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))
+            )}
+
+            <SearchableRosterField
+              label="إضافة ضامن من الكشف"
+              query={addGuarantorSearch}
+              onQueryChange={setAddGuarantorSearch}
+              items={guarantorCandidates.filter(
+                (d) => !editGuarantors.some((g) => g.sourceDriverId === d.id || g.name === d.ownerName),
+              )}
+              getKey={(d) => d.id}
+              formatLabel={(d) => d.ownerName}
+              formatSubLabel={(d) => `${d.plate} · ${d.status === "نشط" ? "نشط" : "غير نشط"}`}
+              filterItem={(d, q) => matchesNameOrPlate(q, d.ownerName, d.plate)}
+              onAction={addGuarantorToEdit}
+              actionLabel="إضافة"
+              placeholder="ابحث بالاسم أو اللوحة..."
+              emptyHint="لا يوجد ضامن مطابق — المخالفون غير مسموح"
+            />
+
+            <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
               <button
                 type="button"
                 onClick={() => setEditDriverId(null)}
@@ -727,7 +894,138 @@ export function GuaranteesScreen() {
               </button>
               <button
                 type="button"
-                onClick={saveGuarantors}
+                onClick={saveGuaranteedEdit}
+                style={{
+                  flex: 2,
+                  padding: "13px",
+                  borderRadius: 12,
+                  border: "none",
+                  background: T.primary,
+                  color: "#fff",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                حفظ ✓
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editGuarantorGroup && (
+        <div style={{ position: "absolute", inset: 0, zIndex: 150 }}>
+          <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.5)" }} onClick={() => setEditGuarantorGroup(null)} />
+          <div
+            style={{
+              position: "absolute",
+              bottom: 0,
+              left: 0,
+              right: 0,
+              background: th.card,
+              borderRadius: "20px 20px 0 0",
+              padding: "24px 20px 32px",
+              maxHeight: "85%",
+              overflowY: "auto",
+            }}
+          >
+            <h3 style={{ margin: "0 0 4px", color: th.text, fontSize: 16 }}>تعديل مضمونين — {editGuarantorGroup.name}</h3>
+            <p style={{ margin: "0 0 16px", fontSize: 12, color: th.sub }}>{editGuarantorGroup.phone}</p>
+            {!canPersonGuarantee(state.drivers, editGuarantorGroup) && (
+              <p
+                style={{
+                  margin: "0 0 12px",
+                  padding: "10px 12px",
+                  borderRadius: 10,
+                  background: "#FEE2E2",
+                  color: "#991B1B",
+                  fontSize: 12,
+                  fontWeight: 600,
+                }}
+              >
+                ⚠️ هذا الضامن مخالف — يمكنك إلغاء المضمونين فقط، لا إضافة جدد
+              </p>
+            )}
+
+            <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 600, color: th.sub }}>المالكون المضمونون حالياً</p>
+            {editGuaranteedIds.length === 0 ? (
+              <p style={{ margin: "0 0 12px", fontSize: 12, color: th.sub }}>لا يوجد مضمونون — أضف من الكشف</p>
+            ) : (
+              editGuaranteedIds.map((driverId) => {
+                const d = state.drivers.find((x) => x.id === driverId)
+                if (!d) return null
+                return (
+                  <div
+                    key={driverId}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      padding: "10px 12px",
+                      borderRadius: 10,
+                      background: th.dark ? "#1E2D40" : "#F8FAFC",
+                      marginBottom: 8,
+                      border: `1px solid ${th.border}`,
+                    }}
+                  >
+                    <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: th.text }}>{d.ownerName}</span>
+                    <span style={{ fontSize: 11, color: th.sub }}>{d.plate}</span>
+                    <button
+                      type="button"
+                      onClick={() => setEditGuaranteedIds((p) => p.filter((id) => id !== driverId))}
+                      style={{ background: "none", border: "none", color: T.danger, cursor: "pointer", fontSize: 16 }}
+                      title="إلغاء الضمان"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )
+              })
+            )}
+
+            <SearchableRosterField
+              label="إضافة مضمون (مالك) من الكشف"
+              query={addGuaranteedSearch}
+              onQueryChange={setAddGuaranteedSearch}
+              items={state.drivers.filter((d) => !editGuaranteedIds.includes(d.id))}
+              getKey={(d) => d.id}
+              formatLabel={(d) => d.ownerName}
+              formatSubLabel={(d) => `${d.plate} · ${d.status === "نشط" ? "نشط" : "غير نشط"}`}
+              filterItem={(d, q) => matchesNameOrPlate(q, d.ownerName, d.plate)}
+              onAction={(d) => {
+                if (!canPersonGuarantee(state.drivers, editGuarantorGroup)) {
+                  showSnackbar("لا يمكن للمخالف ضمان الآخرين ⚠️")
+                  return
+                }
+                if (editGuaranteedIds.includes(d.id)) return
+                setEditGuaranteedIds((p) => [...p, d.id])
+                setAddGuaranteedSearch("")
+                showSnackbar(`تمت إضافة ${d.ownerName} كمضمون`)
+              }}
+              actionLabel="إضافة"
+              placeholder="ابحث بالاسم أو اللوحة..."
+            />
+
+            <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
+              <button
+                type="button"
+                onClick={() => setEditGuarantorGroup(null)}
+                style={{
+                  flex: 1,
+                  padding: "13px",
+                  borderRadius: 12,
+                  border: `1px solid ${th.border}`,
+                  background: "none",
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                إلغاء
+              </button>
+              <button
+                type="button"
+                onClick={saveGuarantorEdit}
                 style={{
                   flex: 2,
                   padding: "13px",
@@ -754,15 +1052,16 @@ export function GuaranteesScreen() {
 //  BREAKDOWNS SCREEN
 // ══════════════════════════════════════════════════════════
 export function BreakdownsScreen() {
-  const { state } = useApp()
+  const { state, dispatch, showSnackbar } = useApp()
   const th = useTheme()
   const [breakdownTrip, setBreakdownTrip] = useState<Trip | null>(null)
+  const [editBreakdown, setEditBreakdown] = useState<{ trip: Trip; breakdown: import("../data").Breakdown } | null>(null)
 
   const completedTrips = state.trips.filter((t) => t.status === "مكتملة")
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", background: th.bg, overflow: "hidden", position: "relative" }}>
-      <AppBar title="الأعطال" back="more" />
+      <AppBar title="الأعطال" back="home" />
 
       <div style={{ flex: 1, overflowY: "auto" }}>
         <div style={{ padding: "12px 16px 0" }}>
@@ -897,6 +1196,30 @@ export function BreakdownsScreen() {
                   📍 {b.location} {b.action && `· ${b.action.replace("_", " ")}`}
                   {b.rescuerName && ` · مسعف: ${b.rescuerName}`}
                 </div>
+                {b.status === "نشط" && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      dispatch({ type: "END_BREAKDOWN", breakdownId: b.id })
+                      showSnackbar(`تم إنهاء عطل ${b.driverName} ✅`)
+                    }}
+                    style={{
+                      width: "100%",
+                      marginTop: 10,
+                      padding: "8px",
+                      borderRadius: 10,
+                      border: `1px solid ${th.border}`,
+                      background: "none",
+                      color: T.success,
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      fontFamily: "inherit",
+                    }}
+                  >
+                    ✅ إنهاء العطل
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -924,9 +1247,28 @@ export function ReportsScreen() {
   const totalViolations = state.violations.length
   const totalComp = state.drivers.reduce((s, d) => s + d.compensationBalance, 0)
 
+  const tripTypeCounts = (['فرزة', 'م1', 'م2', 'تعويض'] as const).map((type) => ({
+    type,
+    count: state.trips.filter((t) => t.type === type && t.status === 'مكتملة').length,
+  }))
+
+  const topViolators = [...state.violations]
+    .reduce<{ name: string; count: number }[]>((acc, v) => {
+      const existing = acc.find((x) => x.name === v.driverName)
+      if (existing) existing.count += 1
+      else acc.push({ name: v.driverName, count: 1 })
+      return acc
+    }, [])
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5)
+
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: th.bg, overflow: 'hidden' }}>
-      <AppBar title="التقارير" back="more" />
+      <AppBar title="التقارير" back="home" />
+
+      <div style={{ padding: '10px 16px 0', textAlign: 'center' }}>
+        <p style={{ margin: 0, fontSize: 11, color: th.sub, fontWeight: 600 }}>{APP_FULL_BRAND}</p>
+      </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
         {/* Period selector */}
@@ -961,6 +1303,42 @@ export function ReportsScreen() {
             </Card>
           ))}
         </div>
+
+        <p style={{ fontSize: 12, fontWeight: 700, color: th.sub, textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 10px' }}>
+          توزيع النهمات المكتملة
+        </p>
+        <Card style={{ marginBottom: 16 }}>
+          <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {tripTypeCounts.map(({ type, count }) => (
+              <div key={type} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: th.text, width: 48 }}>{type}</span>
+                <div style={{ flex: 1, height: 8, borderRadius: 99, background: th.dark ? '#2C2C2C' : '#F1F5F9', overflow: 'hidden' }}>
+                  <div style={{ width: `${completedTrips ? (count / completedTrips) * 100 : 0}%`, height: '100%', background: T.primary, borderRadius: 99 }} />
+                </div>
+                <span style={{ fontSize: 12, fontWeight: 700, color: T.primary, minWidth: 24 }}>{count}</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        <p style={{ fontSize: 12, fontWeight: 700, color: th.sub, textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 10px' }}>
+          أكثر المخالفين
+        </p>
+        <Card style={{ marginBottom: 16 }}>
+          <div style={{ padding: '14px 16px' }}>
+            {topViolators.length === 0 ? (
+              <p style={{ margin: 0, fontSize: 13, color: th.sub, textAlign: 'center' }}>لا توجد مخالفات</p>
+            ) : (
+              topViolators.map((v, i) => (
+                <div key={v.name} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: i < topViolators.length - 1 ? `1px solid ${th.border}` : 'none' }}>
+                  <span style={{ fontSize: 14, fontWeight: 800, color: T.danger, width: 20 }}>{i + 1}</span>
+                  <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: th.text }}>{v.name}</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: th.sub }}>{v.count} مخالفة</span>
+                </div>
+              ))
+            )}
+          </div>
+        </Card>
 
         {/* Export buttons */}
         <p style={{ fontSize: 12, fontWeight: 700, color: th.sub, textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 10px' }}>
@@ -1018,7 +1396,7 @@ export function UsersScreen() {
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: th.bg, overflow: 'hidden' }}>
-      <AppBar title="إدارة المستخدمين" back="more"
+      <AppBar title="إدارة المستخدمين" back="home"
         leftSlot={
           <button onClick={() => setShowAdd(true)}
             style={{ background: T.primary, border: 'none', borderRadius: 8, padding: '6px 12px', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>

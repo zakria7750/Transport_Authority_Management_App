@@ -1,10 +1,10 @@
 import { useState, useMemo } from "react"
 import { useApp } from "../context"
-import { AppBar, useTheme, T } from "../components"
+import { AppBar, useTheme, T, APP_PRINT_HEADER } from "../components"
 import { isPendingTripStatus } from "../domain"
 
 export default function AttendanceScreen() {
-  const { state, dispatch, showSnackbar } = useApp()
+  const { state, showSnackbar, scheduleDeferredAttendance } = useApp()
   const th = useTheme()
   const [search, setSearch] = useState("")
   const [attendance, setAttendance] = useState<Record<number, { m1: boolean; m2: boolean; t: boolean }>>({})
@@ -18,11 +18,11 @@ export default function AttendanceScreen() {
     })
   }, [state.drivers, search])
 
-  const getDriverTripLabel = (driverId: number, type: "م1" | "م2") => {
+  const getDriverTripLabel = (driverId: number, slot: "م1" | "م2") => {
     const trip = state.trips.find(
-      (t) => t.driverId === driverId && t.type === type && isPendingTripStatus(t.status),
+      (t) => t.driverId === driverId && t.type === slot && isPendingTripStatus(t.status),
     )
-    return trip ? "✓" : "—"
+    return trip ? trip.type : "—"
   }
 
   const toggle = (id: number, field: "m1" | "m2" | "t") => {
@@ -31,24 +31,24 @@ export default function AttendanceScreen() {
       [id]: {
         m1: prev[id]?.m1 ?? true,
         m2: prev[id]?.m2 ?? true,
-        t: prev[id]?.t ?? false,
-        [field]: !(prev[id]?.[field] ?? (field === "t" ? false : true)),
+        t: prev[id]?.t ?? true,
+        [field]: !(prev[id]?.[field] ?? (field === "t" ? true : true)),
       },
     }))
   }
 
   const getVal = (id: number, field: "m1" | "m2" | "t") => {
-    if (field === "t") return attendance[id]?.t ?? false
+    if (field === "t") return attendance[id]?.t ?? true
     return attendance[id]?.[field] ?? true
   }
 
   const getAbsentIds = () =>
     activeDrivers
       .filter((d) => {
-        const t = getVal(d.id, "t")
+        const present = getVal(d.id, "t")
         const m1 = getVal(d.id, "m1")
         const m2 = getVal(d.id, "m2")
-        return t || (!m1 && !m2)
+        return !present || (!m1 && !m2)
       })
       .map((d) => d.id)
 
@@ -59,15 +59,9 @@ export default function AttendanceScreen() {
       return
     }
     setSaving(true)
-    await new Promise((r) => setTimeout(r, 600))
-    dispatch({ type: "SAVE_ATTENDANCE", absentDriverIds: absentIds })
+    await new Promise((r) => setTimeout(r, 400))
     setSaving(false)
-    setAttendance({})
-    showSnackbar(`تم حفظ التحضير — ${absentIds.length} مخالفة (ت) ✅`, () => {
-      for (const id of absentIds) {
-        dispatch({ type: "UNDO_VIOLATION_BY_DRIVER", driverId: id })
-      }
-    })
+    scheduleDeferredAttendance(absentIds, () => setAttendance({}))
   }
 
   const presentCount = activeDrivers.filter(
@@ -96,13 +90,15 @@ export default function AttendanceScreen() {
 
     const html = `<html dir="rtl"><head><style>
       body { font-family: Arial, sans-serif; padding: 16px; }
-      h1 { text-align: center; font-size: 18px; }
+      .brand { text-align: center; font-size: 13px; color: #444; margin-bottom: 4px; }
+      h1 { text-align: center; font-size: 18px; margin: 0 0 12px; }
       .cols { display: flex; gap: 16px; }
       .cols > div { flex: 1; }
       table { width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 12px; }
       th, td { border: 1px solid #000; padding: 5px; text-align: center; }
       th { background: #eee; }
     </style></head><body>
+      <p class="brand">${APP_PRINT_HEADER}</p>
       <h1>${title} — ${date}</h1>
       <div class="cols">
         <div>${tableHtml(left, 0)}</div>
@@ -127,7 +123,7 @@ export default function AttendanceScreen() {
       d.plate,
       getVal(d.id, "m1") ? "✓" : "✕",
       getVal(d.id, "m2") ? "✓" : "✕",
-      getVal(d.id, "t") ? "مخالفة" : "حضر",
+      getVal(d.id, "t") ? "حضر" : "غياب",
     ])
     printTwoColumnTable("كشف التحضير", ["م", "المالك", "النوع", "اللوحة", "م1", "م2", "ملاحظة"], rows)
   }
@@ -149,7 +145,7 @@ export default function AttendanceScreen() {
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", background: th.bg, overflow: "hidden" }}>
-      <AppBar title="كشف التحضير" back="more" />
+      <AppBar title="كشف التحضير" back="home" />
 
       <div style={{ padding: "10px 16px", background: th.card, borderBottom: `1px solid ${th.border}` }}>
         <input
@@ -288,15 +284,19 @@ export default function AttendanceScreen() {
                   width: 22,
                   height: 22,
                   borderRadius: 6,
-                  border: `2px solid ${getVal(driver.id, "t") ? T.danger : th.border}`,
-                  background: getVal(driver.id, "t") ? T.danger : "transparent",
+                  border: `2px solid ${getVal(driver.id, "t") ? T.success : T.danger}`,
+                  background: getVal(driver.id, "t") ? T.success : T.danger,
                   cursor: "pointer",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                 }}
               >
-                {getVal(driver.id, "t") && <span style={{ color: "#fff", fontSize: 12 }}>✓</span>}
+                {getVal(driver.id, "t") ? (
+                  <span style={{ color: "#fff", fontSize: 12 }}>✓</span>
+                ) : (
+                  <span style={{ color: "#fff", fontSize: 10 }}>✕</span>
+                )}
               </div>
             </div>
           </div>

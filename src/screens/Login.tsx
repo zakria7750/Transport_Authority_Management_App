@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { useApp } from "../context"
+import { OFFICE_BRAND, TRANSPORT_AUTHORITY, APP_TAGLINE } from "../components"
 import { type UserRole } from "../data"
 
 export default function LoginScreen() {
@@ -57,8 +58,9 @@ export default function LoginScreen() {
         >
           🚛
         </div>
-        <h1 style={{ color: "#F1F5F9", fontSize: 24, fontWeight: 800, margin: 0 }}>هيئة النقل</h1>
-        <p style={{ color: "#64748B", fontSize: 13, margin: "6px 0 0" }}>نظام البوابير — الإصدار ٢٫٠</p>
+        <p style={{ color: "#94A3B8", fontSize: 13, fontWeight: 600, margin: "0 0 4px" }}>{TRANSPORT_AUTHORITY}</p>
+        <h1 style={{ color: "#F1F5F9", fontSize: 24, fontWeight: 800, margin: 0 }}>{OFFICE_BRAND}</h1>
+        <p style={{ color: "#64748B", fontSize: 13, margin: "6px 0 0" }}>{APP_TAGLINE}</p>
       </div>
 
       <div
