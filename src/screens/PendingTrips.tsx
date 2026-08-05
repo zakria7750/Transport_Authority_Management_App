@@ -296,41 +296,7 @@ export default function PendingTripsScreen() {
     <div style={{ flex: 1, display: "flex", flexDirection: "column", background: th.bg, overflow: "hidden" }}>
       <StandardAppBar title="النهمات المعلقة" back="home" />
 
-      <div
-        style={{
-          background: T.appbar,
-          padding: "10px 20px",
-          display: "flex",
-          gap: 16,
-          overflowX: "auto",
-        }}
-      >
-        {types.map((t) => {
-          const count = pendingTrips.filter((tr) => tr.type === t).length
-          const meta = TRIP_TYPE_COLORS[t]
-          return (
-            <div key={t} style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-              <span style={{ fontSize: 14 }}>{meta.icon}</span>
-              <span style={{ color: "#94A3B8", fontSize: 12 }}>{t}</span>
-              <span
-                style={{
-                  background: meta.bg,
-                  color: meta.color,
-                  fontSize: 12,
-                  fontWeight: 800,
-                  borderRadius: 99,
-                  padding: "1px 8px",
-                }}
-              >
-                {count}
-              </span>
-            </div>
-          )
-        })}
-        <div style={{ marginRight: "auto", color: "#64748B", fontSize: 12, flexShrink: 0 }}>
-          الإجمالي: {pendingTrips.length}
-        </div>
-      </div>
+
 
       <div style={{ flex: 1, overflowY: "auto" }}>
         {pendingTrips.length === 0 ? (

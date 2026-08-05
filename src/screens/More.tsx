@@ -281,6 +281,7 @@ export function SearchScreen() {
       <StandardAppBar title="البحث الشامل" back="home" />
 
       <div style={{ padding: '12px 16px', background: th.card, borderBottom: `1px solid ${th.border}`, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {/* Task 70-71: Search with plate separator and status chip */}
         <div style={{ position: 'relative' }}>
           <span style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', fontSize: 18 }}>🔍</span>
           <input
@@ -294,6 +295,21 @@ export function SearchScreen() {
               background: th.inputBg, color: th.text,
               fontSize: 14, outline: 'none',
               boxSizing: 'border-box', fontFamily: 'inherit', direction: 'rtl',
+            }}
+          />
+        </div>
+        <div style={{ position: 'relative' }}>
+          <span style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', fontSize: 16 }}>🔢</span>
+          <input
+            value={separator}
+            onChange={e => setSeparator(e.target.value.replace(/[^\d\u0660-\u0669]/g, ''))}
+            placeholder="ابحث بالفاصل..."
+            style={{
+              width: '100%', padding: '13px 46px 13px 14px',
+              border: `1px solid ${th.border}`, borderRadius: 12,
+              background: th.inputBg, color: th.text,
+              fontSize: 14, outline: 'none',
+              boxSizing: 'border-box', fontFamily: 'inherit', direction: 'rtl', inputMode: 'numeric',
             }}
           />
         </div>
