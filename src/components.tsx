@@ -509,16 +509,9 @@ export function AppBarStandardSlots({
           style={{ background: "none", border: "none", color: "#CBD5E1", cursor: "pointer", fontSize: 18, padding: 4 }}
           title="الإعدادات"
         >
-          ⚙️
+          ◉
         </button>
-        <button
-          type="button"
-          onClick={() => navigate("search")}
-          style={{ background: "none", border: "none", color: "#CBD5E1", cursor: "pointer", fontSize: 18, padding: 4 }}
-          title="بحث شامل"
-        >
-          🔍
-        </button>
+        <span aria-hidden="true" style={{ width: 1, height: 24, background: th.border }} />
       </div>
     ),
     leftSlot: (
@@ -741,7 +734,7 @@ export function AppBar({ title, back, rightSlot, leftSlot, hideBell }: AppBarPro
           <div style={{ position: 'relative' }}>
             <button onClick={() => navigate('notifications')}
               style={{ background: 'none', border: 'none', color: '#CBD5E1', cursor: 'pointer', fontSize: 18, lineHeight: 1, padding: 4 }}>
-              🔔
+              ◌
             </button>
             {unreadCount > 0 && (
               <div style={{
@@ -760,10 +753,10 @@ export function AppBar({ title, back, rightSlot, leftSlot, hideBell }: AppBarPro
 
 // ─── BottomNav ────────────────────────────────────────────
 const NAV_ITEMS: { screen: Screen; icon: string; label: string }[] = [
-  { screen: 'home',          icon: '🏠', label: 'الرئيسية' },
-  { screen: 'drivers',       icon: '📋', label: 'الكشف' },
-  { screen: 'registration',  icon: '➕', label: 'تسجيل' },
-  { screen: 'more',          icon: '☰',  label: 'المزيد' },
+  { screen: 'home', label: 'الرئيسية', icon: '⌂' },
+  { screen: 'drivers', label: 'الكشف', icon: '▤' },
+  { screen: 'registration', label: 'تسجيل', icon: '+' },
+  { screen: 'more', label: 'المزيد', icon: '⋯' },
 ]
 
 export function BottomNav() {

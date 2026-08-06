@@ -1,471 +1,61 @@
-import { useState, useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useApp } from '../context'
-import { StandardAppBar, useTheme, T } from '../components'
-import type { Trip } from '../data'
+import { StandardAppBar, useTheme, T, EmptyState } from '../components'
+import { YEMEN_PROVINCES, PAYLOAD_OPTIONS, DESTINATION_TYPES } from '../constants'
+import type { DestinationType, Trip, TripType } from '../data'
 
-type TabType = 'pending' | 'completed' | 'cancelled'
+type Tab = 'pending' | 'completed' | 'cancelled'
+
+const tripTypes: TripType[] = ['فرزة', 'م1', 'م2', 'تعويض']
 
 export function TripsManagementScreen() {
   const { state, dispatch, showSnackbar } = useApp()
   const th = useTheme()
-  
-  const [tab, setTab] = useState<TabType>('pending')
-  const [searchDriver, setSearchDriver] = useState('')
-  const [searchPlate, setSearchPlate] = useState('')
-  const [filterType, setFilterType] = useState<string>('all')
-  const [filterDestination, setFilterDestination] = useState<string>('all')
-  const [editingTrip, setEditingTrip] = useState<Trip | null>(null)
-  const [showEditDialog, setShowEditDialog] = useState(false)
+  const [tab, setTab] = useState<Tab>('pending')
+  const [query, setQuery] = useState('')
+  const [typeFilter, setTypeFilter] = useState('all')
+  const [destinationFilter, setDestinationFilter] = useState('all')
+  const [editing, setEditing] = useState<Trip | null>(null)
 
-  // Get trips by status
-  const getTrips = () => {
-    let trips = state.trips
-    
-    if (tab === 'pending') {
-      trips = trips.filter(t => ['معلقة', 'مؤكدة_مبدئياً'].includes(t.status))
-    } else if (tab === 'completed') {
-      trips = trips.filter(t => t.status === 'مكتملة')
-    } else if (tab === 'cancelled') {
-      trips = trips.filter(t => t.status === 'ملغاة')
-    }
+  const trips = useMemo(() => state.trips.filter((trip) => {
+    const driver = state.drivers.find((item) => item.id === trip.driverId)
+    const statusMatch = tab === 'pending'
+      ? ['معلقة', 'مؤكدة_مبدئياً', 'مسودة'].includes(trip.status)
+      : tab === 'completed' ? trip.status === 'مكتملة' : trip.status === 'ملغاة'
+    const searchMatch = !query || `${driver?.ownerName ?? ''} ${driver?.plate ?? ''}`.includes(query)
+    return statusMatch && searchMatch && (typeFilter === 'all' || trip.type === typeFilter) && (destinationFilter === 'all' || trip.destination === destinationFilter)
+  }), [state.trips, state.drivers, tab, query, typeFilter, destinationFilter])
 
-    // Apply filters
-    if (searchDriver) {
-      const driver = state.drivers.find(d => d.id === state.trips.find(tr => tr.id === trips[0]?.id)?.driverId)
-      trips = trips.filter(t => {
-        const d = state.drivers.find(dr => dr.id === t.driverId)
-        return d?.ownerName.includes(searchDriver)
-      })
-    }
-
-    if (searchPlate) {
-      trips = trips.filter(t => {
-        const d = state.drivers.find(dr => dr.id === t.driverId)
-        return d?.plate.includes(searchPlate)
-      })
-    }
-
-    if (filterType !== 'all') {
-      trips = trips.filter(t => t.type === filterType)
-    }
-
-    if (filterDestination !== 'all') {
-      trips = trips.filter(t => t.destination === filterDestination)
-    }
-
-    return trips
+  const update = (field: keyof Trip, value: string) => setEditing((current) => current ? { ...current, [field]: value } : current)
+  const save = () => {
+    if (!editing || editing.status === 'مكتملة') return
+    dispatch({ type: 'UPDATE_TRIP', trip: editing })
+    showSnackbar('تم تحديث بيانات النهمة')
+    setEditing(null)
   }
-
-  const filteredTrips = useMemo(() => getTrips(), [tab, searchDriver, searchPlate, filterType, filterDestination, state.trips])
-
-  const handleEditTrip = (trip: Trip) => {
-    // Cannot edit if already confirmed exit
-    if (trip.status === 'مكتملة') {
-      showSnackbar('لا يمكن تعديل النهمة بعد التأكيد')
-      return
+  const remove = (trip: Trip) => {
+    if (trip.status !== 'ملغاة') return showSnackbar('يسمح بحذف النهمات الملغاة فقط')
+    if (window.confirm('هل تريد حذف النهمة الملغاة؟')) {
+      dispatch({ type: 'DELETE_TRIP', tripId: trip.id })
+      showSnackbar('تم حذف النهمة')
     }
-    setEditingTrip(trip)
-    setShowEditDialog(true)
-  }
-
-  const handleSaveEdit = () => {
-    if (!editingTrip) return
-    dispatch({ type: 'UPDATE_TRIP', trip: editingTrip })
-    showSnackbar('تم تحديث النهمة بنجاح ✅')
-    setShowEditDialog(false)
-    setEditingTrip(null)
-  }
-
-  const handleDeleteTrip = (trip: Trip) => {
-    if (tab !== 'cancelled') {
-      showSnackbar('يمكن حذف النهمات الملغاة فقط')
-      return
-    }
-    
-    if (!window.confirm('هل تريد حذف هذه النهمة؟')) return
-
-    dispatch({ type: 'DELETE_TRIP', tripId: trip.id })
-    showSnackbar('تم حذف النهمة بنجاح ✅')
-  }
-
-  const getDriverName = (driverId: number) => {
-    return state.drivers.find(d => d.id === driverId)?.ownerName || 'غير معروف'
-  }
-
-  const getDriverPlate = (driverId: number) => {
-    return state.drivers.find(d => d.id === driverId)?.plate || '-'
   }
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: th.bg, overflow: 'hidden' }}>
       <StandardAppBar title="إدارة النهمات" back="more" />
-
-      {/* Tabs */}
-      <div style={{ display: 'flex', gap: 0, borderBottom: `1px solid ${th.border}`, background: th.card }}>
-        {[
-          { key: 'pending', label: 'المعلقة', color: '#F59E0B' },
-          { key: 'completed', label: 'المكتملة', color: '#10B981' },
-          { key: 'cancelled', label: 'الملغاة', color: '#EF4444' },
-        ].map(t => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key as TabType)}
-            style={{
-              flex: 1,
-              padding: '12px',
-              border: 'none',
-              background: tab === t.key ? th.card : 'transparent',
-              color: tab === t.key ? t.color : th.sub,
-              borderBottom: tab === t.key ? `3px solid ${t.color}` : 'none',
-              cursor: 'pointer',
-              fontWeight: tab === t.key ? 700 : 500,
-              fontSize: 13,
-              fontFamily: 'inherit',
-            }}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Filters */}
-      <div style={{ padding: '12px 16px', background: th.card, borderBottom: `1px solid ${th.border}`, display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <input
-          type="text"
-          placeholder="ابحث باسم السائق..."
-          value={searchDriver}
-          onChange={(e) => setSearchDriver(e.target.value)}
-          style={{
-            padding: '10px 12px',
-            borderRadius: 8,
-            border: `1px solid ${th.border}`,
-            background: th.inputBg,
-            color: th.text,
-            fontFamily: 'inherit',
-            fontSize: 13,
-            direction: 'rtl',
-          }}
-        />
-        <input
-          type="text"
-          placeholder="ابحث برقم اللوحة..."
-          value={searchPlate}
-          onChange={(e) => setSearchPlate(e.target.value)}
-          style={{
-            padding: '10px 12px',
-            borderRadius: 8,
-            border: `1px solid ${th.border}`,
-            background: th.inputBg,
-            color: th.text,
-            fontFamily: 'inherit',
-            fontSize: 13,
-            direction: 'rtl',
-          }}
-        />
+      <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10, background: th.card, borderBottom: `1px solid ${th.border}` }}>
+        <input aria-label="بحث باسم السائق أو اللوحة" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="بحث باسم السائق أو رقم اللوحة" style={{ padding: '11px 13px', borderRadius: 12, border: `1px solid ${th.border}`, background: th.inputBg, color: th.text, direction: 'rtl' }} />
         <div style={{ display: 'flex', gap: 8 }}>
-          <select
-            value={filterType}
-            onChange={(e) => setFilterType(e.target.value)}
-            style={{
-              flex: 1,
-              padding: '10px 12px',
-              borderRadius: 8,
-              border: `1px solid ${th.border}`,
-              background: th.inputBg,
-              color: th.text,
-              fontFamily: 'inherit',
-              fontSize: 13,
-            }}
-          >
-            <option value="all">جميع الأنواع</option>
-            <option value="فرزة">فرزة</option>
-            <option value="م1">م1</option>
-            <option value="م2">م2</option>
-            <option value="تعويض">تعويض</option>
-          </select>
-          <select
-            value={filterDestination}
-            onChange={(e) => setFilterDestination(e.target.value)}
-            style={{
-              flex: 1,
-              padding: '10px 12px',
-              borderRadius: 8,
-              border: `1px solid ${th.border}`,
-              background: th.inputBg,
-              color: th.text,
-              fontFamily: 'inherit',
-              fontSize: 13,
-            }}
-          >
-            <option value="all">جميع الوجهات</option>
-            <option value="عدن">عدن</option>
-            <option value="تعز">تعز</option>
-            <option value="صنعاء">صنعاء</option>
-          </select>
+          <select aria-label="نوع النهمة" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} style={{ flex: 1, padding: 10, borderRadius: 10, border: `1px solid ${th.border}`, background: th.inputBg, color: th.text }}><option value="all">كل الأنواع</option>{tripTypes.map((type) => <option key={type}>{type}</option>)}</select>
+          <select aria-label="الوجهة" value={destinationFilter} onChange={(e) => setDestinationFilter(e.target.value)} style={{ flex: 1, padding: 10, borderRadius: 10, border: `1px solid ${th.border}`, background: th.inputBg, color: th.text }}><option value="all">كل الوجهات</option>{state.trips.map((trip) => <option key={trip.destination}>{trip.destination}</option>)}</select>
         </div>
       </div>
-
-      {/* Trips List */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px' }}>
-        {filteredTrips.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '32px 16px', color: th.sub }}>
-            لا توجد نهمات
-          </div>
-        ) : (
-          filteredTrips.map(trip => (
-            <div
-              key={trip.id}
-              style={{
-                background: th.card,
-                border: `1px solid ${th.border}`,
-                borderRadius: 12,
-                padding: '14px',
-                marginBottom: '12px',
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '10px' }}>
-                <div>
-                  <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: th.text }}>
-                    {getDriverName(trip.driverId)}
-                  </p>
-                  <p style={{ margin: '4px 0 0', fontSize: 11, color: th.sub }}>
-                    {getDriverPlate(trip.driverId)} · {trip.type}
-                  </p>
-                </div>
-                <span style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  padding: '4px 10px',
-                  borderRadius: 99,
-                  background: trip.status === 'معلقة' ? '#FEF9C3' : trip.status === 'مكتملة' ? '#D1FAE5' : '#FEE2E2',
-                  color: trip.status === 'معلقة' ? '#92400E' : trip.status === 'مكتملة' ? '#065F46' : '#991B1B',
-                }}>
-                  {trip.status}
-                </span>
-              </div>
-
-              <div style={{ fontSize: 12, color: th.sub, marginBottom: '12px' }}>
-                <p style={{ margin: '4px 0' }}>الحمولة: {trip.load}</p>
-                <p style={{ margin: '4px 0' }}>المحافظة: {trip.province}</p>
-                <p style={{ margin: '4px 0' }}>الوجهة: {trip.destination}</p>
-                <p style={{ margin: '4px 0' }}>رقم الفك: {trip.exitNumber}</p>
-              </div>
-
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button
-                  onClick={() => handleEditTrip(trip)}
-                  disabled={trip.status === 'مكتملة'}
-                  style={{
-                    flex: 1,
-                    padding: '8px 12px',
-                    borderRadius: 8,
-                    border: 'none',
-                    background: trip.status === 'مكتملة' ? '#E5E7EB' : '#3B82F6',
-                    color: trip.status === 'مكتملة' ? '#9CA3AF' : '#fff',
-                    fontSize: 12,
-                    fontWeight: 600,
-                    cursor: trip.status === 'مكتملة' ? 'not-allowed' : 'pointer',
-                    fontFamily: 'inherit',
-                  }}
-                >
-                  تعديل
-                </button>
-                {tab === 'cancelled' && (
-                  <button
-                    onClick={() => handleDeleteTrip(trip)}
-                    style={{
-                      flex: 1,
-                      padding: '8px 12px',
-                      borderRadius: 8,
-                      border: 'none',
-                      background: '#DC2626',
-                      color: '#fff',
-                      fontSize: 12,
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      fontFamily: 'inherit',
-                    }}
-                  >
-                    حذف
-                  </button>
-                )}
-              </div>
-            </div>
-          ))
-        )}
+      <div style={{ display: 'flex', background: th.card, borderBottom: `1px solid ${th.border}` }}>{([['pending', 'المعلقة'], ['completed', 'المكتملة'], ['cancelled', 'الملغاة']] as [Tab, string][]).map(([key, label]) => <button key={key} onClick={() => setTab(key)} style={{ flex: 1, padding: 12, border: 0, borderBottom: tab === key ? `3px solid ${T.primary}` : '3px solid transparent', background: 'transparent', color: tab === key ? T.primary : th.sub, fontWeight: 700 }}>{label}</button>)}</div>
+      <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
+        {trips.length === 0 ? <EmptyState text="لا توجد نهمات مطابقة" /> : <div className="responsive-table-list">{trips.map((trip) => { const driver = state.drivers.find((item) => item.id === trip.driverId); return <article key={trip.id} style={{ background: th.card, border: `1px solid ${th.border}`, borderRadius: 16, padding: 14, marginBottom: 10 }}><div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}><div><strong style={{ color: th.text }}>{driver?.ownerName ?? 'غير معروف'}</strong><p style={{ margin: '4px 0', color: th.sub, fontSize: 12 }}>{driver?.plate} · {trip.type}</p></div><span style={{ color: th.sub, fontSize: 11 }}>{trip.status}</span></div><div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, color: th.sub, fontSize: 12, margin: '10px 0' }}><span>الحمولة: {trip.payload || '-'}</span><span>المحافظة: {trip.province}</span><span>الوجهة: {trip.destination}</span><span>رقم الفك: {trip.breakNum}</span></div><div style={{ display: 'flex', gap: 8 }}><button disabled={trip.status === 'مكتملة'} onClick={() => setEditing({ ...trip })} style={{ flex: 1, padding: 9, border: 0, borderRadius: 10, background: trip.status === 'مكتملة' ? th.border : T.primary, color: '#fff' }}>تعديل</button>{trip.status === 'ملغاة' && <button onClick={() => remove(trip)} style={{ flex: 1, padding: 9, border: 0, borderRadius: 10, background: T.danger, color: '#fff' }}>حذف</button>}</div></article> })}</div>}
       </div>
-
-      {/* Edit Dialog */}
-      {showEditDialog && editingTrip && (
-        <div style={{
-          position: 'fixed',
-          inset: 0,
-          background: 'rgba(0,0,0,0.5)',
-          zIndex: 100,
-          display: 'flex',
-          alignItems: 'flex-end',
-        }}>
-          <div style={{
-            width: '100%',
-            maxHeight: '85vh',
-            background: th.bg,
-            borderRadius: '16px 16px 0 0',
-            padding: '20px',
-            overflowY: 'auto',
-          }}>
-            <h3 style={{ margin: 0, marginBottom: '16px', color: th.text }}>تعديل النهمة</h3>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: th.sub, display: 'block', marginBottom: 6 }}>
-                  نوع النهمة
-                </label>
-                <select
-                  value={editingTrip.type}
-                  onChange={(e) => setEditingTrip({ ...editingTrip, type: e.target.value as any })}
-                  style={{
-                    width: '100%',
-                    padding: '10px 12px',
-                    borderRadius: 8,
-                    border: `1px solid ${th.border}`,
-                    background: th.inputBg,
-                    color: th.text,
-                    fontFamily: 'inherit',
-                    boxSizing: 'border-box',
-                  }}
-                >
-                  <option>فرزة</option>
-                  <option>م1</option>
-                  <option>م2</option>
-                  <option>تعويض</option>
-                </select>
-              </div>
-
-              <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: th.sub, display: 'block', marginBottom: 6 }}>
-                  الحمولة
-                </label>
-                <input
-                  type="text"
-                  value={editingTrip.load}
-                  onChange={(e) => setEditingTrip({ ...editingTrip, load: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '10px 12px',
-                    borderRadius: 8,
-                    border: `1px solid ${th.border}`,
-                    background: th.inputBg,
-                    color: th.text,
-                    fontFamily: 'inherit',
-                    boxSizing: 'border-box',
-                  }}
-                />
-              </div>
-
-              <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: th.sub, display: 'block', marginBottom: 6 }}>
-                  المحافظة
-                </label>
-                <input
-                  type="text"
-                  value={editingTrip.province}
-                  onChange={(e) => setEditingTrip({ ...editingTrip, province: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '10px 12px',
-                    borderRadius: 8,
-                    border: `1px solid ${th.border}`,
-                    background: th.inputBg,
-                    color: th.text,
-                    fontFamily: 'inherit',
-                    boxSizing: 'border-box',
-                  }}
-                />
-              </div>
-
-              <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: th.sub, display: 'block', marginBottom: 6 }}>
-                  الوجهة
-                </label>
-                <select
-                  value={editingTrip.destination}
-                  onChange={(e) => setEditingTrip({ ...editingTrip, destination: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '10px 12px',
-                    borderRadius: 8,
-                    border: `1px solid ${th.border}`,
-                    background: th.inputBg,
-                    color: th.text,
-                    fontFamily: 'inherit',
-                    boxSizing: 'border-box',
-                  }}
-                >
-                  <option>عدن</option>
-                  <option>تعز</option>
-                  <option>صنعاء</option>
-                </select>
-              </div>
-
-              <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: th.sub, display: 'block', marginBottom: 6 }}>
-                  رقم الفك
-                </label>
-                <input
-                  type="text"
-                  value={editingTrip.exitNumber}
-                  onChange={(e) => setEditingTrip({ ...editingTrip, exitNumber: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '10px 12px',
-                    borderRadius: 8,
-                    border: `1px solid ${th.border}`,
-                    background: th.inputBg,
-                    color: th.text,
-                    fontFamily: 'inherit',
-                    boxSizing: 'border-box',
-                  }}
-                />
-              </div>
-
-              <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-                <button
-                  onClick={() => setShowEditDialog(false)}
-                  style={{
-                    flex: 1,
-                    padding: '12px',
-                    borderRadius: 8,
-                    border: `1px solid ${th.border}`,
-                    background: 'transparent',
-                    color: th.sub,
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    fontFamily: 'inherit',
-                  }}
-                >
-                  إلغاء
-                </button>
-                <button
-                  onClick={handleSaveEdit}
-                  style={{
-                    flex: 1,
-                    padding: '12px',
-                    borderRadius: 8,
-                    border: 'none',
-                    background: T.primary,
-                    color: '#fff',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    fontFamily: 'inherit',
-                  }}
-                >
-                  حفظ
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {editing && <div role="dialog" aria-modal="true" style={{ position: 'absolute', inset: 0, zIndex: 150, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'flex-end' }}><div style={{ width: '100%', maxHeight: '92%', overflowY: 'auto', background: th.card, borderRadius: '22px 22px 0 0', padding: 20 }}><h2 style={{ margin: '0 0 16px', color: th.text, fontSize: 18 }}>تعديل النهمة</h2><label style={{ display: 'block', color: th.sub, fontSize: 12 }}>نوع النهمة<select value={editing.type} onChange={(e) => update('type', e.target.value)} style={{ display: 'block', width: '100%', marginTop: 6, padding: 11, borderRadius: 10, border: `1px solid ${th.border}`, background: th.inputBg, color: th.text }}>{tripTypes.map((type) => <option key={type}>{type}</option>)}</select></label><label style={{ display: 'block', color: th.sub, fontSize: 12, marginTop: 12 }}>الحمولة<input value={editing.payload} onChange={(e) => update('payload', e.target.value)} placeholder={PAYLOAD_OPTIONS.join('، ')} style={{ display: 'block', width: '100%', marginTop: 6, padding: 11, borderRadius: 10, border: `1px solid ${th.border}`, background: th.inputBg, color: th.text }} /></label><label style={{ display: 'block', color: th.sub, fontSize: 12, marginTop: 12 }}>المحافظة<select value={editing.province} onChange={(e) => update('province', e.target.value)} style={{ display: 'block', width: '100%', marginTop: 6, padding: 11, borderRadius: 10, border: `1px solid ${th.border}`, background: th.inputBg, color: th.text }}>{YEMEN_PROVINCES.map((province) => <option key={province}>{province}</option>)}</select></label><label style={{ display: 'block', color: th.sub, fontSize: 12, marginTop: 12 }}>نوع الوجهة<select value={editing.destinationType} onChange={(e) => update('destinationType', e.target.value)} style={{ display: 'block', width: '100%', marginTop: 6, padding: 11, borderRadius: 10, border: `1px solid ${th.border}`, background: th.inputBg, color: th.text }}>{DESTINATION_TYPES.map((type) => <option key={type}>{type}</option>)}</select></label><label style={{ display: 'block', color: th.sub, fontSize: 12, marginTop: 12 }}>الوجهة<input value={editing.destination} onChange={(e) => update('destination', e.target.value)} style={{ display: 'block', width: '100%', marginTop: 6, padding: 11, borderRadius: 10, border: `1px solid ${th.border}`, background: th.inputBg, color: th.text }} /></label><label style={{ display: 'block', color: th.sub, fontSize: 12, marginTop: 12 }}>رقم الفك<input value={editing.breakNum} onChange={(e) => update('breakNum', e.target.value)} style={{ display: 'block', width: '100%', marginTop: 6, padding: 11, borderRadius: 10, border: `1px solid ${th.border}`, background: th.inputBg, color: th.text }} /></label><div style={{ display: 'flex', gap: 8, marginTop: 18 }}><button onClick={() => setEditing(null)} style={{ flex: 1, padding: 12, borderRadius: 10, border: `1px solid ${th.border}`, background: 'transparent', color: th.text }}>إلغاء</button><button onClick={save} style={{ flex: 1, padding: 12, borderRadius: 10, border: 0, background: T.primary, color: '#fff', fontWeight: 700 }}>حفظ التعديل</button></div></div></div>}
     </div>
   )
 }

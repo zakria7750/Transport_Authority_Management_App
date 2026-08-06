@@ -41,8 +41,7 @@ export default function RegistrationScreen() {
   const [guarantorSearch, setGuarantorSearch] = useState("")
   const [guarantors, setGuarantors] = useState<Omit<Guarantor, "status">[]>([])
   const [saving, setSaving] = useState(false)
-  const [addNameSearch, setAddNameSearch] = useState("")
-  const [addPlateSearch, setAddPlateSearch] = useState("")
+  const [addSearch, setAddSearch] = useState("")
   const [guarantorDialog, setGuarantorDialog] = useState<{ driverId: number; name: string } | null>(null)
   const [extraGuarantorName, setExtraGuarantorName] = useState("")
 
@@ -55,9 +54,7 @@ export default function RegistrationScreen() {
   )
 
   const filteredInactive = addableDrivers.filter(
-    (d) =>
-      (!addNameSearch || d.ownerName.includes(addNameSearch)) &&
-      (!addPlateSearch || d.plate.includes(addPlateSearch)),
+    (d) => !addSearch || matchesNameOrPlate(addSearch, d.ownerName, d.plate),
   )
 
   const handleImage = async (key: keyof DriverImages, file: File | undefined) => {

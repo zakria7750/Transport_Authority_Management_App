@@ -109,6 +109,7 @@ export type TripCreatePayload = {
   destination: string
   breakNum: string
   asDraft?: boolean
+  compensationAmount?: number
 }
 
 export type TripEditPayload = {
@@ -652,7 +653,7 @@ function reducer(state: AppState, action: Action): AppState {
         return state
 
       const amount =
-        trip.tripType === "تعويض" ? 1 : undefined
+        trip.tripType === "تعويض" ? Math.max(1, Math.floor(trip.compensationAmount ?? 1)) : undefined
       const newTrip: Trip = {
         id: nextId(),
         driverId: trip.driverId,
@@ -685,9 +686,9 @@ function reducer(state: AppState, action: Action): AppState {
             ? {
                 ...d,
                 currentTrip: trip.tripType,
-                compensationBalance:
-                  trip.tripType === "تعويض"
-                    ? Math.max(0, d.compensationBalance - 1)
+compensationBalance:
+                    trip.tripType === "تعويض"
+                    ? Math.max(0, d.compensationBalance - (amount ?? 0))
                     : d.compensationBalance,
               }
             : d,

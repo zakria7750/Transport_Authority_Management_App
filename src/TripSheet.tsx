@@ -28,6 +28,9 @@ export default function TripSheet({ driver, existingTrip, onClose }: Props) {
   const [breakNum, setBreakNum] = useState(
     existingTrip?.breakNum ?? suggestNextBreakNum(state.trips),
   )
+  const [compensationCount, setCompensationCount] = useState(
+    String(existingTrip?.compensationAmount ?? 1),
+  )
 
   const togglePayload = (item: string) => {
     setPayloadItems((prev) =>
@@ -39,43 +42,14 @@ export default function TripSheet({ driver, existingTrip, onClose }: Props) {
 
   const payloadStr = useMemo(() => formatPayload(payloadItems), [payloadItems])
 
-  const saveDraft = () => {
-    if (isEdit && existingTrip) {
-      dispatch({
-        type: "EDIT_TRIP",
-        edit: {
-          tripId: existingTrip.id,
-          payload: payloadStr,
-          province,
-          destinationType,
-          destination,
-          breakNum,
-        },
-      })
-      showSnackbar("تم حفظ التعديلات كمسودة")
-      onClose()
+  const confirm = () => {
+    const count = Number.parseInt(compensationCount, 10)
+    if (tripType === "تعويض" && (!Number.isInteger(count) || count < 1)) {
+      showSnackbar("أدخل عدد تعويضات صحيحاً")
       return
     }
-    dispatch({
-      type: "CREATE_TRIP",
-      trip: {
-        driverId: driver.id,
-        tripType,
-        payload: payloadStr,
-        province,
-        destinationType,
-        destination,
-        breakNum,
-        asDraft: true,
-      },
-    })
-    showSnackbar("تم حفظ النهمة كمسودة")
-    onClose()
-  }
-
-  const confirm = () => {
-    if (tripType === "تعويض" && driver.compensationBalance <= 0) {
-      showSnackbar("لا يوجد رصيد تعويض متاح ⚠️")
+    if (tripType === "تعويض" && driver.compensationBalance < count) {
+      showSnackbar("رصيد التعويضات غير كافٍ")
       return
     }
     if (isEdit && existingTrip) {
@@ -105,6 +79,7 @@ export default function TripSheet({ driver, existingTrip, onClose }: Props) {
         destination,
         breakNum,
         asDraft: false,
+        compensationAmount: tripType === "تعويض" ? count : undefined,
       },
     })
     showSnackbar(`تم إنشاء نهمة (${tripType}) للسائق ${driver.ownerName} ✅`)
@@ -146,24 +121,21 @@ export default function TripSheet({ driver, existingTrip, onClose }: Props) {
       )}
 
       {tripType === "تعويض" ? (
-        <div
-          style={{
-            background: "#FEF9C3",
-            borderRadius: 12,
-            padding: "14px 16px",
-            marginBottom: 16,
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-          }}
-        >
-          <span style={{ fontSize: 24 }}>💰</span>
-          <div>
-            <p style={{ margin: 0, fontSize: 11, color: "#92400E" }}>رصيد التعويض المتاح</p>
-            <p style={{ margin: "4px 0 0", fontSize: 20, fontWeight: 800, color: "#B45309" }}>
-              {driver.compensationBalance.toLocaleString()} ريال
-            </p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
+          <div style={{ padding: "12px 14px", borderRadius: 12, background: th.inputBg, border: `1px solid ${th.border}` }}>
+            <p style={{ margin: 0, fontSize: 12, color: th.sub }}>رصيد التعويضات المتاح</p>
+            <strong style={{ display: "block", marginTop: 4, color: th.text }}>{driver.compensationBalance} تعويض</strong>
           </div>
+          <label style={{ fontSize: 12, fontWeight: 600, color: th.sub }}>عدد التعويضات</label>
+          <input
+            type="number"
+            min="1"
+            step="1"
+            inputMode="numeric"
+            value={compensationCount}
+            onChange={(e) => setCompensationCount(e.target.value.replace(/[^0-9]/g, ""))}
+            style={{ width: "100%", padding: "11px 12px", borderRadius: 10, border: `1px solid ${th.border}`, background: th.inputBg, color: th.text, outline: "none" }}
+          />
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 16 }}>
@@ -265,27 +237,10 @@ export default function TripSheet({ driver, existingTrip, onClose }: Props) {
       <div style={{ display: "flex", gap: 10 }}>
         <button
           type="button"
-          onClick={saveDraft}
+          onClick={confirm}
+          disabled={tripType === "تعويض" && (driver.compensationBalance <= 0 || !Number.isInteger(Number.parseInt(compensationCount, 10)) || Number.parseInt(compensationCount, 10) < 1)}
           style={{
             flex: 1,
-            padding: "13px",
-            borderRadius: 12,
-            border: `1px solid ${th.border}`,
-            background: "none",
-            color: th.sub,
-            fontSize: 14,
-            cursor: "pointer",
-            fontFamily: "inherit",
-          }}
-        >
-          حفظ كمسودة
-        </button>
-        <button
-          type="button"
-          onClick={confirm}
-          disabled={tripType === "تعويض" && driver.compensationBalance <= 0}
-          style={{
-            flex: 2,
             padding: "13px",
             borderRadius: 12,
             border: "none",
