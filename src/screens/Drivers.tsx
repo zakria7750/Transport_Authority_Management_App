@@ -203,8 +203,8 @@ export default function DriversScreen() {
   const filtered = useMemo(() => {
     let list = state.drivers
     if (search) {
-      const q = search.toLowerCase()
-      list = list.filter(d => d.ownerName.includes(q) || d.plate.includes(q) || d.phone.includes(q))
+      const q = search.trim().toLocaleLowerCase('ar')
+      list = list.filter(d => `${d.ownerName} ${d.plate} ${d.phone}`.toLocaleLowerCase('ar').includes(q))
     }
     if (filter === 'نشط') {
       list = list.filter(d => d.status === 'نشط')
@@ -248,6 +248,15 @@ export default function DriversScreen() {
       />
 
       {/* Search Bar */}
+      <div style={{ padding: '8px 16px', background: th.card, borderBottom: `1px solid ${th.border}` }}>
+        <input
+          aria-label="فلترة الكشف بالاسم أو رقم اللوحة"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="فلترة بالاسم أو رقم اللوحة"
+          style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: `1px solid ${th.border}`, background: th.inputBg, color: th.text, boxSizing: 'border-box', direction: 'rtl' }}
+        />
+      </div>
       {showSearch && (
         <div style={{ padding: '8px 16px', background: T.appbar }}>
           <input

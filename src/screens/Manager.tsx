@@ -1142,6 +1142,7 @@ export function BreakdownsScreen() {
   const [editBreakdownId, setEditBreakdownId] = useState<number | null>(null)
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState<"all" | "نشط" | "منتهي">("all")
+  const [locationFilter, setLocationFilter] = useState<"all" | "قريب" | "بعيد">("all")
   // Task 48: manual add state
   const [showManualAdd, setShowManualAdd] = useState(false)
   const [manualDriverSearch, setManualDriverSearch] = useState("")
@@ -1155,7 +1156,8 @@ export function BreakdownsScreen() {
       b.plate.includes(search) ||
       b.tripType?.includes(search)
     const matchesStatus = statusFilter === "all" || b.status === statusFilter
-    return matchesSearch && matchesStatus
+    const matchesLocation = locationFilter === "all" || b.location === locationFilter
+    return matchesSearch && matchesStatus && matchesLocation
   })
 
   // Completed trips without a breakdown (for registering new breakdown)
@@ -1209,6 +1211,15 @@ export function BreakdownsScreen() {
         }
       />
 
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 8, padding: '10px 16px', background: th.bg }}>
+        {[
+          ['مكتملة', completedTripsWithoutBreakdown.length, T.primary],
+          ['قريبة', state.breakdowns.filter((b) => b.location === 'قريب').length, T.warning],
+          ['بعيدة', state.breakdowns.filter((b) => b.location === 'بعيد').length, T.danger],
+          ['مفتوحة', state.breakdowns.filter((b) => b.status === 'نشط').length, T.success],
+        ].map(([label, value, color]) => <div key={label} style={{ minWidth: 0, background: th.card, border: `1px solid ${th.border}`, borderRadius: 12, padding: '9px 6px', textAlign: 'center' }}><strong style={{ display: 'block', color: color as string, fontSize: 18 }}>{value}</strong><span style={{ color: th.sub, fontSize: 10 }}>{label}</span></div>)}
+      </div>
+
       {/* Task 44: search field */}
       <div style={{ background: th.card, borderBottom: `1px solid ${th.border}`, padding: "10px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
         <input
@@ -1234,6 +1245,7 @@ export function BreakdownsScreen() {
               }}
             >{l}</button>
           ))}
+          {([['all', 'كل المواقع'], ['قريب', 'قريب'], ['بعيد', 'بعيد']] as const).map(([k, l]) => <button key={k} type="button" onClick={() => setLocationFilter(k)} style={{ padding: '5px 10px', borderRadius: 99, border: 'none', background: locationFilter === k ? T.primary : (th.dark ? '#1E2D40' : '#F1F5F9'), color: locationFilter === k ? '#fff' : th.sub, fontSize: 11, fontWeight: 600 }}>{l}</button>)}
         </div>
       </div>
 
@@ -1464,10 +1476,19 @@ export function ReportsScreen() {
   })
   const [toDate, setToDate] = useState(() => new Date().toISOString().split('T')[0])
 
+  const inRange = (value: string) => {
+    const date = value.slice(0, 10)
+    return (!fromDate || date >= fromDate) && (!toDate || date <= toDate)
+  }
+  const rangedTrips = state.trips.filter((trip) => inRange(trip.completedAt ?? trip.createdAt))
+  const rangedViolations = state.violations.filter((violation) => inRange(violation.date))
+  const rangedBreakdowns = state.breakdowns.filter((breakdown) => inRange(breakdown.date))
   const totalDrivers = state.drivers.length
   const activeDrivers = state.drivers.filter(d => d.status === 'نشط').length
-  const completedTrips = state.trips.filter(t => t.status === 'مكتملة').length
-  const totalViolations = state.violations.length
+  const inactiveDrivers = state.drivers.filter(d => d.status === 'غير_نشط').length
+  const completedTrips = rangedTrips.filter(t => t.status === 'مكتملة').length
+  const cancelledTrips = rangedTrips.filter(t => t.status === 'ملغاة').length
+  const totalViolations = rangedViolations.length
   const totalComp = state.drivers.reduce((s, d) => s + d.compensationBalance, 0)
 
   const importBackup = async (file: File) => {
@@ -1492,10 +1513,10 @@ export function ReportsScreen() {
 
   const tripTypeCounts = (['فرزة', 'م1', 'م2', 'تعويض'] as const).map((type) => ({
     type,
-    count: state.trips.filter((t) => t.type === type && t.status === 'مكتملة').length,
+    count: rangedTrips.filter((t) => t.type === type && t.status === 'مكتملة').length,
   }))
 
-  const topViolators = [...state.violations]
+  const topViolators = [...rangedViolations]
     .reduce<{ name: string; count: number }[]>((acc, v) => {
       const existing = acc.find((x) => x.name === v.driverName)
       if (existing) existing.count += 1
@@ -1516,8 +1537,18 @@ export function ReportsScreen() {
       <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
         {/* Period selector */}
         <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
-          {[['day', 'يوم'], ['week', 'أسبوع'], ['month', 'شهر'], ['year', 'سنة']].map(([k, l]) => (
-            <button key={k} onClick={() => setPeriod(k)}
+          {[['day', 'يوم'], ['week', 'أسبوع'], ['month', 'شهر'], ['year', 'سنة'], ['custom', 'مخصص']].map(([k, l]) => (
+            <button key={k} onClick={() => {
+              setPeriod(k)
+              const end = new Date()
+              const start = new Date(end)
+              if (k === 'day') start.setDate(end.getDate())
+              if (k === 'week') start.setDate(end.getDate() - 7)
+              if (k === 'month') start.setMonth(end.getMonth() - 1)
+              if (k === 'year') start.setFullYear(end.getFullYear() - 1)
+              setFromDate(start.toISOString().split('T')[0])
+              setToDate(end.toISOString().split('T')[0])
+            }}
               style={{
                 flex: 1, padding: '8px 4px', borderRadius: 10, border: 'none',
                 background: period === k ? T.primary : (th.dark ? '#1E2D40' : '#F1F5F9'),
@@ -1535,7 +1566,9 @@ export function ReportsScreen() {
             { label: 'النهمات المكتملة', value: completedTrips, icon: '🚀', color: T.accent },
             { label: 'المخالفات', value: totalViolations, icon: '⚠️', color: T.danger },
             { label: 'التعويضات (ر)', value: totalComp.toLocaleString(), icon: '💰', color: T.warning },
-            { label: 'الأعطال', value: state.breakdowns.length, icon: '🔧', color: '#8B5CF6' },
+            { label: 'النهمات الملغاة', value: cancelledTrips, icon: '×', color: T.danger },
+            { label: 'الأعطال', value: rangedBreakdowns.length, icon: '🔧', color: '#8B5CF6' },
+            { label: 'غير النشطين', value: inactiveDrivers, icon: '○', color: th.sub },
           ].map(s => (
             <Card key={s.label}>
               <div style={{ padding: '14px 16px' }}>

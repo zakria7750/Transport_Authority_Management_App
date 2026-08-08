@@ -15,6 +15,7 @@ export function TripsManagementScreen() {
   const [query, setQuery] = useState('')
   const [typeFilter, setTypeFilter] = useState('all')
   const [destinationFilter, setDestinationFilter] = useState('all')
+  const [dateFilter, setDateFilter] = useState('')
   const [editing, setEditing] = useState<Trip | null>(null)
 
   const trips = useMemo(() => state.trips.filter((trip) => {
@@ -22,9 +23,11 @@ export function TripsManagementScreen() {
     const statusMatch = tab === 'pending'
       ? ['معلقة', 'مؤكدة_مبدئياً', 'مسودة'].includes(trip.status)
       : tab === 'completed' ? trip.status === 'مكتملة' : trip.status === 'ملغاة'
-    const searchMatch = !query || `${driver?.ownerName ?? ''} ${driver?.plate ?? ''}`.includes(query)
-    return statusMatch && searchMatch && (typeFilter === 'all' || trip.type === typeFilter) && (destinationFilter === 'all' || trip.destination === destinationFilter)
-  }), [state.trips, state.drivers, tab, query, typeFilter, destinationFilter])
+    const normalizedQuery = query.trim().toLocaleLowerCase('ar')
+    const searchMatch = !normalizedQuery || `${driver?.ownerName ?? ''} ${driver?.plate ?? ''}`.toLocaleLowerCase('ar').includes(normalizedQuery)
+    const dateMatch = !dateFilter || trip.createdAt.slice(0, 10) === dateFilter || trip.createdAt.includes(dateFilter)
+    return statusMatch && searchMatch && dateMatch && (typeFilter === 'all' || trip.type === typeFilter) && (destinationFilter === 'all' || trip.destination === destinationFilter)
+  }), [state.trips, state.drivers, tab, query, typeFilter, destinationFilter, dateFilter])
 
   const update = (field: keyof Trip, value: string) => setEditing((current) => current ? { ...current, [field]: value } : current)
   const save = () => {
@@ -48,8 +51,12 @@ export function TripsManagementScreen() {
         <input aria-label="بحث باسم السائق أو اللوحة" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="بحث باسم السائق أو رقم اللوحة" style={{ padding: '11px 13px', borderRadius: 12, border: `1px solid ${th.border}`, background: th.inputBg, color: th.text, direction: 'rtl' }} />
         <div style={{ display: 'flex', gap: 8 }}>
           <select aria-label="نوع النهمة" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} style={{ flex: 1, padding: 10, borderRadius: 10, border: `1px solid ${th.border}`, background: th.inputBg, color: th.text }}><option value="all">كل الأنواع</option>{tripTypes.map((type) => <option key={type}>{type}</option>)}</select>
-          <select aria-label="الوجهة" value={destinationFilter} onChange={(e) => setDestinationFilter(e.target.value)} style={{ flex: 1, padding: 10, borderRadius: 10, border: `1px solid ${th.border}`, background: th.inputBg, color: th.text }}><option value="all">كل الوجهات</option>{state.trips.map((trip) => <option key={trip.destination}>{trip.destination}</option>)}</select>
+          <select aria-label="الوجهة" value={destinationFilter} onChange={(e) => setDestinationFilter(e.target.value)} style={{ flex: 1, padding: 10, borderRadius: 10, border: `1px solid ${th.border}`, background: th.inputBg, color: th.text }}><option value="all">كل الوجهات</option>{Array.from(new Set(state.trips.map((trip) => trip.destination))).map((destination) => <option key={destination}>{destination}</option>)}</select>
         </div>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: th.sub, fontSize: 12 }}>
+          التاريخ
+          <input aria-label="تاريخ النهمة" type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} style={{ flex: 1, minWidth: 0, padding: 9, borderRadius: 10, border: `1px solid ${th.border}`, background: th.inputBg, color: th.text }} />
+        </label>
       </div>
       <div style={{ display: 'flex', background: th.card, borderBottom: `1px solid ${th.border}` }}>{([['pending', 'المعلقة'], ['completed', 'المكتملة'], ['cancelled', 'الملغاة']] as [Tab, string][]).map(([key, label]) => <button key={key} onClick={() => setTab(key)} style={{ flex: 1, padding: 12, border: 0, borderBottom: tab === key ? `3px solid ${T.primary}` : '3px solid transparent', background: 'transparent', color: tab === key ? T.primary : th.sub, fontWeight: 700 }}>{label}</button>)}</div>
       <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
