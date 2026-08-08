@@ -427,6 +427,7 @@ export function AppBarStandardSlots({
   extraLeft?: React.ReactNode
 }) {
   const { navigate, dispatch, isManager, state, showSnackbar, unreadCount } = useApp()
+  const th = useTheme()
 
   const bellBtn = showBell ? (
     <div style={{ position: "relative" }}>
