@@ -14,7 +14,7 @@ function DriverRow({ driver, isManager, onNahma, onViolation, highlighted }: {
   onViolation: (d: Driver, type: ViolationType) => void
   highlighted: boolean
 }) {
-  const { navigate, showSnackbar, dispatch } = useApp()
+  const { navigate } = useApp()
   const th = useTheme()
   const [showMenu, setShowMenu] = useState(false)
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -114,17 +114,7 @@ function DriverRow({ driver, isManager, onNahma, onViolation, highlighted }: {
                   fontSize: 11, fontWeight: 800, cursor: 'pointer',
                 }}>ح</button>
             )}
-            {driver.violation && (
-              <button onClick={() => {
-                dispatch({ type: 'ADD_NOTIFICATION', notification: { icon: '🔔', type: 'استثناء', title: 'طلب استثناء', message: `طلب استثناء مقدم من السائق ${driver.ownerName}` } })
-                showSnackbar('تم إرسال طلب الاستثناء ✅')
-              }}
-                style={{
-                  padding: '6px 10px', borderRadius: 8, border: 'none',
-                  background: '#F0FDF4', color: T.success,
-                  fontSize: 10, fontWeight: 700, cursor: 'pointer',
-                }}>استثناء</button>
-            )}
+
           </div>
         </div>
       </div>

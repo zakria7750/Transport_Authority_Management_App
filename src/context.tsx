@@ -109,6 +109,7 @@ export type TripCreatePayload = {
   destination: string
   breakNum: string
   asDraft?: boolean
+  compensationAmount?: number
 }
 
 export type TripEditPayload = {
@@ -191,6 +192,7 @@ type Action =
   | { type: "SET_MIN_GUARANTORS"; min: number }
   | { type: "SET_HIGHLIGHT"; driverId: number | null }
   | { type: "SAVE_SCROLL"; screen: Screen; position: number }
+  | { type: "IMPORT_DATA"; data: Partial<Pick<AppState, "drivers" | "trips" | "violations" | "breakdowns" | "notifications" | "users" | "minGuarantors">> }
 
 const REGISTRATION_SCREENS: Screen[] = ["registration", "settings", "login"]
 const MANAGER_ONLY: Screen[] = ["violations", "guarantees", "breakdowns", "reports", "users", "driver-management"]
@@ -652,7 +654,7 @@ function reducer(state: AppState, action: Action): AppState {
         return state
 
       const amount =
-        trip.tripType === "تعويض" ? 1 : undefined
+        trip.tripType === "تعويض" ? Math.max(1, Math.floor(trip.compensationAmount ?? 1)) : undefined
       const newTrip: Trip = {
         id: nextId(),
         driverId: trip.driverId,
@@ -685,9 +687,9 @@ function reducer(state: AppState, action: Action): AppState {
             ? {
                 ...d,
                 currentTrip: trip.tripType,
-                compensationBalance:
-                  trip.tripType === "تعويض"
-                    ? Math.max(0, d.compensationBalance - 1)
+compensationBalance:
+                    trip.tripType === "تعويض"
+                    ? Math.max(0, d.compensationBalance - (amount ?? 0))
                     : d.compensationBalance,
               }
             : d,
@@ -1307,6 +1309,15 @@ function reducer(state: AppState, action: Action): AppState {
         ...state,
         scrollPositions: { ...state.scrollPositions, [action.screen]: action.position },
       }
+
+    case "IMPORT_DATA": {
+      const data = action.data
+      return {
+        ...state,
+        ...data,
+        minGuarantors: typeof data.minGuarantors === "number" ? Math.max(0, data.minGuarantors) : state.minGuarantors,
+      }
+    }
 
     default:
       return state

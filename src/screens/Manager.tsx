@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react"
+import { useState, useMemo, useRef } from "react"
 import { useApp } from "../context"
 import { useTheme, T, Card, EmptyState, SkeletonRow, SearchableField, SearchableRosterField, APP_FULL_BRAND, StandardAppBar } from "../components"
 import BreakdownSheet from "../BreakdownSheet"
@@ -1452,7 +1452,8 @@ export function BreakdownsScreen() {
 //  REPORTS SCREEN
 // ══════════════════════════════════════════════════════════
 export function ReportsScreen() {
-  const { state, showSnackbar } = useApp()
+  const { state, dispatch, showSnackbar } = useApp()
+  const importInputRef = useRef<HTMLInputElement>(null)
   const th = useTheme()
   const [period, setPeriod] = useState('week')
   // Task 60: Calendar date range instead of chips
@@ -1468,6 +1469,26 @@ export function ReportsScreen() {
   const completedTrips = state.trips.filter(t => t.status === 'مكتملة').length
   const totalViolations = state.violations.length
   const totalComp = state.drivers.reduce((s, d) => s + d.compensationBalance, 0)
+
+  const importBackup = async (file: File) => {
+    try {
+      const parsed = JSON.parse(await file.text()) as Record<string, unknown>
+      const required = ["drivers", "trips", "violations", "breakdowns", "users"]
+      if (!required.every((key) => Array.isArray(parsed[key]))) throw new Error("invalid")
+      dispatch({ type: "IMPORT_DATA", data: {
+        drivers: parsed.drivers as typeof state.drivers,
+        trips: parsed.trips as typeof state.trips,
+        violations: parsed.violations as typeof state.violations,
+        breakdowns: parsed.breakdowns as typeof state.breakdowns,
+        users: parsed.users as typeof state.users,
+        notifications: Array.isArray(parsed.notifications) ? parsed.notifications as typeof state.notifications : state.notifications,
+        minGuarantors: typeof parsed.minGuarantors === "number" ? parsed.minGuarantors : state.minGuarantors,
+      } })
+      showSnackbar("تم استيراد النسخة الاحتياطية")
+    } catch {
+      showSnackbar("ملف النسخة الاحتياطية غير صالح")
+    }
+  }
 
   const tripTypeCounts = (['فرزة', 'م1', 'م2', 'تعويض'] as const).map((type) => ({
     type,
@@ -1583,31 +1604,25 @@ export function ReportsScreen() {
         <p style={{ fontSize: 12, fontWeight: 700, color: th.sub, textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 10px' }}>
           تصدير
         </p>
+        <input
+          ref={importInputRef}
+          type="file"
+          accept="application/json,.json"
+          hidden
+          onChange={(event) => {
+            const file = event.target.files?.[0]
+            if (file) void importBackup(file)
+            event.target.value = ""
+          }}
+        />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {[
             { 
-              label: '📄 تصدير PDF', 
+              label: 'طباعة التقرير', 
               color: '#DC2626',
               action: () => {
-                const pdf = `
-رقم التقرير: ${Date.now()}
-الفترة: ${fromDate} إلى ${toDate}
-
-الإحصائيات الكلية:
-- إجمالي البوابير: ${totalDrivers}
-- النشطين: ${activeDrivers}
-- النهمات المكتملة: ${completedTrips}
-- المخالفات: ${totalViolations}
-- التعويضات: ${totalComp.toLocaleString()}
-- الأعطال: ${state.breakdowns.length}
-                `.trim()
-                const blob = new Blob([pdf], { type: 'text/plain' })
-                const url = URL.createObjectURL(blob)
-                const a = document.createElement('a')
-                a.href = url
-                a.download = `تقرير_${fromDate}_${toDate}.txt`
-                a.click()
-                showSnackbar('تم تصدير PDF ✅')
+                window.print()
+                showSnackbar('تم فتح نافذة الطباعة')
               }
             },
             { 
@@ -1647,9 +1662,9 @@ export function ReportsScreen() {
               }
             },
             { 
-              label: '📥 استيراد قاعدة البيانات', 
+              label: 'استيراد قاعدة البيانات', 
               color: '#7C3AED',
-              action: () => showSnackbar('يرجى اختيار ملف JSON للاستيراد')
+              action: () => importInputRef.current?.click()
             },
           ].map(btn => (
             <button key={btn.label}
@@ -1717,7 +1732,7 @@ export function UsersScreen() {
             <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
               <div style={{
                 width: 44, height: 44, borderRadius: 14,
-                background: user.role === 'مدير_مكتب' ? '#DBEAFE' : '#F0FDF4',
+                background: user.role === 'مدير_م��تب' ? '#DBEAFE' : '#F0FDF4',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: 18, fontWeight: 800,
                 color: user.role === 'مدير_مكتب' ? T.primary : T.success,

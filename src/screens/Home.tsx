@@ -227,16 +227,6 @@ export default function HomeScreen() {
             </button>
             <div style={{ display: 'flex', gap: 8 }}>
               <button
-                onClick={() => navigate('violations')}
-                style={{
-                  flex: 1, background: th.card, border: `1px solid ${th.border}`,
-                  borderRadius: 12, padding: '12px', color: T.warning, fontWeight: 700,
-                  fontSize: 12, cursor: 'pointer', fontFamily: 'inherit',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                }}>
-                🔔 طلبات الاستثناء <span style={{ background: '#FEF9C3', borderRadius: 99, padding: '0 6px', fontSize: 11 }}>3</span>
-              </button>
-              <button
                 onClick={async () => {
                   await new Promise(r => setTimeout(r, 600))
                   dispatch({ type: 'SYNC_NOW' })
