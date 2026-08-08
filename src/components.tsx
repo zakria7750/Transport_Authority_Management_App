@@ -508,7 +508,7 @@ export function AppBarStandardSlots({
           type="button"
           onClick={() => navigate("settings")}
           style={{ background: "none", border: "none", color: "#CBD5E1", cursor: "pointer", fontSize: 18, padding: 4 }}
-          title="الإعدادات"
+          title="الإ��دادات"
         >
           ◉
         </button>
@@ -775,13 +775,23 @@ export function BottomNav() {
     : NAV_ITEMS
 
   return (
-    <div style={{
-      background: th.card,
-      borderTop: `1px solid ${th.border}`,
-      display: 'flex',
-      flexShrink: 0,
-      justifyContent: 'space-around',
-    }}>
+    <nav
+      aria-label="التنقل الرئيسي"
+      style={{
+        position: 'fixed',
+        left: 'max(0px, calc((100vw - min(100vw, 1180px)) / 2))',
+        right: 'max(0px, calc((100vw - min(100vw, 1180px)) / 2))',
+        bottom: 0,
+        zIndex: 100,
+        minHeight: 64,
+        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        background: th.card,
+        borderTop: `1px solid ${th.border}`,
+        display: 'flex',
+        justifyContent: 'space-around',
+        boxShadow: '0 -8px 24px rgba(15, 23, 42, 0.08)',
+      }}
+    >
       {items.map(item => {
         const active = state.screen === item.screen
         return (
@@ -804,7 +814,7 @@ export function BottomNav() {
           </button>
         )
       })}
-    </div>
+    </nav>
   )
 }
 
