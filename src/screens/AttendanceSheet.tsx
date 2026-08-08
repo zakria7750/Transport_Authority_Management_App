@@ -23,14 +23,8 @@ export function AttendanceSheet() {
   useMemo(() => {
     const init: Record<number, boolean> = {}
     activeDrivers.forEach(d => {
-      // Check if driver has completed a م1 trip today
-      const hasCompletedM1 = state.trips.some(t => 
-        t.driverId === d.id && 
-        t.type === 'م1' && 
-        t.status === 'مكتملة' &&
-        t.createdAt === new Date().toLocaleDateString('ar-SA')
-      )
-      init[d.id] = hasCompletedM1 // Only check if had successful م1 trip
+      // الحقل «ت» يبدأ صحيحاً، ولا يعتمد على وجود نهمة سابقة.
+      init[d.id] = true
     })
     setAttendance(init)
   }, [activeDrivers, state.trips])
@@ -249,7 +243,6 @@ export function AttendanceSheet() {
                 <th style={{ padding: '10px', textAlign: 'right', fontWeight: 700, color: th.text }}>اللوحة</th>
                 <th style={{ padding: '10px', textAlign: 'right', fontWeight: 700, color: th.text }}>م1</th>
                 <th style={{ padding: '10px', textAlign: 'right', fontWeight: 700, color: th.text }}>م2</th>
-                <th style={{ padding: '10px', textAlign: 'center', fontWeight: 700, color: th.text }}>ن</th>
                 <th style={{ padding: '10px', textAlign: 'center', fontWeight: 700, color: th.text }}>ت</th>
               </tr>
             </thead>
@@ -265,27 +258,6 @@ export function AttendanceSheet() {
                   </td>
                   <td style={{ padding: '10px', textAlign: 'right' }}>
                     {driver.currentTrip?.type === 'م2' ? 'ن' : ''}
-                  </td>
-                  <td style={{ padding: '10px', textAlign: 'center' }}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedDriver(driver)
-                        setShowTripSheet(true)
-                      }}
-                      style={{
-                        background: '#3B82F6',
-                        color: '#fff',
-                        border: 'none',
-                        borderRadius: 6,
-                        padding: '4px 8px',
-                        cursor: 'pointer',
-                        fontWeight: 700,
-                        fontSize: 12,
-                      }}
-                    >
-                      ن
-                    </button>
                   </td>
                   <td style={{ padding: '10px', textAlign: 'center' }}>
                     <input

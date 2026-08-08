@@ -940,6 +940,11 @@ compensationBalance:
       return {
         ...state,
         drivers,
+        breakdowns: state.breakdowns.map((breakdown) =>
+          breakdown.driverId === source.id && breakdown.status === "نشط"
+            ? { ...breakdown, status: "منتهي" as const }
+            : breakdown,
+        ),
         notifications: pushNotif(state, {
           icon: "✅",
           type: "تسجيل",
