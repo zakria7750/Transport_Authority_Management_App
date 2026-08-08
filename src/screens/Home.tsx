@@ -76,40 +76,6 @@ export default function HomeScreen() {
         <AppBar
         title="الرئيسية"
         rightSlot={rightSlot}
-        leftSlot={
-          <div style={{ position: 'relative' }}>
-            {leftSlot}
-            {showQuickMenu && (
-              <div style={{
-                position: 'absolute', left: 0, top: 38, zIndex: 100,
-                background: '#1E293B', borderRadius: 12, overflow: 'hidden',
-                boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
-                minWidth: 180, border: '1px solid #334155',
-              }}>
-                {[
-                  { label: 'تسجيل مالك جديد', icon: '👤', action: () => { navigate('registration', { tab: 'register' }); setShowQuickMenu(false) } },
-                  { label: 'إضافة مالك للكشف', icon: '📋', action: () => { navigate('registration', { tab: 'add' }); setShowQuickMenu(false) } },
-                  { label: 'كشف التحضير', icon: '📝', action: () => { navigate('attendance-sheet'); setShowQuickMenu(false) } },
-                  ...(isManager ? [
-                    { label: 'إضافة مخالفة', icon: '⚠️', action: () => { navigate('violations'); setShowQuickMenu(false) } },
-                    { label: 'إضافة مستخدم', icon: '🔑', action: () => { navigate('users'); setShowQuickMenu(false) } },
-                  ] : []),
-                ].map(item => (
-                  <button key={item.label} onClick={item.action}
-                    style={{
-                      width: '100%', padding: '12px 16px', border: 'none',
-                      background: 'none', color: '#F1F5F9', cursor: 'pointer',
-                      display: 'flex', alignItems: 'center', gap: 10,
-                      fontSize: 13, textAlign: 'right', fontFamily: 'inherit',
-                      borderBottom: '1px solid #334155',
-                    }}>
-                    <span>{item.icon}</span>{item.label}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        }
       />
 
       {/* Hero greeting */}
@@ -197,86 +163,6 @@ export default function HomeScreen() {
             >
               <span style={{ fontSize: 24 }}>{screen.icon}</span>
               <span style={{ fontSize: 12, fontWeight: 600, color: th.text }}>{screen.label}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Manager Quick Actions */}
-      {isManager && (
-        <div style={{ padding: '0 16px' }}>
-          <p style={{ fontSize: 12, fontWeight: 700, color: th.sub, textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 10px' }}>
-            إجراءات سريعة
-          </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <button
-              onClick={() => {
-                dispatch({ type: 'RAISE_ALL_VIOLATIONS' })
-                showSnackbar(`تم رفع ${pendingViolations} مخالفة بنجاح ✅`)
-              }}
-              style={{
-                background: T.danger, border: 'none', borderRadius: 12,
-                padding: '13px 16px', color: '#fff', fontWeight: 700,
-                fontSize: 13, cursor: 'pointer', fontFamily: 'inherit',
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              }}>
-              <span>رفع جميع المخالفات القابلة للرفع</span>
-              <span style={{ background: 'rgba(255,255,255,0.2)', borderRadius: 99, padding: '2px 10px', fontSize: 12 }}>
-                {pendingViolations}
-              </span>
-            </button>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button
-                onClick={async () => {
-                  await new Promise(r => setTimeout(r, 600))
-                  dispatch({ type: 'SYNC_NOW' })
-                  showSnackbar('تمت المزامنة بنجاح ✅')
-                }}
-                style={{
-                  flex: 1, background: T.primary, border: 'none',
-                  borderRadius: 12, padding: '12px', color: '#fff', fontWeight: 700,
-                  fontSize: 12, cursor: 'pointer', fontFamily: 'inherit',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                }}>
-                🔄 مزامنة الآن
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Quick Nav Grid */}
-      <div style={{ padding: '16px 16px 0' }}>
-        <p style={{ fontSize: 12, fontWeight: 700, color: th.sub, textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 10px' }}>
-          وصول سريع
-        </p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
-          {[
-            { icon: '📋', label: 'الكشف', screen: 'drivers' as const },
-            { icon: '🚛', label: 'النهمات', screen: 'pending-trips' as const },
-            { icon: '📝', label: 'التحضير', screen: 'attendance' as const },
-            { icon: '⚠️', label: 'المخالفات', screen: 'violations' as const },
-            { icon: '🔧', label: 'الأعطال', screen: 'breakdowns' as const },
-            { icon: '🏦', label: 'الضمانات', screen: 'guarantees' as const },
-            ...(isManager ? [
-              { icon: '📊', label: 'التقارير', screen: 'reports' as const },
-              { icon: '👥', label: 'المستخدمون', screen: 'users' as const },
-            ] : [
-              { icon: '🔍', label: 'بحث', screen: 'search' as const },
-              { icon: '⚙️', label: 'الإعدادات', screen: 'settings' as const },
-            ]),
-          ].map(item => (
-            <button key={item.label}
-              onClick={() => navigate(item.screen)}
-              style={{
-                background: th.card, border: `1px solid ${th.border}`,
-                borderRadius: 12, padding: '12px 8px',
-                cursor: 'pointer', fontFamily: 'inherit',
-                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
-                transition: 'transform 0.1s',
-              }}>
-              <span style={{ fontSize: 22 }}>{item.icon}</span>
-              <span style={{ fontSize: 10, fontWeight: 600, color: th.sub, textAlign: 'center' }}>{item.label}</span>
             </button>
           ))}
         </div>
