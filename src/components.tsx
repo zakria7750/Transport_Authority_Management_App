@@ -106,6 +106,122 @@ export function useTheme() {
   }
 }
 
+// ─── Monochrome icon set ───────────────────────────────────
+// Keep the visual language consistent with Replit-style interfaces without
+// changing the string values used by the app state and notification data.
+const ICON_ALIASES: Record<string, string> = {
+  "🔔": "bell",
+  "🔄": "refresh",
+  "◉": "settings",
+  "⚙️": "settings",
+  "⚙": "settings",
+  "+": "plus",
+  "➕": "plus",
+  "⌂": "home",
+  "▤": "list",
+  "⋯": "more",
+  "🚛": "truck",
+  "🚚": "truck",
+  "📋": "clipboard",
+  "📝": "note",
+  "⚠️": "warning",
+  "⚠": "warning",
+  "🏦": "bank",
+  "📊": "chart",
+  "📈": "chart",
+  "👥": "users",
+  "🚗": "car",
+  "👤": "user",
+  "🔑": "key",
+  "✅": "check",
+  "✓": "check",
+  "⏸": "pause",
+  "💰": "money",
+  "🔧": "wrench",
+  "🔍": "search",
+  "📭": "inbox",
+  "🎯": "target",
+  "☎": "phone",
+  "☎️": "phone",
+  "✕": "close",
+  "❌": "close",
+  "✏️": "edit",
+  "🗑": "trash",
+  "💾": "save",
+  "📅": "calendar",
+  "⏳": "loading",
+  "🔒": "lock",
+}
+
+const ICON_PATHS: Record<string, string[]> = {
+  bell: ["M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9", "M10 21h4"],
+  refresh: ["M20 11a8 8 0 0 0-14.9-3M4 5v4h4", "M4 13a8 8 0 0 0 14.9 3M20 19v-4h-4"],
+  settings: ["M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z", "m19.4 15-.1.1a1.8 1.8 0 0 0 .3 2.1l.1.1-1.7 1.7-.1-.1a1.8 1.8 0 0 0-2.1-.3l-.1.1a1.8 1.8 0 0 0-1 1.6v.2h-2.4v-.2a1.8 1.8 0 0 0-1-1.6l-.1-.1a1.8 1.8 0 0 0-2.1.3l-.1.1-1.7-1.7.1-.1a1.8 1.8 0 0 0 .3-2.1l-.1-.1a1.8 1.8 0 0 0-1.6-1H6v-2.4h.2a1.8 1.8 0 0 0 1.6-1l.1-.1a1.8 1.8 0 0 0-.3-2.1l-.1-.1 1.7-1.7.1.1a1.8 1.8 0 0 0 2.1.3l.1-.1a1.8 1.8 0 0 0 1-1.6V5h2.4v.2a1.8 1.8 0 0 0 1 1.6l.1.1a1.8 1.8 0 0 0 2.1-.3l.1-.1 1.7 1.7-.1.1a1.8 1.8 0 0 0-.3 2.1l.1.1a1.8 1.8 0 0 0 1.6 1h.2V14h-.2a1.8 1.8 0 0 0-1.6 1Z"],
+  plus: ["M12 5v14M5 12h14"],
+  home: ["m3 10 9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1Z", "M9 21v-7h6v7"],
+  list: ["M8 6h13M8 12h13M8 18h13", "M3 6h.01M3 12h.01M3 18h.01"],
+  more: ["M5 12h.01M12 12h.01M19 12h.01"],
+  truck: ["M3 6h11v10H3z", "M14 10h4l3 3v3h-7z", "M7 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4ZM18 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"],
+  clipboard: ["M8 4h8v3H8z", "M6 5H4v16h16V5h-2", "M8 12h8M8 16h5"],
+  note: ["M6 3h9l3 3v15H6z", "M15 3v4h3M9 12h6M9 16h4"],
+  warning: ["m12 4 9 16H3Z", "M12 9v5M12 17h.01"],
+  bank: ["M3 10h18M4 10v9M8 10v9M12 10v9M16 10v9M20 10v9M2 21h20M12 3l10 5H2Z"],
+  chart: ["M4 19V5M4 19h17", "m7 15 3-4 3 2 5-7"],
+  users: ["M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2", "M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"],
+  car: ["M5 17h14l1-5-2-5H6l-2 5z", "M6 17v2M18 17v2M4 12h16", "M7 14h.01M17 14h.01"],
+  user: ["M20 21a8 8 0 0 0-16 0", "M12 13a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"],
+  key: ["m15.5 8.5 5 5M18 11l2-2M16 14l-2 2", "M14 7a5 5 0 1 1-7 7 5 5 0 0 1 7-7Z"],
+  check: ["m5 12 4 4L19 6"],
+  pause: ["M8 5v14M16 5v14"],
+  money: ["M3 6h18v12H3z", "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM6 9h.01M18 15h.01"],
+  wrench: ["m14.7 6.3 3-3a5 5 0 0 0-6.4 6.4l-8 8a2 2 0 1 0 2.8 2.8l8-8a5 5 0 0 0 6.4-6.4l-3 3Z"],
+  search: ["m21 21-4.3-4.3", "M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14Z"],
+  inbox: ["M4 4h16v16H4z", "M4 14h4l2 3h4l2-3h4"],
+  target: ["M12 3v3M12 18v3M3 12h3M18 12h3", "M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z", "M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"],
+  phone: ["M6 3h3l2 5-2 1a12 12 0 0 0 6 6l1-2 5 2v3a2 2 0 0 1-2 2C10 20 4 14 4 5a2 2 0 0 1 2-2Z"],
+  close: ["M6 6l12 12M18 6 6 18"],
+  edit: ["M4 20h4L19 9l-4-4L4 16z", "m13 6 4 4"],
+  trash: ["M4 7h16M10 11v6M14 11v6", "M6 7l1 14h10l1-14M9 7V4h6v3"],
+  save: ["M5 3h12l3 3v15H5z", "M8 3v6h8V3M8 21v-7h8v7"],
+  calendar: ["M4 5h16v16H4z", "M8 3v4M16 3v4M4 10h16"],
+  loading: ["M12 3a9 9 0 1 0 9 9"],
+  lock: ["M6 10h12v11H6z", "M8 10V7a4 4 0 0 1 8 0v3"],
+  dot: ["M12 12h.01"],
+}
+
+export function MonochromeIcon({
+  name,
+  size = 20,
+  strokeWidth = 1.8,
+  label,
+}: {
+  name: string
+  size?: number
+  strokeWidth?: number
+  label?: string
+}) {
+  const key = ICON_ALIASES[name] ?? name
+  const paths = ICON_PATHS[key] ?? ICON_PATHS.dot
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden={label ? undefined : true}
+      aria-label={label}
+      role={label ? "img" : undefined}
+      style={{ display: "inline-block", verticalAlign: "middle", flexShrink: 0 }}
+    >
+      {paths.map((path, index) => <path key={`${key}-${index}`} d={path} />)}
+    </svg>
+  )
+}
+
 export function SearchableField({
   label,
   value,
