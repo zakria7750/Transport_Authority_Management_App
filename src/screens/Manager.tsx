@@ -271,7 +271,7 @@ export function ViolationsScreen() {
 //  DRIVER MANAGEMENT SCREEN (Task 73-75)
 // ══════════════════════════════════════════════════════════
 export function DriverManagementScreen() {
-  const { state, dispatch, showSnackbar } = useApp()
+  const { state, dispatch, showSnackbar, navigate } = useApp()
   const th = useTheme()
   const [filter, setFilter] = useState<"all" | "active" | "inactive">("all")
   const [search, setSearch] = useState("")
@@ -295,14 +295,15 @@ export function DriverManagementScreen() {
       showSnackbar("لا يمكن حذف السائق — لديه نهمات أو مخالفات أو ضمانات نشطة ⚠️")
       return
     }
-    if (!window.confirm(`هل تريد حذف ${name}؟`)) return
+    if (!window.confirm(`⚠️ هل أنت متأكد من حذف ${name}؟\nسيتم حذف السائق من الكشف، ولا يجب تنفيذ هذه العملية إلا إذا كنت متأكداً.`)) return
     dispatch({ type: "DELETE_DRIVER", driverId })
     showSnackbar(`تم حذف ${name} ✅`)
   }
 
   const handleDisable = (driverId: number, name: string) => {
-    dispatch({ type: "SET_DRIVER_STATUS", driverId, status: "غير_نشط", reason: "ملغي" })
-    showSnackbar(`تم تعطيل ${name} (ملغي) ✅`)
+    if (!window.confirm("هل أنت متأكد من رغبتك في تعطيل هذا السائق؟")) return
+    dispatch({ type: "DISABLE_DRIVER", driverId })
+    showSnackbar(`تم تعطيل ${name} مع الاحتفاظ ببياناته ✅`)
   }
 
   return (
@@ -370,13 +371,16 @@ export function DriverManagementScreen() {
             <div
               key={driver.id}
               style={{
-                borderBottom: `1px solid ${th.border}`,
-                padding: "14px 16px",
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
+                margin: "10px 16px",
+                border: `1px solid ${th.border}`,
+                borderRadius: 14,
+                padding: "14px",
+                background: th.card,
+                boxShadow: "0 4px 14px rgba(15,23,42,.06)",
               }}
             >
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+
               <div
                 style={{
                   width: 40,
@@ -392,49 +396,19 @@ export function DriverManagementScreen() {
               >
                 {driver.status === "نشط" ? "✓" : "✕"}
               </div>
-              <div style={{ flex: 1 }}>
-                <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: th.text }}>{driver.ownerName}</p>
+              <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => navigate("driver-profile", { driverId: driver.id })}>
+                <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: th.text }}>{driver.ownerName}</p>
                 <p style={{ margin: "3px 0 0", fontSize: 11, color: th.sub }}>
-                  {driver.plate} · {driver.status === "نشط" ? "نشط" : "غير نشط"}
+                  {driver.plate} · نوع البابور: {driver.type} · {driver.status === "نشط" ? "نشط" : "غير نشط"}
                 </p>
+                <p style={{ margin: "3px 0 0", fontSize: 11, color: th.muted }}>الهاتف: {driver.phone || "غير مسجل"}</p>
               </div>
-              {driver.status === "نشط" ? (
-                <button
-                  onClick={() => handleDisable(driver.id, driver.ownerName)}
-                  style={{
-                    padding: "6px 12px",
-                    borderRadius: 8,
-                    border: "none",
-                    background: "#FEE2E2",
-                    color: T.danger,
-                    fontSize: 11,
-                    fontWeight: 700,
-                    cursor: "pointer",
-                    fontFamily: "inherit",
-                  }}
-                >
-                  تعطيل
-                </button>
-              ) : (
-                <button
-                  onClick={() => handleDelete(driver.id, driver.ownerName)}
-                  disabled={!canDelete(driver)}
-                  style={{
-                    padding: "6px 12px",
-                    borderRadius: 8,
-                    border: "none",
-                    background: canDelete(driver) ? "#DC2626" : "#E5E7EB",
-                    color: canDelete(driver) ? "#fff" : "#9CA3AF",
-                    fontSize: 11,
-                    fontWeight: 700,
-                    cursor: canDelete(driver) ? "pointer" : "not-allowed",
-                    fontFamily: "inherit",
-                    opacity: canDelete(driver) ? 1 : 0.6,
-                  }}
-                >
-                  حذف
-                </button>
-              )}
+            </div>
+            <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+              <button type="button" onClick={() => navigate("driver-profile", { driverId: driver.id })} style={{ flex: 1, padding: "8px 6px", borderRadius: 9, border: `1px solid ${th.border}`, background: th.inputBg, color: th.text, fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>تعديل</button>
+              <button type="button" onClick={() => handleDisable(driver.id, driver.ownerName)} disabled={driver.status !== "نشط"} style={{ flex: 1, padding: "8px 6px", borderRadius: 9, border: "none", background: driver.status === "نشط" ? "#FEF3C7" : th.inputBg, color: driver.status === "نشط" ? T.warning : th.muted, fontSize: 11, fontWeight: 700, cursor: driver.status === "نشط" ? "pointer" : "not-allowed", fontFamily: "inherit" }}>تعطيل</button>
+              <button type="button" onClick={() => handleDelete(driver.id, driver.ownerName)} disabled={!canDelete(driver)} style={{ flex: 1, padding: "8px 6px", borderRadius: 9, border: "none", background: canDelete(driver) ? "#FEE2E2" : th.inputBg, color: canDelete(driver) ? T.danger : th.muted, fontSize: 11, fontWeight: 700, cursor: canDelete(driver) ? "pointer" : "not-allowed", fontFamily: "inherit" }}>حذف</button>
+            </div>
             </div>
           ))
         )}
@@ -525,6 +499,7 @@ export function GuaranteesScreen() {
   const th = useTheme()
   const [tab, setTab] = useState<"guaranteed" | "guarantors">("guaranteed")
   const [guaranteeFilter, setGuaranteeFilter] = useState<"all" | "complete" | "incomplete">("all")
+  const [guaranteeSearch, setGuaranteeSearch] = useState("")
   const [editDriverId, setEditDriverId] = useState<number | null>(null)
   const [editGuarantors, setEditGuarantors] = useState<Guarantor[]>([])
   const [addGuarantorSearch, setAddGuarantorSearch] = useState("")
@@ -539,6 +514,9 @@ export function GuaranteesScreen() {
 
   const driversWithGuarantors = state.drivers.filter((d) => {
     const activeGuarantors = d.guarantors.filter((g) => g.status === "فعال" && !g.suspended)
+    const q = guaranteeSearch.trim().toLocaleLowerCase("ar")
+    const matchesSearch = !q || `${d.ownerName} ${d.plate} ${activeGuarantors.map((g) => g.name).join(" ")}`.toLocaleLowerCase("ar").includes(q)
+    if (!matchesSearch) return false
     if (activeGuarantors.length === 0 && guaranteeFilter !== "all") return false
     const count = countActiveGuarantors(d)
     if (guaranteeFilter === "complete") return count >= state.minGuarantors
@@ -546,7 +524,10 @@ export function GuaranteesScreen() {
     return activeGuarantors.length > 0 || guaranteeFilter === "all"
   })
 
-  const guarantorGroups = useMemo(() => buildGuarantorGroups(state.drivers), [state.drivers])
+  const guarantorGroups = useMemo(() => buildGuarantorGroups(state.drivers).filter((group) => {
+    const q = guaranteeSearch.trim().toLocaleLowerCase("ar")
+    return !q || `${group.name} ${group.phone} ${group.entries.map((entry) => entry.driverName).join(" ")}`.toLocaleLowerCase("ar").includes(q)
+  }), [state.drivers, guaranteeSearch])
 
   const editDriver = editDriverId !== null ? state.drivers.find((d) => d.id === editDriverId) : undefined
 
@@ -720,8 +701,12 @@ export function GuaranteesScreen() {
         ))}
       </div>
 
+      <div style={{ padding: "10px 16px", background: th.bg }}>
+        <input value={guaranteeSearch} onChange={(e) => setGuaranteeSearch(e.target.value)} placeholder="بحث باسم المالك أو الضامن أو اللوحة..." aria-label="بحث الضمانات" style={{ width: "100%", boxSizing: "border-box", padding: "10px 12px", borderRadius: 10, border: `1px solid ${th.border}`, background: th.inputBg, color: th.text, direction: "rtl", fontFamily: "inherit" }} />
+      </div>
+
       {tab === "guaranteed" && (
-        <div style={{ background: th.card, borderBottom: `1px solid ${th.border}`, padding: "8px 16px", display: "flex", gap: 8 }}>
+        <div style={{ background: th.card, borderBottom: `1px solid ${th.border}`, padding: "8px 16px", display: "flex", gap: 8, overflowX: "auto" }}>
           {[
             ["all", "الكل"],
             ["complete", "مكتمل"],
@@ -759,64 +744,23 @@ export function GuaranteesScreen() {
               const activeGuarantors = driver.guarantors.filter((g) => g.status === "فعال" && !g.suspended)
               return (
                 <Card key={driver.id}>
-                  <div style={{ padding: "14px 16px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10, gap: 8 }}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: th.text }}>{driver.ownerName}</p>
-                        <p style={{ margin: "3px 0 0", fontSize: 12, color: th.sub }}>{driver.plate}</p>
+                  <article style={{ padding: 14, minWidth: 0, width: "100%" }}>
+                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, minWidth: 0 }}>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: th.text, overflowWrap: "anywhere" }}>{driver.ownerName}</p>
+                        <p style={{ margin: "4px 0 0", fontSize: 12, color: th.sub, overflowWrap: "anywhere" }}>لوحة: {driver.plate}</p>
                       </div>
-                      <span
-                        style={{
-                          fontSize: 11,
-                          fontWeight: 700,
-                          padding: "3px 10px",
-                          borderRadius: 99,
-                          background: active >= state.minGuarantors ? "#D1FAE5" : "#FEE2E2",
-                          color: active >= state.minGuarantors ? "#065F46" : "#991B1B",
-                          flexShrink: 0,
-                        }}
-                      >
-                        {active}/{state.minGuarantors}
-                      </span>
-                      <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                        <ActionIconBtn
-                          icon="✏️"
-                          title="تعديل الضامنين"
-                          color={T.primary}
-                          bg={th.dark ? "#1E3A5F" : "#EFF6FF"}
-                          onClick={() => openGuaranteedEdit(driver.id)}
-                        />
-                        <ActionIconBtn
-                          icon="🗑"
-                          title="حذف جميع الضمانات"
-                          color={T.danger}
-                          bg="#FEE2E2"
-                          onClick={() => deleteGuaranteesForDriver(driver.id, driver.ownerName)}
-                        />
-                      </div>
+                      <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, padding: "4px 9px", borderRadius: 99, background: active >= state.minGuarantors ? "#D1FAE5" : "#FEE2E2", color: active >= state.minGuarantors ? "#065F46" : "#991B1B" }}>{active}/{state.minGuarantors}</span>
                     </div>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                      {activeGuarantors.length === 0 ? (
-                        <span style={{ fontSize: 11, color: th.sub }}>لا يوجد ضامنون نشطون</span>
-                      ) : (
-                        activeGuarantors.map((g) => (
-                          <span
-                            key={g.id}
-                            style={{
-                              fontSize: 11,
-                              padding: "4px 10px",
-                              borderRadius: 99,
-                              background: "#DBEAFE",
-                              color: T.primary,
-                              fontWeight: 600,
-                            }}
-                          >
-                            🏦 {g.name}
-                          </span>
-                        ))
-                      )}
+                    <div style={{ marginTop: 12, paddingTop: 10, borderTop: `1px solid ${th.border}` }}>
+                      <p style={{ margin: "0 0 8px", fontSize: 11, color: th.sub }}>الضامنون ({activeGuarantors.length})</p>
+                      {activeGuarantors.length === 0 ? <span style={{ fontSize: 11, color: th.sub }}>لا يوجد ضامنون نشطون</span> : <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>{activeGuarantors.map((g) => <div key={g.id} style={{ padding: "8px 10px", borderRadius: 8, background: th.surfaceVariant, color: th.text, fontSize: 11, overflowWrap: "anywhere" }}>{g.name}</div>)}</div>}
                     </div>
-                  </div>
+                    <div style={{ display: "flex", gap: 8, marginTop: 12, paddingTop: 10, borderTop: `1px solid ${th.border}` }}>
+                      <button type="button" onClick={() => openGuaranteedEdit(driver.id)} style={{ flex: 1, minWidth: 0, minHeight: 38, border: `1px solid ${th.border}`, borderRadius: 9, background: th.inputBg, color: th.text, fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>تعديل</button>
+                      <button type="button" onClick={() => deleteGuaranteesForDriver(driver.id, driver.ownerName)} style={{ flex: 1, minWidth: 0, minHeight: 38, border: "none", borderRadius: 9, background: "#FEE2E2", color: T.danger, fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>إلغاء الضمانات</button>
+                    </div>
+                  </article>
                 </Card>
               )
             })
@@ -826,65 +770,23 @@ export function GuaranteesScreen() {
         ) : (
           guarantorGroups.map((group) => (
             <Card key={group.nationalId}>
-              <div style={{ padding: "14px 16px" }}>
-                <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-                  <div
-                    style={{
-                      width: 42,
-                      height: 42,
-                      borderRadius: 12,
-                      background: "#DBEAFE",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: 18,
-                      flexShrink: 0,
-                    }}
-                  >
-                    🏦
+              <article style={{ padding: 14, minWidth: 0, width: "100%" }}>
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, minWidth: 0 }}>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: th.text, overflowWrap: "anywhere" }}>{group.name}</p>
+                    <p style={{ margin: "4px 0 0", fontSize: 11, color: th.sub, overflowWrap: "anywhere" }}>الهاتف: {group.phone || "غير مسجل"}</p>
                   </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                      <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: th.text }}>{group.name}</p>
-                      <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                        <ActionIconBtn
-                          icon="✏️"
-                          title="تعديل المضمونين"
-                          color={T.primary}
-                          bg={th.dark ? "#1E3A5F" : "#EFF6FF"}
-                          onClick={() => openGuarantorEdit(group)}
-                        />
-                        <ActionIconBtn
-                          icon="🗑"
-                          title="إلغاء الضمانة لكل المالكين"
-                          color={T.danger}
-                          bg="#FEE2E2"
-                          onClick={() => cancelAllForGuarantor(group.nationalId, group.name)}
-                        />
-                      </div>
-                    </div>
-                    <p style={{ margin: "4px 0 0", fontSize: 11, color: th.sub }}>{group.phone}</p>
-                    <p style={{ margin: "6px 0 0", fontSize: 11, color: th.text, lineHeight: 1.5 }}>
-                      يضمن:{" "}
-                      {group.entries.map((e) => e.driverName).join(" · ")}
-                    </p>
-                    <span
-                      style={{
-                        display: "inline-block",
-                        marginTop: 8,
-                        fontSize: 11,
-                        padding: "3px 10px",
-                        borderRadius: 99,
-                        fontWeight: 700,
-                        background: "#D1FAE5",
-                        color: "#065F46",
-                      }}
-                    >
-                      {group.entries.length} مضمون
-                    </span>
-                  </div>
+                  <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, padding: "4px 9px", borderRadius: 99, background: "#D1FAE5", color: "#065F46" }}>{group.entries.length} مضمون</span>
                 </div>
-              </div>
+                <div style={{ marginTop: 12, paddingTop: 10, borderTop: `1px solid ${th.border}` }}>
+                  <p style={{ margin: "0 0 8px", fontSize: 11, color: th.sub }}>المضمونون</p>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>{group.entries.map((entry) => <div key={`${entry.driverId}-${entry.guarantorId}`} style={{ padding: "8px 10px", borderRadius: 8, background: th.surfaceVariant, color: th.text, fontSize: 11, overflowWrap: "anywhere" }}>{entry.driverName} · {entry.plate}</div>)}</div>
+                </div>
+                <div style={{ display: "flex", gap: 8, marginTop: 12, paddingTop: 10, borderTop: `1px solid ${th.border}` }}>
+                  <button type="button" onClick={() => openGuarantorEdit(group)} style={{ flex: 1, minWidth: 0, minHeight: 38, border: `1px solid ${th.border}`, borderRadius: 9, background: th.inputBg, color: th.text, fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>تعديل</button>
+                  <button type="button" onClick={() => cancelAllForGuarantor(group.nationalId, group.name)} style={{ flex: 1, minWidth: 0, minHeight: 38, border: "none", borderRadius: 9, background: "#FEE2E2", color: T.danger, fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>إلغاء الضمانات</button>
+                </div>
+              </article>
             </Card>
           ))
         )}
@@ -1132,7 +1034,7 @@ export function GuaranteesScreen() {
   )
 }
 
-// ══════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════�����═════
 //  BREAKDOWNS SCREEN  (tasks 44-49, 55)
 // ══════════════════════════════════════════════════════════
 export function BreakdownsScreen() {
@@ -1463,6 +1365,10 @@ export function BreakdownsScreen() {
 // ══════════════════════════════════════════════════════════
 //  REPORTS SCREEN
 // ══════════════════════════════════════════════════════════
+function EmptyReport({ text, th }: { text: string; th: ReturnType<typeof useTheme> }) {
+  return <div style={{ padding: '18px 8px', textAlign: 'center', color: th.sub, fontSize: 12 }}>{text}</div>
+}
+
 export function ReportsScreen() {
   const { state, dispatch, showSnackbar } = useApp()
   const importInputRef = useRef<HTMLInputElement>(null)
@@ -1526,6 +1432,28 @@ export function ReportsScreen() {
     .sort((a, b) => b.count - a.count)
     .slice(0, 5)
 
+  const pendingTrips = rangedTrips.filter((t) => ['مسودة', 'مؤكدة_مبدئياً', 'معلقة'].includes(t.status)).length
+  const tripStatusCounts = [
+    { label: 'مكتملة', value: completedTrips, color: T.success },
+    { label: 'معلقة', value: rangedTrips.filter((t) => t.status === 'معلقة').length, color: T.warning },
+    { label: 'ملغاة', value: cancelledTrips, color: T.danger },
+  ]
+  const provinceCounts = Object.entries(rangedTrips.reduce<Record<string, number>>((acc, t) => { acc[t.province] = (acc[t.province] ?? 0) + 1; return acc }, {})).sort((a, b) => b[1] - a[1]).slice(0, 5)
+  const payloadCounts = Object.entries(rangedTrips.reduce<Record<string, number>>((acc, t) => { acc[t.payload] = (acc[t.payload] ?? 0) + 1; return acc }, {})).sort((a, b) => b[1] - a[1]).slice(0, 5)
+  const closeBreakdowns = rangedBreakdowns.filter((b) => b.location === 'قريب').length
+  const farBreakdowns = rangedBreakdowns.filter((b) => b.location === 'بعيد').length
+  const raisedViolations = rangedViolations.filter((v) => v.raised).length
+  const activeGuarantors = state.drivers.reduce((sum, d) => sum + d.guarantors.filter((g) => g.status === 'فعال' && !g.suspended).length, 0)
+  const completeGuarantees = state.drivers.filter((d) => d.guarantors.filter((g) => g.status === 'فعال' && !g.suspended).length >= state.minGuarantors).length
+  const detailedRows = rangedTrips.slice(0, 12)
+
+  const resetRange = () => {
+    setPeriod('week')
+    const end = new Date()
+    const start = new Date(end); start.setDate(end.getDate() - 7)
+    setFromDate(start.toISOString().split('T')[0]); setToDate(end.toISOString().split('T')[0])
+  }
+
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: th.bg, overflow: 'hidden' }}>
       <StandardAppBar title="التقارير" back="home" />
@@ -1561,14 +1489,14 @@ export function ReportsScreen() {
         {/* Stats Grid */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
           {[
-            { label: 'إجمالي البوابير', value: totalDrivers, icon: '🚛', color: T.primary },
-            { label: 'النشطين', value: activeDrivers, icon: '✅', color: T.success },
-            { label: 'النهمات المكتملة', value: completedTrips, icon: '🚀', color: T.accent },
-            { label: 'المخالفات', value: totalViolations, icon: '⚠️', color: T.danger },
-            { label: 'التعويضات (ر)', value: totalComp.toLocaleString(), icon: '💰', color: T.warning },
-            { label: 'النهمات الملغاة', value: cancelledTrips, icon: '×', color: T.danger },
-            { label: 'الأعطال', value: rangedBreakdowns.length, icon: '🔧', color: '#8B5CF6' },
-            { label: 'غير النشطين', value: inactiveDrivers, icon: '○', color: th.sub },
+            { label: 'إجمالي النهمات', value: rangedTrips.length, icon: '01', color: T.primary },
+            { label: 'النهمات المكتملة', value: completedTrips, icon: '02', color: T.success },
+            { label: 'النهمات الملغاة', value: cancelledTrips, icon: '03', color: T.danger },
+            { label: 'النهمات المعلقة', value: pendingTrips, icon: '04', color: T.warning },
+            { label: 'إجمالي الأعطال', value: rangedBreakdowns.length, icon: '05', color: '#8B5CF6' },
+            { label: 'إجمالي المخالفات', value: totalViolations, icon: '06', color: T.danger },
+            { label: 'السائقون النشطون', value: activeDrivers, icon: '07', color: T.success },
+            { label: 'السائقون غير النشطين', value: inactiveDrivers, icon: '08', color: th.sub },
           ].map(s => (
             <Card key={s.label}>
               <div style={{ padding: '14px 16px' }}>
@@ -1616,9 +1544,23 @@ export function ReportsScreen() {
           </div>
         </Card>
 
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12, marginBottom: 16 }}>
+          <Card><div style={{ padding: 14 }}><p style={{ margin: '0 0 12px', fontWeight: 800, color: th.text }}>توزيع النهمات حسب الحالة</p>{tripStatusCounts.map((item) => <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '10px 0' }}><span style={{ width: 58, fontSize: 11, color: th.sub }}>{item.label}</span><div style={{ flex: 1, height: 10, background: th.surfaceVariant, borderRadius: 99 }}><div style={{ width: `${rangedTrips.length ? item.value / rangedTrips.length * 100 : 0}%`, height: '100%', background: item.color, borderRadius: 99 }} /></div><strong style={{ color: item.color, fontSize: 12 }}>{item.value}</strong></div>)}</div></Card>
+          <Card><div style={{ padding: 14 }}><p style={{ margin: '0 0 12px', fontWeight: 800, color: th.text }}>توزيع المحافظات</p>{provinceCounts.length ? provinceCounts.map(([name, value]) => <div key={name} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: `1px solid ${th.border}`, fontSize: 12 }}><span style={{ color: th.text }}>{name}</span><strong style={{ color: T.primary }}>{value}</strong></div>) : <EmptyReport text="لا توجد بيانات خلال الفترة المحددة" th={th} />}</div></Card>
+          <Card><div style={{ padding: 14 }}><p style={{ margin: '0 0 12px', fontWeight: 800, color: th.text }}>الحمولات</p>{payloadCounts.length ? payloadCounts.map(([name, value]) => <div key={name} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: `1px solid ${th.border}`, fontSize: 12 }}><span style={{ color: th.text }}>{name || 'بدون'}</span><strong style={{ color: T.accent }}>{value}</strong></div>) : <EmptyReport text="لا توجد بيانات خلال الفترة المحددة" th={th} />}</div></Card>
+          <Card><div style={{ padding: 14 }}><p style={{ margin: '0 0 12px', fontWeight: 800, color: th.text }}>الأعطال</p><div style={{ display: 'flex', gap: 8 }}>{[['قريب', closeBreakdowns, T.warning], ['بعيد', farBreakdowns, T.danger], ['منتهي', rangedBreakdowns.filter((b) => b.status === 'منتهي').length, T.success]].map(([label, value, color]) => <div key={label} style={{ flex: 1, textAlign: 'center', padding: 10, borderRadius: 10, background: th.surfaceVariant }}><strong style={{ display: 'block', color: color as string, fontSize: 20 }}>{value}</strong><span style={{ color: th.sub, fontSize: 10 }}>{label}</span></div>)}</div></div></Card>
+        </div>
+
+        <Card style={{ marginBottom: 16 }}><div style={{ padding: 14 }}><p style={{ margin: '0 0 12px', fontWeight: 800, color: th.text }}>تقرير المخالفات</p><div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>{[['إجمالي', totalViolations, T.danger], ['نوع ت', rangedViolations.filter((v) => v.type === 'ت').length, T.warning], ['نوع ح', rangedViolations.filter((v) => v.type === 'ح').length, T.primary], ['مرفوعة', raisedViolations, T.success], ['غير مرفوعة', totalViolations - raisedViolations, th.sub]].map(([label, value, color]) => <div key={label} style={{ flex: '1 1 90px', padding: 10, borderRadius: 10, background: th.surfaceVariant, textAlign: 'center' }}><strong style={{ display: 'block', color: color as string, fontSize: 19 }}>{value}</strong><span style={{ fontSize: 10, color: th.sub }}>{label}</span></div>)}</div></div></Card>
+
+        <Card style={{ marginBottom: 16 }}><div style={{ padding: 14 }}><p style={{ margin: '0 0 12px', fontWeight: 800, color: th.text }}>حالة السائقين والضمانات</p><div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>{[['السائقون', totalDrivers], ['القابلون للإضافة', state.drivers.filter((d) => d.statusReason === 'قابل_للإضافة').length], ['لديهم مخالفات', state.drivers.filter((d) => d.violation).length], ['لديهم ضمانات', state.drivers.filter((d) => d.guarantors.length > 0).length], ['ضمانات مكتملة', completeGuarantees], ['إجمالي الضامنين', activeGuarantors]].map(([label, value]) => <div key={label} style={{ padding: 9, borderRadius: 9, background: th.surfaceVariant, display: 'flex', justifyContent: 'space-between', fontSize: 11 }}><span style={{ color: th.sub }}>{label}</span><strong style={{ color: T.primary }}>{value}</strong></div>)}</div></div></Card>
+
+        <Card style={{ marginBottom: 16 }}><div style={{ padding: 14 }}><p style={{ margin: '0 0 12px', fontWeight: 800, color: th.text }}>التقرير التفصيلي</p>{detailedRows.length ? <div style={{ overflowX: 'auto' }}><table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 520, fontSize: 11 }}><thead><tr>{['النهمة', '��لمالك', 'المحافظة', 'النوع', 'الحالة'].map((h) => <th key={h} style={{ padding: 8, textAlign: 'right', color: th.sub, borderBottom: `1px solid ${th.border}` }}>{h}</th>)}</tr></thead><tbody>{detailedRows.map((trip) => <tr key={trip.id}>{[trip.breakNum, state.drivers.find((d) => d.id === trip.driverId)?.ownerName ?? '—', trip.province, trip.type, trip.status].map((cell, index) => <td key={index} style={{ padding: 8, color: th.text, borderBottom: `1px solid ${th.border}` }}>{cell}</td>)}</tr>)}</tbody></table></div> : <EmptyReport text="لا توجد بيانات خلال الفترة المحددة" th={th} />}</div></Card>
+
         {/* Date range for export - Task 60 */}
         <p style={{ fontSize: 12, fontWeight: 700, color: th.sub, textTransform: 'uppercase', letterSpacing: 1, margin: '16px 0 10px' }}>
-          نطاق التاريخ
+          <span>نطاق التاريخ</span>
+          <button type="button" onClick={resetRange} style={{ float: 'left', border: 'none', background: 'transparent', color: T.primary, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>إعادة تعيين</button>
         </p>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
           <div>
