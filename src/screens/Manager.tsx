@@ -744,64 +744,28 @@ export function GuaranteesScreen() {
               const activeGuarantors = driver.guarantors.filter((g) => g.status === "فعال" && !g.suspended)
               return (
                 <Card key={driver.id}>
-                  <div style={{ padding: "14px 16px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10, gap: 8 }}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: th.text }}>{driver.ownerName}</p>
-                        <p style={{ margin: "3px 0 0", fontSize: 12, color: th.sub }}>{driver.plate}</p>
+                  <article style={{ padding: "16px", minWidth: 0 }}>
+                    <header style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, marginBottom: 14 }}>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <h3 style={{ margin: 0, color: th.text, fontSize: 15, lineHeight: 1.5, overflowWrap: "anywhere" }}>{driver.ownerName}</h3>
+                        <p style={{ margin: "5px 0 0", color: th.sub, fontSize: 12, lineHeight: 1.5, overflowWrap: "anywhere" }}>لوحة: {driver.plate} · النوع: {driver.type || "غير محدد"}</p>
                       </div>
-                      <span
-                        style={{
-                          fontSize: 11,
-                          fontWeight: 700,
-                          padding: "3px 10px",
-                          borderRadius: 99,
-                          background: active >= state.minGuarantors ? "#D1FAE5" : "#FEE2E2",
-                          color: active >= state.minGuarantors ? "#065F46" : "#991B1B",
-                          flexShrink: 0,
-                        }}
-                      >
-                        {active}/{state.minGuarantors}
+                      <span style={{ flexShrink: 0, padding: "4px 9px", borderRadius: 99, background: active >= state.minGuarantors ? (th.dark ? "#123d31" : "#dcfce7") : (th.dark ? "#4a2020" : "#fee2e2"), color: active >= state.minGuarantors ? T.success : T.danger, fontSize: 11, fontWeight: 800 }}>
+                        {active >= state.minGuarantors ? "مكتمل" : "غير مكتمل"} {active}/{state.minGuarantors}
                       </span>
-                      <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                        <ActionIconBtn
-                          icon="✏️"
-                          title="تعديل الضامنين"
-                          color={T.primary}
-                          bg={th.dark ? "#1E3A5F" : "#EFF6FF"}
-                          onClick={() => openGuaranteedEdit(driver.id)}
-                        />
-                        <ActionIconBtn
-                          icon="🗑"
-                          title="حذف جميع الضمانات"
-                          color={T.danger}
-                          bg="#FEE2E2"
-                          onClick={() => deleteGuaranteesForDriver(driver.id, driver.ownerName)}
-                        />
-                      </div>
-                    </div>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                      {activeGuarantors.length === 0 ? (
-                        <span style={{ fontSize: 11, color: th.sub }}>لا يوجد ضامنون نشطون</span>
-                      ) : (
-                        activeGuarantors.map((g) => (
-                          <span
-                            key={g.id}
-                            style={{
-                              fontSize: 11,
-                              padding: "4px 10px",
-                              borderRadius: 99,
-                              background: "#DBEAFE",
-                              color: T.primary,
-                              fontWeight: 600,
-                            }}
-                          >
-                            🏦 {g.name}
-                          </span>
-                        ))
-                      )}
-                    </div>
-                  </div>
+                    </header>
+                    <section style={{ borderTop: `1px solid ${th.border}`, paddingTop: 12 }}>
+                      <h4 style={{ margin: "0 0 9px", color: th.text, fontSize: 12 }}>الضامنون ({activeGuarantors.length})</h4>
+                      {activeGuarantors.length === 0 ? <p style={{ margin: 0, color: th.sub, fontSize: 12 }}>لا توجد ضمانة مسجلة</p> : <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                        {activeGuarantors.slice(0, 3).map((g) => <div key={g.id} style={{ padding: "9px 10px", borderRadius: 10, background: th.surfaceVariant, border: `1px solid ${th.border}`, minWidth: 0 }}><p style={{ margin: 0, color: th.text, fontSize: 12, fontWeight: 700, overflowWrap: "anywhere" }}>{g.name}</p><p style={{ margin: "3px 0 0", color: th.sub, fontSize: 11, overflowWrap: "anywhere" }}>الهاتف: {g.phone || "غير مسجل"}</p></div>)}
+                        {activeGuarantors.length > 3 && <p style={{ margin: 0, color: T.primary, fontSize: 11 }}>+ {activeGuarantors.length - 3} ضامنين آخرين</p>}
+                      </div>}
+                    </section>
+                    <footer style={{ display: "flex", gap: 8, marginTop: 14, paddingTop: 12, borderTop: `1px solid ${th.border}` }}>
+                      <button type="button" onClick={() => openGuaranteedEdit(driver.id)} style={{ flex: 1, minHeight: 38, border: `1px solid ${th.border}`, borderRadius: 9, background: th.inputBg, color: th.text, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>تعديل</button>
+                      <button type="button" onClick={() => deleteGuaranteesForDriver(driver.id, driver.ownerName)} style={{ flex: 1, minHeight: 38, border: "none", borderRadius: 9, background: th.dark ? "#4a2020" : "#fee2e2", color: T.danger, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>إلغاء الضمانات</button>
+                    </footer>
+                  </article>
                 </Card>
               )
             })
@@ -811,65 +775,25 @@ export function GuaranteesScreen() {
         ) : (
           guarantorGroups.map((group) => (
             <Card key={group.nationalId}>
-              <div style={{ padding: "14px 16px" }}>
-                <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-                  <div
-                    style={{
-                      width: 42,
-                      height: 42,
-                      borderRadius: 12,
-                      background: "#DBEAFE",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: 18,
-                      flexShrink: 0,
-                    }}
-                  >
-                    🏦
+              <article style={{ padding: "16px", minWidth: 0 }}>
+                <header style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, marginBottom: 14 }}>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <h3 style={{ margin: 0, color: th.text, fontSize: 15, lineHeight: 1.5, overflowWrap: "anywhere" }}>{group.name}</h3>
+                    <p style={{ margin: "5px 0 0", color: th.sub, fontSize: 12, overflowWrap: "anywhere" }}>الهاتف: {group.phone || "غير مسجل"}</p>
                   </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                      <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: th.text }}>{group.name}</p>
-                      <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                        <ActionIconBtn
-                          icon="✏️"
-                          title="تعديل المضمونين"
-                          color={T.primary}
-                          bg={th.dark ? "#1E3A5F" : "#EFF6FF"}
-                          onClick={() => openGuarantorEdit(group)}
-                        />
-                        <ActionIconBtn
-                          icon="🗑"
-                          title="إلغاء الضمانة لكل المالكين"
-                          color={T.danger}
-                          bg="#FEE2E2"
-                          onClick={() => cancelAllForGuarantor(group.nationalId, group.name)}
-                        />
-                      </div>
-                    </div>
-                    <p style={{ margin: "4px 0 0", fontSize: 11, color: th.sub }}>{group.phone}</p>
-                    <p style={{ margin: "6px 0 0", fontSize: 11, color: th.text, lineHeight: 1.5 }}>
-                      يضمن:{" "}
-                      {group.entries.map((e) => e.driverName).join(" · ")}
-                    </p>
-                    <span
-                      style={{
-                        display: "inline-block",
-                        marginTop: 8,
-                        fontSize: 11,
-                        padding: "3px 10px",
-                        borderRadius: 99,
-                        fontWeight: 700,
-                        background: "#D1FAE5",
-                        color: "#065F46",
-                      }}
-                    >
-                      {group.entries.length} مضمون
-                    </span>
+                  <span style={{ flexShrink: 0, padding: "4px 9px", borderRadius: 99, background: th.dark ? "#123d31" : "#dcfce7", color: T.success, fontSize: 11, fontWeight: 800 }}>{group.entries.length} مضمون</span>
+                </header>
+                <section style={{ borderTop: `1px solid ${th.border}`, paddingTop: 12 }}>
+                  <h4 style={{ margin: "0 0 9px", color: th.text, fontSize: 12 }}>المضمونون ({group.entries.length})</h4>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                    {group.entries.map((entry) => <div key={`${entry.driverId}-${entry.guarantorId}`} style={{ padding: "9px 10px", borderRadius: 10, background: th.surfaceVariant, border: `1px solid ${th.border}`, minWidth: 0 }}><p style={{ margin: 0, color: th.text, fontSize: 12, fontWeight: 700, overflowWrap: "anywhere" }}>{entry.driverName}</p><p style={{ margin: "3px 0 0", color: th.sub, fontSize: 11, overflowWrap: "anywhere" }}>لوحة: {entry.plate}</p></div>)}
                   </div>
-                </div>
-              </div>
+                </section>
+                <footer style={{ display: "flex", gap: 8, marginTop: 14, paddingTop: 12, borderTop: `1px solid ${th.border}` }}>
+                  <button type="button" onClick={() => openGuarantorEdit(group)} style={{ flex: 1, minHeight: 38, border: `1px solid ${th.border}`, borderRadius: 9, background: th.inputBg, color: th.text, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>تعديل</button>
+                  <button type="button" onClick={() => cancelAllForGuarantor(group.nationalId, group.name)} style={{ flex: 1, minHeight: 38, border: "none", borderRadius: 9, background: th.dark ? "#4a2020" : "#fee2e2", color: T.danger, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>إلغاء الضمانات</button>
+                </footer>
+              </article>
             </Card>
           ))
         )}
@@ -1117,7 +1041,7 @@ export function GuaranteesScreen() {
   )
 }
 
-// ════════════════════════════════════════════════════���═════
+// ════════════════════════════════════════════════════�����═════
 //  BREAKDOWNS SCREEN  (tasks 44-49, 55)
 // ══════════════════════════════════════════════════════════
 export function BreakdownsScreen() {
@@ -1638,7 +1562,7 @@ export function ReportsScreen() {
 
         <Card style={{ marginBottom: 16 }}><div style={{ padding: 14 }}><p style={{ margin: '0 0 12px', fontWeight: 800, color: th.text }}>حالة السائقين والضمانات</p><div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>{[['السائقون', totalDrivers], ['القابلون للإضافة', state.drivers.filter((d) => d.statusReason === 'قابل_للإضافة').length], ['لديهم مخالفات', state.drivers.filter((d) => d.violation).length], ['لديهم ضمانات', state.drivers.filter((d) => d.guarantors.length > 0).length], ['ضمانات مكتملة', completeGuarantees], ['إجمالي الضامنين', activeGuarantors]].map(([label, value]) => <div key={label} style={{ padding: 9, borderRadius: 9, background: th.surfaceVariant, display: 'flex', justifyContent: 'space-between', fontSize: 11 }}><span style={{ color: th.sub }}>{label}</span><strong style={{ color: T.primary }}>{value}</strong></div>)}</div></div></Card>
 
-        <Card style={{ marginBottom: 16 }}><div style={{ padding: 14 }}><p style={{ margin: '0 0 12px', fontWeight: 800, color: th.text }}>التقرير التفصيلي</p>{detailedRows.length ? <div style={{ overflowX: 'auto' }}><table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 520, fontSize: 11 }}><thead><tr>{['النهمة', 'المالك', 'المحافظة', 'النوع', 'الحالة'].map((h) => <th key={h} style={{ padding: 8, textAlign: 'right', color: th.sub, borderBottom: `1px solid ${th.border}` }}>{h}</th>)}</tr></thead><tbody>{detailedRows.map((trip) => <tr key={trip.id}>{[trip.breakNum, state.drivers.find((d) => d.id === trip.driverId)?.ownerName ?? '—', trip.province, trip.type, trip.status].map((cell, index) => <td key={index} style={{ padding: 8, color: th.text, borderBottom: `1px solid ${th.border}` }}>{cell}</td>)}</tr>)}</tbody></table></div> : <EmptyReport text="لا توجد بيانات خلال الفترة المحددة" th={th} />}</div></Card>
+        <Card style={{ marginBottom: 16 }}><div style={{ padding: 14 }}><p style={{ margin: '0 0 12px', fontWeight: 800, color: th.text }}>التقرير التفصيلي</p>{detailedRows.length ? <div style={{ overflowX: 'auto' }}><table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 520, fontSize: 11 }}><thead><tr>{['النهمة', '��لمالك', 'المحافظة', 'النوع', 'الحالة'].map((h) => <th key={h} style={{ padding: 8, textAlign: 'right', color: th.sub, borderBottom: `1px solid ${th.border}` }}>{h}</th>)}</tr></thead><tbody>{detailedRows.map((trip) => <tr key={trip.id}>{[trip.breakNum, state.drivers.find((d) => d.id === trip.driverId)?.ownerName ?? '—', trip.province, trip.type, trip.status].map((cell, index) => <td key={index} style={{ padding: 8, color: th.text, borderBottom: `1px solid ${th.border}` }}>{cell}</td>)}</tr>)}</tbody></table></div> : <EmptyReport text="لا توجد بيانات خلال الفترة المحددة" th={th} />}</div></Card>
 
         {/* Date range for export - Task 60 */}
         <p style={{ fontSize: 12, fontWeight: 700, color: th.sub, textTransform: 'uppercase', letterSpacing: 1, margin: '16px 0 10px' }}>
