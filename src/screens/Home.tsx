@@ -202,9 +202,9 @@ export default function HomeScreen() {
         </div>
       </div>
 
-      {/* Manager Quick Actions */}
+      {/* Manager Quick Actions — hidden from the home screen without changing its handlers */}
       {isManager && (
-        <div style={{ padding: '0 16px' }}>
+        <div style={{ display: 'none', padding: '0 16px' }}>
           <p style={{ fontSize: 12, fontWeight: 700, color: th.sub, textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 10px' }}>
             إجراءات سريعة
           </p>
@@ -245,8 +245,8 @@ export default function HomeScreen() {
         </div>
       )}
 
-      {/* Quick Nav Grid */}
-      <div style={{ padding: '16px 16px 0' }}>
+      {/* Quick Nav Grid — hidden from the home screen without changing its navigation */}
+      <div style={{ display: 'none', padding: '16px 16px 0' }}>
         <p style={{ fontSize: 12, fontWeight: 700, color: th.sub, textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 10px' }}>
           وصول سريع
         </p>
