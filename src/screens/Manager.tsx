@@ -744,14 +744,24 @@ export function GuaranteesScreen() {
               const activeGuarantors = driver.guarantors.filter((g) => g.status === "فعال" && !g.suspended)
               return (
                 <Card key={driver.id}>
-                  <article style={{ padding: "12px 16px", minWidth: 0, width: "100%" }}>
-                    <div style={{ display: "flex", alignItems: "flex-start", gap: 10, minWidth: 0 }}>
+                  <article style={{ padding: "14px 16px", minWidth: 0, width: "100%" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, minWidth: 0, marginBottom: 12 }}>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: th.text, overflowWrap: "anywhere" }}>{driver.ownerName}</p>
+                        <div style={{ display: "flex", gap: 8, marginTop: 4, flexWrap: "wrap", alignItems: "center" }}>
+                          <span style={{ fontSize: 12, color: th.sub, overflowWrap: "anywhere" }}>🚗 {driver.plate}</span>
+                          <span style={{ fontSize: 10, fontWeight: 700, color: active >= state.minGuarantors ? T.success : T.danger, overflowWrap: "anywhere" }}>
+                            {active >= state.minGuarantors ? "ضمانات مكتملة" : "ضمانات ناقصة"}
+                          </span>
+                        </div>
+                      </div>
                       <div
                         style={{
-                          width: 32,
-                          height: 32,
-                          borderRadius: 8,
                           flexShrink: 0,
+                          minWidth: 42,
+                          minHeight: 32,
+                          padding: "5px 7px",
+                          borderRadius: 8,
                           background: active >= state.minGuarantors ? "#D1FAE5" : "#FEE2E2",
                           color: active >= state.minGuarantors ? "#065F46" : "#991B1B",
                           display: "flex",
@@ -759,60 +769,39 @@ export function GuaranteesScreen() {
                           justifyContent: "center",
                           fontSize: 11,
                           fontWeight: 800,
+                          whiteSpace: "nowrap",
                         }}
                       >
                         {active}/{state.minGuarantors}
                       </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: th.text, overflowWrap: "anywhere" }}>{driver.ownerName}</p>
-                        <div style={{ display: "flex", gap: 8, marginTop: 4, flexWrap: "wrap", alignItems: "center" }}>
-                          <span style={{ fontSize: 11, color: th.sub, overflowWrap: "anywhere" }}>🚗 {driver.plate}</span>
-                          <span style={{ fontSize: 10, fontWeight: 700, color: active >= state.minGuarantors ? T.success : T.danger }}>
-                            {active >= state.minGuarantors ? "ضمانات مكتملة" : "ضمانات ناقصة"}
-                          </span>
-                        </div>
-                      </div>
                     </div>
-                    <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${th.border}` }}>
-                      <p style={{ margin: "0 0 7px", fontSize: 11, color: th.sub }}>الضامنون ({activeGuarantors.length})</p>
+                    <div style={{ background: th.dark ? "#1E2D40" : "#F8FAFC", borderRadius: 10, padding: "10px 12px", display: "flex", flexDirection: "column", gap: 5, marginBottom: 12, color: th.sub }}>
+                      <span style={{ fontSize: 11, overflowWrap: "anywhere" }}>👥 الضامنون ({activeGuarantors.length})</span>
                       {activeGuarantors.length === 0 ? (
-                        <span style={{ fontSize: 11, color: th.sub }}>لا يوجد ضامنون نشطون</span>
+                        <span style={{ fontSize: 11, overflowWrap: "anywhere" }}>لا يوجد ضامنون نشطون</span>
                       ) : (
-                        <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                          {activeGuarantors.map((g) => (
-                            <div
-                              key={g.id}
-                              style={{
-                                padding: "7px 10px",
-                                borderRadius: 8,
-                                background: th.surfaceVariant,
-                                color: th.text,
-                                fontSize: 11,
-                                lineHeight: 1.5,
-                                overflowWrap: "anywhere",
-                              }}
-                            >
-                              {g.name}
-                            </div>
-                          ))}
-                        </div>
+                        activeGuarantors.map((g) => (
+                          <span key={g.id} style={{ fontSize: 11, lineHeight: 1.5, overflowWrap: "anywhere" }}>
+                            • {g.name}
+                          </span>
+                        ))
                       )}
                     </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8, marginTop: 10, paddingTop: 10, borderTop: `1px solid ${th.border}` }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
                       <button
                         type="button"
                         onClick={() => openGuaranteedEdit(driver.id)}
                         style={{
                           width: "100%",
                           minWidth: 0,
-                          minHeight: 38,
-                          padding: "7px 8px",
+                           minHeight: 42,
+                           padding: "9px 8px",
                           border: `1px solid ${th.border}`,
                           borderRadius: 9,
                           background: th.inputBg,
                           color: th.text,
                           fontSize: 11,
-                          lineHeight: 1.45,
+                           lineHeight: 1.4,
                           fontWeight: 700,
                           cursor: "pointer",
                           fontFamily: "inherit",
@@ -828,14 +817,14 @@ export function GuaranteesScreen() {
                         style={{
                           width: "100%",
                           minWidth: 0,
-                          minHeight: 38,
-                          padding: "7px 8px",
+                           minHeight: 42,
+                           padding: "9px 8px",
                           border: "none",
                           borderRadius: 9,
                           background: "#FEE2E2",
                           color: T.danger,
                           fontSize: 11,
-                          lineHeight: 1.45,
+                           lineHeight: 1.4,
                           fontWeight: 700,
                           cursor: "pointer",
                           fontFamily: "inherit",
@@ -856,69 +845,60 @@ export function GuaranteesScreen() {
         ) : (
           guarantorGroups.map((group) => (
             <Card key={group.nationalId}>
-              <article style={{ padding: "12px 16px", minWidth: 0, width: "100%" }}>
-                <div style={{ display: "flex", alignItems: "flex-start", gap: 10, minWidth: 0 }}>
+              <article style={{ padding: "14px 16px", minWidth: 0, width: "100%" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, minWidth: 0, marginBottom: 12 }}>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: th.text, overflowWrap: "anywhere" }}>{group.name}</p>
+                    <div style={{ display: "flex", gap: 8, marginTop: 4, flexWrap: "wrap", alignItems: "center" }}>
+                      <span style={{ fontSize: 12, color: th.sub, overflowWrap: "anywhere" }}>☎ {group.phone || "غير مسجل"}</span>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: T.success, overflowWrap: "anywhere" }}>{group.entries.length} مضمون</span>
+                    </div>
+                  </div>
                   <div
                     style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: 8,
                       flexShrink: 0,
+                      minWidth: 32,
+                      minHeight: 32,
+                      padding: "5px 8px",
+                      borderRadius: 8,
                       background: "#D1FAE5",
                       color: "#065F46",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      fontSize: 11,
+                      fontSize: 12,
                       fontWeight: 800,
                     }}
                   >
                     {group.entries.length}
                   </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: th.text, overflowWrap: "anywhere" }}>{group.name}</p>
-                    <div style={{ display: "flex", gap: 8, marginTop: 4, flexWrap: "wrap", alignItems: "center" }}>
-                      <span style={{ fontSize: 11, color: th.sub, overflowWrap: "anywhere" }}>☎ {group.phone || "غير مسجل"}</span>
-                      <span style={{ fontSize: 10, fontWeight: 700, color: T.success }}>{group.entries.length} مضمون</span>
-                    </div>
-                  </div>
                 </div>
-                <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${th.border}` }}>
-                  <p style={{ margin: "0 0 7px", fontSize: 11, color: th.sub }}>المضمونون</p>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                    {group.entries.map((entry) => (
-                      <div
-                        key={`${entry.driverId}-${entry.guarantorId}`}
-                        style={{
-                          padding: "7px 10px",
-                          borderRadius: 8,
-                          background: th.surfaceVariant,
-                          color: th.text,
-                          fontSize: 11,
-                          lineHeight: 1.5,
-                          overflowWrap: "anywhere",
-                        }}
-                      >
-                        {entry.driverName} · {entry.plate}
-                      </div>
-                    ))}
-                  </div>
+                <div style={{ background: th.dark ? "#1E2D40" : "#F8FAFC", borderRadius: 10, padding: "10px 12px", display: "flex", flexDirection: "column", gap: 5, marginBottom: 12, color: th.sub }}>
+                  <span style={{ fontSize: 11, overflowWrap: "anywhere" }}>👥 المضمونون</span>
+                  {group.entries.map((entry) => (
+                    <span
+                      key={`${entry.driverId}-${entry.guarantorId}`}
+                      style={{ color: th.text, fontSize: 11, lineHeight: 1.5, overflowWrap: "anywhere" }}
+                    >
+                      • {entry.driverName} · {entry.plate}
+                    </span>
+                  ))}
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8, marginTop: 10, paddingTop: 10, borderTop: `1px solid ${th.border}` }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
                   <button
                     type="button"
                     onClick={() => openGuarantorEdit(group)}
                     style={{
                       width: "100%",
                       minWidth: 0,
-                      minHeight: 38,
-                      padding: "7px 8px",
+                       minHeight: 42,
+                       padding: "9px 8px",
                       border: `1px solid ${th.border}`,
                       borderRadius: 9,
                       background: th.inputBg,
                       color: th.text,
                       fontSize: 11,
-                      lineHeight: 1.45,
+                       lineHeight: 1.4,
                       fontWeight: 700,
                       cursor: "pointer",
                       fontFamily: "inherit",
@@ -934,14 +914,14 @@ export function GuaranteesScreen() {
                     style={{
                       width: "100%",
                       minWidth: 0,
-                      minHeight: 38,
-                      padding: "7px 8px",
+                       minHeight: 42,
+                       padding: "9px 8px",
                       border: "none",
                       borderRadius: 9,
                       background: "#FEE2E2",
                       color: T.danger,
                       fontSize: 11,
-                      lineHeight: 1.45,
+                       lineHeight: 1.4,
                       fontWeight: 700,
                       cursor: "pointer",
                       fontFamily: "inherit",
