@@ -271,7 +271,7 @@ export function ViolationsScreen() {
 //  DRIVER MANAGEMENT SCREEN (Task 73-75)
 // ══════════════════════════════════════════════════════════
 export function DriverManagementScreen() {
-  const { state, dispatch, showSnackbar } = useApp()
+  const { state, dispatch, showSnackbar, navigate } = useApp()
   const th = useTheme()
   const [filter, setFilter] = useState<"all" | "active" | "inactive">("all")
   const [search, setSearch] = useState("")
@@ -295,14 +295,15 @@ export function DriverManagementScreen() {
       showSnackbar("لا يمكن حذف السائق — لديه نهمات أو مخالفات أو ضمانات نشطة ⚠️")
       return
     }
-    if (!window.confirm(`هل تريد حذف ${name}؟`)) return
+    if (!window.confirm(`⚠️ هل أنت متأكد من حذف ${name}؟\nسيتم حذف السائق من الكشف، ولا يجب تنفيذ هذه العملية إلا إذا كنت متأكداً.`)) return
     dispatch({ type: "DELETE_DRIVER", driverId })
     showSnackbar(`تم حذف ${name} ✅`)
   }
 
   const handleDisable = (driverId: number, name: string) => {
-    dispatch({ type: "SET_DRIVER_STATUS", driverId, status: "غير_نشط", reason: "ملغي" })
-    showSnackbar(`تم تعطيل ${name} (ملغي) ✅`)
+    if (!window.confirm("هل أنت متأكد من رغبتك في تعطيل هذا السائق؟")) return
+    dispatch({ type: "DISABLE_DRIVER", driverId })
+    showSnackbar(`تم تعطيل ${name} مع الاحتفاظ ببياناته ✅`)
   }
 
   return (
@@ -370,13 +371,16 @@ export function DriverManagementScreen() {
             <div
               key={driver.id}
               style={{
-                borderBottom: `1px solid ${th.border}`,
-                padding: "14px 16px",
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
+                margin: "10px 16px",
+                border: `1px solid ${th.border}`,
+                borderRadius: 14,
+                padding: "14px",
+                background: th.card,
+                boxShadow: "0 4px 14px rgba(15,23,42,.06)",
               }}
             >
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+
               <div
                 style={{
                   width: 40,
@@ -392,49 +396,19 @@ export function DriverManagementScreen() {
               >
                 {driver.status === "نشط" ? "✓" : "✕"}
               </div>
-              <div style={{ flex: 1 }}>
-                <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: th.text }}>{driver.ownerName}</p>
+              <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => navigate("driver-profile", { driverId: driver.id })}>
+                <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: th.text }}>{driver.ownerName}</p>
                 <p style={{ margin: "3px 0 0", fontSize: 11, color: th.sub }}>
-                  {driver.plate} · {driver.status === "نشط" ? "نشط" : "غير نشط"}
+                  {driver.plate} · نوع البابور: {driver.type} · {driver.status === "نشط" ? "نشط" : "غير نشط"}
                 </p>
+                <p style={{ margin: "3px 0 0", fontSize: 11, color: th.muted }}>الهاتف: {driver.phone || "غير مسجل"}</p>
               </div>
-              {driver.status === "نشط" ? (
-                <button
-                  onClick={() => handleDisable(driver.id, driver.ownerName)}
-                  style={{
-                    padding: "6px 12px",
-                    borderRadius: 8,
-                    border: "none",
-                    background: "#FEE2E2",
-                    color: T.danger,
-                    fontSize: 11,
-                    fontWeight: 700,
-                    cursor: "pointer",
-                    fontFamily: "inherit",
-                  }}
-                >
-                  تعطيل
-                </button>
-              ) : (
-                <button
-                  onClick={() => handleDelete(driver.id, driver.ownerName)}
-                  disabled={!canDelete(driver)}
-                  style={{
-                    padding: "6px 12px",
-                    borderRadius: 8,
-                    border: "none",
-                    background: canDelete(driver) ? "#DC2626" : "#E5E7EB",
-                    color: canDelete(driver) ? "#fff" : "#9CA3AF",
-                    fontSize: 11,
-                    fontWeight: 700,
-                    cursor: canDelete(driver) ? "pointer" : "not-allowed",
-                    fontFamily: "inherit",
-                    opacity: canDelete(driver) ? 1 : 0.6,
-                  }}
-                >
-                  حذف
-                </button>
-              )}
+            </div>
+            <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+              <button type="button" onClick={() => navigate("driver-profile", { driverId: driver.id })} style={{ flex: 1, padding: "8px 6px", borderRadius: 9, border: `1px solid ${th.border}`, background: th.inputBg, color: th.text, fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>تعديل</button>
+              <button type="button" onClick={() => handleDisable(driver.id, driver.ownerName)} disabled={driver.status !== "نشط"} style={{ flex: 1, padding: "8px 6px", borderRadius: 9, border: "none", background: driver.status === "نشط" ? "#FEF3C7" : th.inputBg, color: driver.status === "نشط" ? T.warning : th.muted, fontSize: 11, fontWeight: 700, cursor: driver.status === "نشط" ? "pointer" : "not-allowed", fontFamily: "inherit" }}>تعطيل</button>
+              <button type="button" onClick={() => handleDelete(driver.id, driver.ownerName)} disabled={!canDelete(driver)} style={{ flex: 1, padding: "8px 6px", borderRadius: 9, border: "none", background: canDelete(driver) ? "#FEE2E2" : th.inputBg, color: canDelete(driver) ? T.danger : th.muted, fontSize: 11, fontWeight: 700, cursor: canDelete(driver) ? "pointer" : "not-allowed", fontFamily: "inherit" }}>حذف</button>
+            </div>
             </div>
           ))
         )}
@@ -525,6 +499,7 @@ export function GuaranteesScreen() {
   const th = useTheme()
   const [tab, setTab] = useState<"guaranteed" | "guarantors">("guaranteed")
   const [guaranteeFilter, setGuaranteeFilter] = useState<"all" | "complete" | "incomplete">("all")
+  const [guaranteeSearch, setGuaranteeSearch] = useState("")
   const [editDriverId, setEditDriverId] = useState<number | null>(null)
   const [editGuarantors, setEditGuarantors] = useState<Guarantor[]>([])
   const [addGuarantorSearch, setAddGuarantorSearch] = useState("")
@@ -539,6 +514,9 @@ export function GuaranteesScreen() {
 
   const driversWithGuarantors = state.drivers.filter((d) => {
     const activeGuarantors = d.guarantors.filter((g) => g.status === "فعال" && !g.suspended)
+    const q = guaranteeSearch.trim().toLocaleLowerCase("ar")
+    const matchesSearch = !q || `${d.ownerName} ${d.plate} ${activeGuarantors.map((g) => g.name).join(" ")}`.toLocaleLowerCase("ar").includes(q)
+    if (!matchesSearch) return false
     if (activeGuarantors.length === 0 && guaranteeFilter !== "all") return false
     const count = countActiveGuarantors(d)
     if (guaranteeFilter === "complete") return count >= state.minGuarantors
@@ -546,7 +524,10 @@ export function GuaranteesScreen() {
     return activeGuarantors.length > 0 || guaranteeFilter === "all"
   })
 
-  const guarantorGroups = useMemo(() => buildGuarantorGroups(state.drivers), [state.drivers])
+  const guarantorGroups = useMemo(() => buildGuarantorGroups(state.drivers).filter((group) => {
+    const q = guaranteeSearch.trim().toLocaleLowerCase("ar")
+    return !q || `${group.name} ${group.phone} ${group.entries.map((entry) => entry.driverName).join(" ")}`.toLocaleLowerCase("ar").includes(q)
+  }), [state.drivers, guaranteeSearch])
 
   const editDriver = editDriverId !== null ? state.drivers.find((d) => d.id === editDriverId) : undefined
 
@@ -720,8 +701,12 @@ export function GuaranteesScreen() {
         ))}
       </div>
 
+      <div style={{ padding: "10px 16px", background: th.bg }}>
+        <input value={guaranteeSearch} onChange={(e) => setGuaranteeSearch(e.target.value)} placeholder="بحث باسم المالك أو الضامن أو اللوحة..." aria-label="بحث الضمانات" style={{ width: "100%", boxSizing: "border-box", padding: "10px 12px", borderRadius: 10, border: `1px solid ${th.border}`, background: th.inputBg, color: th.text, direction: "rtl", fontFamily: "inherit" }} />
+      </div>
+
       {tab === "guaranteed" && (
-        <div style={{ background: th.card, borderBottom: `1px solid ${th.border}`, padding: "8px 16px", display: "flex", gap: 8 }}>
+        <div style={{ background: th.card, borderBottom: `1px solid ${th.border}`, padding: "8px 16px", display: "flex", gap: 8, overflowX: "auto" }}>
           {[
             ["all", "الكل"],
             ["complete", "مكتمل"],
