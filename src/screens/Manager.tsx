@@ -1,4 +1,6 @@
 import { useState, useMemo, useRef } from "react"
+import html2canvas from "html2canvas"
+import { jsPDF } from "jspdf"
 import { useApp } from "../context"
 import { useTheme, T, Card, EmptyState, SkeletonRow, SearchableField, SearchableRosterField, APP_FULL_BRAND, StandardAppBar, MonochromeIcon } from "../components"
 import BreakdownSheet from "../BreakdownSheet"
@@ -1518,10 +1520,12 @@ function EmptyReport({ text, th }: { text: string; th: ReturnType<typeof useThem
 export function ReportsScreen() {
   const { state, dispatch, showSnackbar } = useApp()
   const importInputRef = useRef<HTMLInputElement>(null)
+  const reportContentRef = useRef<HTMLDivElement>(null)
   const th = useTheme()
   const [period, setPeriod] = useState("week")
   const [reportType, setReportType] = useState("النهمات")
   const [query, setQuery] = useState("")
+  const [exportingPdf, setExportingPdf] = useState(false)
   const activityDates = [
     ...state.trips.map((item) => (item.completedAt ?? item.createdAt).slice(0, 10)),
     ...state.violations.map((item) => item.date.slice(0, 10)),
@@ -1651,6 +1655,63 @@ export function ReportsScreen() {
     }, null, 2), `backup_${new Date().toISOString().slice(0, 10)}.json`, "application/json")
     showSnackbar("تم تصدير قاعدة البيانات")
   }
+  const exportPdf = async () => {
+    const reportContent = reportContentRef.current
+    if (!reportContent || exportingPdf) return
+
+    setExportingPdf(true)
+    try {
+      await document.fonts.ready
+      const canvas = await html2canvas(reportContent, {
+        backgroundColor: th.bg,
+        scale: Math.min(2, window.devicePixelRatio || 1.5),
+        useCORS: true,
+        logging: false,
+        onclone: (clonedDocument) => {
+          clonedDocument.querySelectorAll<HTMLElement>("[data-pdf-exclude]").forEach((element) => {
+            element.style.display = "none"
+          })
+          const clonedContent = clonedDocument.querySelector<HTMLElement>(".reports-content")
+          if (clonedContent) {
+            clonedContent.style.height = "auto"
+            clonedContent.style.maxHeight = "none"
+            clonedContent.style.overflow = "visible"
+          }
+          const clonedScreen = clonedDocument.querySelector<HTMLElement>(".reports-screen")
+          if (clonedScreen) clonedScreen.style.overflow = "visible"
+        },
+      })
+      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4", compress: true })
+      const pageWidth = 210
+      const pageHeight = 297
+      const margin = 8
+      const imageWidth = pageWidth - margin * 2
+      const imageHeight = (canvas.height * imageWidth) / canvas.width
+      const contentHeight = pageHeight - margin * 2
+      const pageCount = Math.max(1, Math.ceil(imageHeight / contentHeight))
+      const image = canvas.toDataURL("image/jpeg", 0.94)
+
+      for (let page = 0; page < pageCount; page += 1) {
+        if (page > 0) pdf.addPage()
+        pdf.addImage(image, "JPEG", margin, margin - page * contentHeight, imageWidth, imageHeight)
+        pdf.setFontSize(8)
+        pdf.setTextColor(120, 130, 145)
+        pdf.text(`${page + 1} / ${pageCount}`, pageWidth - margin, pageHeight - 3, { align: "right" })
+      }
+
+      pdf.setProperties({
+        title: `تقرير حركة النظام ${fromDate} - ${toDate}`,
+        subject: "تقرير التقارير الإدارية",
+        author: "نظام البوابير",
+      })
+      pdf.save(`تقرير_التقارير_${fromDate}_${toDate}.pdf`)
+      showSnackbar("تم تنزيل ملف PDF الجاهز للطباعة")
+    } catch {
+      showSnackbar("تعذر إنشاء ملف PDF، حاول مرة أخرى")
+    } finally {
+      setExportingPdf(false)
+    }
+  }
   const importBackup = async (file: File) => {
     if (!window.confirm("استعادة النسخة الاحتياطية قد تستبدل البيانات الحالية. هل تريد المتابعة؟")) return
     try {
@@ -1713,7 +1774,7 @@ export function ReportsScreen() {
   return (
     <div className="reports-screen" style={{ background: th.bg }}>
       <StandardAppBar title="التقارير" back="home" />
-      <div className="reports-content">
+      <div className="reports-content" ref={reportContentRef}>
         <header className="reports-heading">
           <div>
             <p className="reports-eyebrow">لوحة تحكم المدير</p>
@@ -1813,10 +1874,10 @@ export function ReportsScreen() {
           {visibleRows.length ? <div className="detail-table-wrap"><table><thead><tr>{detailHeaders[reportType].map((header) => <th key={header}>{header}</th>)}</tr></thead><tbody>{visibleRows.map((row) => <tr key={row.id}>{row.cells.map((cell, index) => <td key={`${row.id}-${index}`} data-label={detailHeaders[reportType][index]}>{String(cell)}</td>)}</tr>)}</tbody></table></div> : <EmptyReport text="لا توجد بيانات خلال الفترة المحددة" th={th} />}
         </section>
 
-        <section className="report-card report-actions-card">
+        <section className="report-card report-actions-card" data-pdf-exclude>
           <div className="report-card-header"><div><h2>التصدير والنسخ الاحتياطي</h2><p>احفظ التقرير أو بيانات النظام للاستخدام لاحقًا</p></div></div>
           <input ref={importInputRef} type="file" accept="application/json,.json" hidden onChange={(event) => { const file = event.target.files?.[0]; if (file) void importBackup(file); event.target.value = "" }} />
-          <div className="action-buttons"><button type="button" onClick={() => { window.print(); showSnackbar("تم فتح نافذة الطباعة لإنشاء PDF") }}><MonochromeIcon name="note" size={17} /> تصدير PDF</button><button type="button" onClick={exportCsv}><MonochromeIcon name="chart" size={17} /> تصدير Excel</button><button type="button" onClick={exportBackup}><MonochromeIcon name="save" size={17} /> تصدير قاعدة البيانات</button><button type="button" onClick={() => importInputRef.current?.click()}><MonochromeIcon name="refresh" size={17} /> استيراد قاعدة البيانات</button></div>
+          <div className="action-buttons"><button type="button" onClick={() => void exportPdf()} disabled={exportingPdf}><MonochromeIcon name="note" size={17} /> {exportingPdf ? "جارٍ إنشاء PDF..." : "تصدير PDF"}</button><button type="button" onClick={exportCsv}><MonochromeIcon name="chart" size={17} /> تصدير Excel</button><button type="button" onClick={exportBackup}><MonochromeIcon name="save" size={17} /> تصدير قاعدة البيانات</button><button type="button" onClick={() => importInputRef.current?.click()}><MonochromeIcon name="refresh" size={17} /> استيراد قاعدة البيانات</button></div>
           <div className="backup-warning"><MonochromeIcon name="warning" size={17} /><span>تنبيه: استعادة النسخة الاحتياطية قد تستبدل البيانات الحالية. تأكد من تصدير نسخة قبل الاستيراد.</span></div>
         </section>
       </div>
