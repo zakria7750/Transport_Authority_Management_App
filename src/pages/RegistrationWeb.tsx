@@ -201,7 +201,7 @@ export default function RegistrationWebPage() {
 
         {/* Summary */}
         {filtered.length > 0 && (
-          <div style{{
+          <div style={{
             marginTop: 24,
             padding: 16,
             background: th.dark ? 'rgba(59, 130, 246, 0.1)' : '#EFF6FF',

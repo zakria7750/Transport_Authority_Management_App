@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef } from "react"
 import { useApp } from "../context"
-import { useTheme, T, Card, EmptyState, SkeletonRow, SearchableField, SearchableRosterField, APP_FULL_BRAND, StandardAppBar } from "../components"
+import { useTheme, T, Card, EmptyState, SkeletonRow, SearchableField, SearchableRosterField, APP_FULL_BRAND, StandardAppBar, MonochromeIcon } from "../components"
 import BreakdownSheet from "../BreakdownSheet"
 import {
   countActiveGuarantors,
@@ -1519,31 +1519,140 @@ export function ReportsScreen() {
   const { state, dispatch, showSnackbar } = useApp()
   const importInputRef = useRef<HTMLInputElement>(null)
   const th = useTheme()
-  const [period, setPeriod] = useState('week')
-  // Task 60: Calendar date range instead of chips
+  const [period, setPeriod] = useState("week")
+  const [reportType, setReportType] = useState("النهمات")
+  const [query, setQuery] = useState("")
+  const activityDates = [
+    ...state.trips.map((item) => (item.completedAt ?? item.createdAt).slice(0, 10)),
+    ...state.violations.map((item) => item.date.slice(0, 10)),
+    ...state.breakdowns.map((item) => item.date.slice(0, 10)),
+  ].sort()
+  const referenceDate = activityDates.at(-1) ?? new Date().toISOString().slice(0, 10)
   const [fromDate, setFromDate] = useState(() => {
-    const d = new Date()
-    d.setDate(d.getDate() - 7)
-    return d.toISOString().split('T')[0]
+    const date = new Date(`${referenceDate}T12:00:00`)
+    date.setDate(date.getDate() - 6)
+    return date.toISOString().slice(0, 10)
   })
-  const [toDate, setToDate] = useState(() => new Date().toISOString().split('T')[0])
+  const [toDate, setToDate] = useState(referenceDate)
 
   const inRange = (value: string) => {
     const date = value.slice(0, 10)
-    return (!fromDate || date >= fromDate) && (!toDate || date <= toDate)
+    return date >= fromDate && date <= toDate
   }
   const rangedTrips = state.trips.filter((trip) => inRange(trip.completedAt ?? trip.createdAt))
   const rangedViolations = state.violations.filter((violation) => inRange(violation.date))
   const rangedBreakdowns = state.breakdowns.filter((breakdown) => inRange(breakdown.date))
-  const totalDrivers = state.drivers.length
-  const activeDrivers = state.drivers.filter(d => d.status === 'نشط').length
-  const inactiveDrivers = state.drivers.filter(d => d.status === 'غير_نشط').length
-  const completedTrips = rangedTrips.filter(t => t.status === 'مكتملة').length
-  const cancelledTrips = rangedTrips.filter(t => t.status === 'ملغاة').length
+  const activeDrivers = state.drivers.filter((driver) => driver.status === "نشط").length
+  const inactiveDrivers = state.drivers.filter((driver) => driver.status === "غير_نشط").length
+  const completedTrips = rangedTrips.filter((trip) => trip.status === "مكتملة").length
+  const cancelledTrips = rangedTrips.filter((trip) => trip.status === "ملغاة").length
+  const pendingTrips = rangedTrips.filter((trip) => ["مسودة", "مؤكدة_مبدئياً", "معلقة"].includes(trip.status)).length
   const totalViolations = rangedViolations.length
-  const totalComp = state.drivers.reduce((s, d) => s + d.compensationBalance, 0)
+  const raisedViolations = rangedViolations.filter((violation) => violation.raised).length
+  const closeBreakdowns = rangedBreakdowns.filter((breakdown) => breakdown.location === "قريب").length
+  const farBreakdowns = rangedBreakdowns.filter((breakdown) => breakdown.location === "بعيد").length
+  const finishedBreakdowns = rangedBreakdowns.filter((breakdown) => breakdown.status === "منتهي").length
+  const activeGuarantors = state.drivers.reduce((sum, driver) => sum + driver.guarantors.filter((guarantor) => guarantor.status === "فعال" && !guarantor.suspended).length, 0)
+  const completeGuarantees = state.drivers.filter((driver) => driver.guarantors.filter((guarantor) => guarantor.status === "فعال" && !guarantor.suspended).length >= state.minGuarantors).length
+  const driversWithGuarantees = state.drivers.filter((driver) => driver.guarantors.length > 0).length
 
+  const countBy = (values: string[]) => Object.entries(values.reduce<Record<string, number>>((counts, value) => {
+    counts[value || "بدون"] = (counts[value || "بدون"] ?? 0) + 1
+    return counts
+  }, {})).sort((a, b) => b[1] - a[1])
+  const tripStatusCounts = [
+    { label: "مكتملة", value: completedTrips, color: T.success },
+    { label: "معلقة", value: rangedTrips.filter((trip) => trip.status === "معلقة").length, color: T.warning },
+    { label: "ملغاة", value: cancelledTrips, color: T.danger },
+  ]
+  const tripTypeCounts = (["فرزة", "م1", "م2", "تعويض"] as const).map((type) => ({
+    label: type,
+    value: rangedTrips.filter((trip) => trip.type === type).length,
+  }))
+  const provinceCounts = countBy(rangedTrips.map((trip) => trip.province)).slice(0, 5)
+  const payloadCounts = countBy(rangedTrips.map((trip) => trip.payload)).slice(0, 5)
+  const topViolators = Object.values(rangedViolations.reduce<Record<string, { name: string; plate: string; count: number; types: string[]; date: string }>>((result, violation) => {
+    const driver = state.drivers.find((item) => item.id === violation.driverId)
+    const current = result[String(violation.driverId)] ?? {
+      name: violation.driverName,
+      plate: driver?.plate ?? "—",
+      count: 0,
+      types: [],
+      date: violation.date,
+    }
+    current.count += 1
+    if (!current.types.includes(violation.type)) current.types.push(violation.type)
+    if (violation.date > current.date) current.date = violation.date
+    result[String(violation.driverId)] = current
+    return result
+  }, {})).sort((a, b) => b.count - a.count).slice(0, 5)
+
+  const chartValues = useMemo(() => {
+    const groups = new Map<string, number>()
+    rangedTrips.forEach((trip) => {
+      const date = (trip.completedAt ?? trip.createdAt).slice(0, 10)
+      groups.set(date, (groups.get(date) ?? 0) + 1)
+    })
+    const dates = [...groups.keys()].sort()
+    return (dates.length ? dates : [fromDate, toDate].filter((date, index, all) => date && all.indexOf(date) === index)).slice(-7).map((date) => ({
+      label: date.slice(5).replace("-", "/"),
+      value: groups.get(date) ?? 0,
+    }))
+  }, [rangedTrips, fromDate, toDate])
+  const maxChartValue = Math.max(1, ...chartValues.map((item) => item.value))
+
+  const setPreset = (value: string) => {
+    setPeriod(value)
+    if (value === "custom") return
+    const end = new Date(`${referenceDate}T12:00:00`)
+    const start = new Date(end)
+    if (value === "day") start.setDate(end.getDate())
+    if (value === "week") start.setDate(end.getDate() - 6)
+    if (value === "month") start.setMonth(end.getMonth() - 1)
+    if (value === "year") start.setFullYear(end.getFullYear() - 1)
+    setFromDate(start.toISOString().slice(0, 10))
+    setToDate(end.toISOString().slice(0, 10))
+  }
+  const resetRange = () => setPreset("week")
+  const download = (content: string, filename: string, type: string) => {
+    const url = URL.createObjectURL(new Blob([content], { type }))
+    const link = document.createElement("a")
+    link.href = url
+    link.download = filename
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+  const exportCsv = () => {
+    const rows = [
+      ["التقرير", "القيمة"],
+      ["الفترة", `${fromDate} إلى ${toDate}`],
+      ["إجمالي النهمات", rangedTrips.length],
+      ["النهمات المكتملة", completedTrips],
+      ["النهمات الملغاة", cancelledTrips],
+      ["النهمات المعلقة", pendingTrips],
+      ["إجمالي الأعطال", rangedBreakdowns.length],
+      ["إجمالي المخالفات", totalViolations],
+      ["السائقون النشطون", activeDrivers],
+      ["السائقون غير النشطين", inactiveDrivers],
+    ]
+    download(`\uFEFF${rows.map((row) => row.join(",")).join("\n")}`, `تقرير_${fromDate}_${toDate}.csv`, "text/csv;charset=utf-8")
+    showSnackbar("تم تصدير التقرير بصيغة Excel")
+  }
+  const exportBackup = () => {
+    download(JSON.stringify({
+      exportDate: new Date().toISOString(),
+      drivers: state.drivers,
+      trips: state.trips,
+      violations: state.violations,
+      breakdowns: state.breakdowns,
+      users: state.users,
+      notifications: state.notifications,
+      minGuarantors: state.minGuarantors,
+    }, null, 2), `backup_${new Date().toISOString().slice(0, 10)}.json`, "application/json")
+    showSnackbar("تم تصدير قاعدة البيانات")
+  }
   const importBackup = async (file: File) => {
+    if (!window.confirm("استعادة النسخة الاحتياطية قد تستبدل البيانات الحالية. هل تريد المتابعة؟")) return
     try {
       const parsed = JSON.parse(await file.text()) as Record<string, unknown>
       const required = ["drivers", "trips", "violations", "breakdowns", "users"]
@@ -1563,242 +1672,153 @@ export function ReportsScreen() {
     }
   }
 
-  const tripTypeCounts = (['فرزة', 'م1', 'م2', 'تعويض'] as const).map((type) => ({
-    type,
-    count: rangedTrips.filter((t) => t.type === type && t.status === 'مكتملة').length,
-  }))
-
-  const topViolators = [...rangedViolations]
-    .reduce<{ name: string; count: number }[]>((acc, v) => {
-      const existing = acc.find((x) => x.name === v.driverName)
-      if (existing) existing.count += 1
-      else acc.push({ name: v.driverName, count: 1 })
-      return acc
-    }, [])
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 5)
-
-  const pendingTrips = rangedTrips.filter((t) => ['مسودة', 'مؤكدة_مبدئياً', 'معلقة'].includes(t.status)).length
-  const tripStatusCounts = [
-    { label: 'مكتملة', value: completedTrips, color: T.success },
-    { label: 'معلقة', value: rangedTrips.filter((t) => t.status === 'معلقة').length, color: T.warning },
-    { label: 'ملغاة', value: cancelledTrips, color: T.danger },
-  ]
-  const provinceCounts = Object.entries(rangedTrips.reduce<Record<string, number>>((acc, t) => { acc[t.province] = (acc[t.province] ?? 0) + 1; return acc }, {})).sort((a, b) => b[1] - a[1]).slice(0, 5)
-  const payloadCounts = Object.entries(rangedTrips.reduce<Record<string, number>>((acc, t) => { acc[t.payload] = (acc[t.payload] ?? 0) + 1; return acc }, {})).sort((a, b) => b[1] - a[1]).slice(0, 5)
-  const closeBreakdowns = rangedBreakdowns.filter((b) => b.location === 'قريب').length
-  const farBreakdowns = rangedBreakdowns.filter((b) => b.location === 'بعيد').length
-  const raisedViolations = rangedViolations.filter((v) => v.raised).length
-  const activeGuarantors = state.drivers.reduce((sum, d) => sum + d.guarantors.filter((g) => g.status === 'فعال' && !g.suspended).length, 0)
-  const completeGuarantees = state.drivers.filter((d) => d.guarantors.filter((g) => g.status === 'فعال' && !g.suspended).length >= state.minGuarantors).length
-  const detailedRows = rangedTrips.slice(0, 12)
-
-  const resetRange = () => {
-    setPeriod('week')
-    const end = new Date()
-    const start = new Date(end); start.setDate(end.getDate() - 7)
-    setFromDate(start.toISOString().split('T')[0]); setToDate(end.toISOString().split('T')[0])
+  const detailRows = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase()
+    if (reportType === "النهمات") return rangedTrips.map((trip) => ({
+      id: trip.id,
+      cells: [trip.breakNum, state.drivers.find((driver) => driver.id === trip.driverId)?.ownerName ?? "—", trip.province, trip.type, trip.status],
+      search: `${trip.breakNum} ${trip.province} ${trip.type} ${trip.status}`,
+    }))
+    if (reportType === "الأعطال") return rangedBreakdowns.map((breakdown) => ({
+      id: breakdown.id,
+      cells: [breakdown.driverName, breakdown.plate, breakdown.location, breakdown.status, breakdown.date],
+      search: `${breakdown.driverName} ${breakdown.plate} ${breakdown.location} ${breakdown.status}`,
+    }))
+    if (reportType === "المخالفات") return rangedViolations.map((violation) => ({
+      id: violation.id,
+      cells: [violation.driverName, violation.type, violation.raised ? "مرفوعة" : "غير مرفوعة", violation.date, violation.note],
+      search: `${violation.driverName} ${violation.type} ${violation.note}`,
+    }))
+    if (reportType === "السائقون") return state.drivers.map((driver) => ({
+      id: driver.id,
+      cells: [driver.ownerName, driver.plate, driver.status === "نشط" ? "نشط" : "غير نشط", driver.violation ?? "—", driver.guarantors.length],
+      search: `${driver.ownerName} ${driver.plate} ${driver.status} ${driver.violation ?? ""}`,
+    }))
+    return state.drivers.flatMap((driver) => driver.guarantors.map((guarantor) => ({
+      id: guarantor.id,
+      cells: [guarantor.name, driver.ownerName, guarantor.status, guarantor.suspended ? "موقوف" : "فعال", guarantor.phone],
+      search: `${guarantor.name} ${driver.ownerName} ${guarantor.status}`,
+    })))
+  }, [reportType, query, rangedTrips, rangedBreakdowns, rangedViolations, state.drivers])
+  const visibleRows = detailRows.filter((row) => !query.trim() || row.search.toLowerCase().includes(query.trim().toLowerCase())).slice(0, 30)
+  const detailHeaders: Record<string, string[]> = {
+    النهمات: ["رقم النهمة", "المالك", "المحافظة", "النوع", "الحالة"],
+    الأعطال: ["السائق", "اللوحة", "الموقع", "الحالة", "التاريخ"],
+    المخالفات: ["السائق", "النوع", "المعالجة", "التاريخ", "الملاحظات"],
+    السائقون: ["المالك", "اللوحة", "الحالة", "المخالفة", "الضمانات"],
+    الضمانات: ["الضامن", "المضمون", "الحالة", "الإجراء", "الهاتف"],
   }
+  const totalStatus = tripStatusCounts.reduce((sum, item) => sum + item.value, 0)
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: th.bg, overflow: 'hidden' }}>
+    <div className="reports-screen" style={{ background: th.bg }}>
       <StandardAppBar title="التقارير" back="home" />
-
-      <div style={{ padding: '10px 16px 0', textAlign: 'center' }}>
-        <p style={{ margin: 0, fontSize: 11, color: th.sub, fontWeight: 600 }}>{APP_FULL_BRAND}</p>
-      </div>
-
-      <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
-        {/* Period selector */}
-        <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
-          {[['day', 'يوم'], ['week', 'أسبوع'], ['month', 'شهر'], ['year', 'سنة'], ['custom', 'مخصص']].map(([k, l]) => (
-            <button key={k} onClick={() => {
-              setPeriod(k)
-              const end = new Date()
-              const start = new Date(end)
-              if (k === 'day') start.setDate(end.getDate())
-              if (k === 'week') start.setDate(end.getDate() - 7)
-              if (k === 'month') start.setMonth(end.getMonth() - 1)
-              if (k === 'year') start.setFullYear(end.getFullYear() - 1)
-              setFromDate(start.toISOString().split('T')[0])
-              setToDate(end.toISOString().split('T')[0])
-            }}
-              style={{
-                flex: 1, padding: '8px 4px', borderRadius: 10, border: 'none',
-                background: period === k ? T.primary : (th.dark ? '#1E2D40' : '#F1F5F9'),
-                color: period === k ? '#fff' : th.sub,
-                fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-              }}>{l}</button>
-          ))}
-        </div>
-
-        {/* Stats Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
-          {[
-            { label: 'إجمالي النهمات', value: rangedTrips.length, icon: '01', color: T.primary },
-            { label: 'النهمات المكتملة', value: completedTrips, icon: '02', color: T.success },
-            { label: 'النهمات الملغاة', value: cancelledTrips, icon: '03', color: T.danger },
-            { label: 'النهمات المعلقة', value: pendingTrips, icon: '04', color: T.warning },
-            { label: 'إجمالي الأعطال', value: rangedBreakdowns.length, icon: '05', color: '#8B5CF6' },
-            { label: 'إجمالي المخالفات', value: totalViolations, icon: '06', color: T.danger },
-            { label: 'السائقون النشطون', value: activeDrivers, icon: '07', color: T.success },
-            { label: 'السائقون غير النشطين', value: inactiveDrivers, icon: '08', color: th.sub },
-          ].map(s => (
-            <Card key={s.label}>
-              <div style={{ padding: '14px 16px' }}>
-                <span style={{ fontSize: 22 }}>{s.icon}</span>
-                <div style={{ fontSize: 24, fontWeight: 800, color: s.color, margin: '6px 0 2px' }}>{s.value}</div>
-                <div style={{ fontSize: 11, color: th.sub }}>{s.label}</div>
-              </div>
-            </Card>
-          ))}
-        </div>
-
-        <p style={{ fontSize: 12, fontWeight: 700, color: th.sub, textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 10px' }}>
-          توزيع النهمات المكتملة
-        </p>
-        <Card style={{ marginBottom: 16 }}>
-          <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {tripTypeCounts.map(({ type, count }) => (
-              <div key={type} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: th.text, width: 48 }}>{type}</span>
-                <div style={{ flex: 1, height: 8, borderRadius: 99, background: th.dark ? '#2C2C2C' : '#F1F5F9', overflow: 'hidden' }}>
-                  <div style={{ width: `${completedTrips ? (count / completedTrips) * 100 : 0}%`, height: '100%', background: T.primary, borderRadius: 99 }} />
-                </div>
-                <span style={{ fontSize: 12, fontWeight: 700, color: T.primary, minWidth: 24 }}>{count}</span>
-              </div>
-            ))}
-          </div>
-        </Card>
-
-        <p style={{ fontSize: 12, fontWeight: 700, color: th.sub, textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 10px' }}>
-          أكثر المخالفين
-        </p>
-        <Card style={{ marginBottom: 16 }}>
-          <div style={{ padding: '14px 16px' }}>
-            {topViolators.length === 0 ? (
-              <p style={{ margin: 0, fontSize: 13, color: th.sub, textAlign: 'center' }}>لا توجد مخالفات</p>
-            ) : (
-              topViolators.map((v, i) => (
-                <div key={v.name} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: i < topViolators.length - 1 ? `1px solid ${th.border}` : 'none' }}>
-                  <span style={{ fontSize: 14, fontWeight: 800, color: T.danger, width: 20 }}>{i + 1}</span>
-                  <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: th.text }}>{v.name}</span>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: th.sub }}>{v.count} مخالفة</span>
-                </div>
-              ))
-            )}
-          </div>
-        </Card>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12, marginBottom: 16 }}>
-          <Card><div style={{ padding: 14 }}><p style={{ margin: '0 0 12px', fontWeight: 800, color: th.text }}>توزيع النهمات حسب الحالة</p>{tripStatusCounts.map((item) => <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '10px 0' }}><span style={{ width: 58, fontSize: 11, color: th.sub }}>{item.label}</span><div style={{ flex: 1, height: 10, background: th.surfaceVariant, borderRadius: 99 }}><div style={{ width: `${rangedTrips.length ? item.value / rangedTrips.length * 100 : 0}%`, height: '100%', background: item.color, borderRadius: 99 }} /></div><strong style={{ color: item.color, fontSize: 12 }}>{item.value}</strong></div>)}</div></Card>
-          <Card><div style={{ padding: 14 }}><p style={{ margin: '0 0 12px', fontWeight: 800, color: th.text }}>توزيع المحافظات</p>{provinceCounts.length ? provinceCounts.map(([name, value]) => <div key={name} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: `1px solid ${th.border}`, fontSize: 12 }}><span style={{ color: th.text }}>{name}</span><strong style={{ color: T.primary }}>{value}</strong></div>) : <EmptyReport text="لا توجد بيانات خلال الفترة المحددة" th={th} />}</div></Card>
-          <Card><div style={{ padding: 14 }}><p style={{ margin: '0 0 12px', fontWeight: 800, color: th.text }}>الحمولات</p>{payloadCounts.length ? payloadCounts.map(([name, value]) => <div key={name} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: `1px solid ${th.border}`, fontSize: 12 }}><span style={{ color: th.text }}>{name || 'بدون'}</span><strong style={{ color: T.accent }}>{value}</strong></div>) : <EmptyReport text="لا توجد بيانات خلال الفترة المحددة" th={th} />}</div></Card>
-          <Card><div style={{ padding: 14 }}><p style={{ margin: '0 0 12px', fontWeight: 800, color: th.text }}>الأعطال</p><div style={{ display: 'flex', gap: 8 }}>{[['قريب', closeBreakdowns, T.warning], ['بعيد', farBreakdowns, T.danger], ['منتهي', rangedBreakdowns.filter((b) => b.status === 'منتهي').length, T.success]].map(([label, value, color]) => <div key={label} style={{ flex: 1, textAlign: 'center', padding: 10, borderRadius: 10, background: th.surfaceVariant }}><strong style={{ display: 'block', color: color as string, fontSize: 20 }}>{value}</strong><span style={{ color: th.sub, fontSize: 10 }}>{label}</span></div>)}</div></div></Card>
-        </div>
-
-        <Card style={{ marginBottom: 16 }}><div style={{ padding: 14 }}><p style={{ margin: '0 0 12px', fontWeight: 800, color: th.text }}>تقرير المخالفات</p><div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>{[['إجمالي', totalViolations, T.danger], ['نوع ت', rangedViolations.filter((v) => v.type === 'ت').length, T.warning], ['نوع ح', rangedViolations.filter((v) => v.type === 'ح').length, T.primary], ['مرفوعة', raisedViolations, T.success], ['غير مرفوعة', totalViolations - raisedViolations, th.sub]].map(([label, value, color]) => <div key={label} style={{ flex: '1 1 90px', padding: 10, borderRadius: 10, background: th.surfaceVariant, textAlign: 'center' }}><strong style={{ display: 'block', color: color as string, fontSize: 19 }}>{value}</strong><span style={{ fontSize: 10, color: th.sub }}>{label}</span></div>)}</div></div></Card>
-
-        <Card style={{ marginBottom: 16 }}><div style={{ padding: 14 }}><p style={{ margin: '0 0 12px', fontWeight: 800, color: th.text }}>حالة السائقين والضمانات</p><div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>{[['السائقون', totalDrivers], ['القابلون للإضافة', state.drivers.filter((d) => d.statusReason === 'قابل_للإضافة').length], ['لديهم مخالفات', state.drivers.filter((d) => d.violation).length], ['لديهم ضمانات', state.drivers.filter((d) => d.guarantors.length > 0).length], ['ضمانات مكتملة', completeGuarantees], ['إجمالي الضامنين', activeGuarantors]].map(([label, value]) => <div key={label} style={{ padding: 9, borderRadius: 9, background: th.surfaceVariant, display: 'flex', justifyContent: 'space-between', fontSize: 11 }}><span style={{ color: th.sub }}>{label}</span><strong style={{ color: T.primary }}>{value}</strong></div>)}</div></div></Card>
-
-        <Card style={{ marginBottom: 16 }}><div style={{ padding: 14 }}><p style={{ margin: '0 0 12px', fontWeight: 800, color: th.text }}>التقرير التفصيلي</p>{detailedRows.length ? <div style={{ overflowX: 'auto' }}><table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 520, fontSize: 11 }}><thead><tr>{['النهمة', '��لمالك', 'المحافظة', 'النوع', 'الحالة'].map((h) => <th key={h} style={{ padding: 8, textAlign: 'right', color: th.sub, borderBottom: `1px solid ${th.border}` }}>{h}</th>)}</tr></thead><tbody>{detailedRows.map((trip) => <tr key={trip.id}>{[trip.breakNum, state.drivers.find((d) => d.id === trip.driverId)?.ownerName ?? '—', trip.province, trip.type, trip.status].map((cell, index) => <td key={index} style={{ padding: 8, color: th.text, borderBottom: `1px solid ${th.border}` }}>{cell}</td>)}</tr>)}</tbody></table></div> : <EmptyReport text="لا توجد بيانات خلال الفترة المحددة" th={th} />}</div></Card>
-
-        {/* Date range for export - Task 60 */}
-        <p style={{ fontSize: 12, fontWeight: 700, color: th.sub, textTransform: 'uppercase', letterSpacing: 1, margin: '16px 0 10px' }}>
-          <span>نطاق التاريخ</span>
-          <button type="button" onClick={resetRange} style={{ float: 'left', border: 'none', background: 'transparent', color: T.primary, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>إعادة تعيين</button>
-        </p>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+      <div className="reports-content">
+        <header className="reports-heading">
           <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: th.sub, display: 'block', marginBottom: 6 }}>من</label>
-            <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)}
-              style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: `1px solid ${th.border}`, background: th.card, color: th.text, fontSize: 12, fontFamily: 'inherit', boxSizing: 'border-box' }} />
+            <p className="reports-eyebrow">لوحة تحكم المدير</p>
+            <h1>ملخص حركة النظام</h1>
+            <p>نظرة سريعة على النهمات والسائقين والعمليات التشغيلية</p>
           </div>
-          <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: th.sub, display: 'block', marginBottom: 6 }}>إلى</label>
-            <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)}
-              style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: `1px solid ${th.border}`, background: th.card, color: th.text, fontSize: 12, fontFamily: 'inherit', boxSizing: 'border-box' }} />
+          <div className="reports-heading-meta">
+            <span className="reports-live-dot" /> محدث الآن
           </div>
+        </header>
+
+        <section className="report-filter-card" aria-label="اختيار الفترة الزمنية">
+          <div className="report-filter-title"><span className="report-icon"><MonochromeIcon name="calendar" size={17} /></span><div><strong>الفترة الزمنية</strong><small>تتحدث جميع المؤشرات تلقائيًا</small></div></div>
+          <select value={period} onChange={(event) => setPreset(event.target.value)} aria-label="الفترة الزمنية">
+            <option value="day">اليوم</option>
+            <option value="week">هذا الأسبوع</option>
+            <option value="month">هذا الشهر</option>
+            <option value="year">هذه السنة</option>
+            <option value="custom">فترة مخصصة</option>
+          </select>
+          <button type="button" className="report-reset" onClick={resetRange}>إعادة تعيين</button>
+          {period === "custom" && (
+            <div className="custom-date-fields">
+              <label>من تاريخ<input type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} /></label>
+              <label>إلى تاريخ<input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} /></label>
+            </div>
+          )}
+          <span className="report-range-label">{fromDate} — {toDate}</span>
+        </section>
+
+        <div className="report-section-label"><span>المؤشرات الرئيسية</span><small>{rangedTrips.length + rangedBreakdowns.length + totalViolations} عملية في الفترة</small></div>
+        <section className="stats-grid">
+          {[
+            ["إجمالي النهمات", rangedTrips.length, "chart", T.primary],
+            ["النهمات المكتملة", completedTrips, "check", T.success],
+            ["النهمات الملغاة", cancelledTrips, "close", T.danger],
+            ["النهمات المعلقة", pendingTrips, "pause", T.warning],
+            ["إجمالي الأعطال", rangedBreakdowns.length, "wrench", "#7C3AED"],
+            ["إجمالي المخالفات", totalViolations, "warning", T.danger],
+            ["السائقون النشطون", activeDrivers, "users", T.success],
+            ["السائقون غير النشطين", inactiveDrivers, "user", th.sub],
+          ].map(([label, value, icon, color]) => (
+            <article className="report-stat-card" key={String(label)}>
+              <span className="stat-icon" style={{ color: color as string, background: `${color as string}16` }}><MonochromeIcon name={icon as string} size={18} /></span>
+              <strong style={{ color: color as string }}>{value as number}</strong>
+              <span>{label}</span>
+            </article>
+          ))}
+        </section>
+
+        <div className="reports-grid reports-grid-main">
+          <section className="report-card chart-card">
+            <div className="report-card-header"><div><h2>إحصائيات النهمات</h2><p>عدد النهمات خلال الفترة المحددة</p></div><span className="chart-badge">تلقائي</span></div>
+            <div className="line-chart" aria-label="رسم بياني للنهمات">
+              <div className="chart-y-labels"><span>{maxChartValue}</span><span>{Math.round(maxChartValue / 2)}</span><span>0</span></div>
+              <svg viewBox="0 0 520 170" preserveAspectRatio="none" role="img">
+                {[30, 85, 140].map((y) => <line key={y} x1="8" x2="510" y1={y} y2={y} stroke={th.border} strokeDasharray="3 4" />)}
+                {chartValues.length > 1 && <polyline fill="none" stroke={T.primary} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" points={chartValues.map((item, index) => `${12 + (index * 496) / Math.max(1, chartValues.length - 1)},${150 - (item.value / maxChartValue) * 120}`).join(" ")} />}
+                {chartValues.map((item, index) => <circle key={`${item.label}-${index}`} cx={12 + (index * 496) / Math.max(1, chartValues.length - 1)} cy={150 - (item.value / maxChartValue) * 120} r="4.5" fill={th.card} stroke={T.primary} strokeWidth="3" />)}
+              </svg>
+              <div className="chart-x-labels">{chartValues.map((item) => <span key={item.label}>{item.label}</span>)}</div>
+            </div>
+          </section>
+
+          <section className="report-card status-card">
+            <div className="report-card-header"><div><h2>حالة النهمات</h2><p>التوزيع حسب الحالة</p></div></div>
+            <div className="donut-layout">
+              <div className="donut" style={{ background: `conic-gradient(${T.success} 0 ${(completedTrips / Math.max(1, totalStatus)) * 100}%, ${T.warning} ${(completedTrips / Math.max(1, totalStatus)) * 100}% ${((completedTrips + tripStatusCounts[1].value) / Math.max(1, totalStatus)) * 100}%, ${T.danger} ${((completedTrips + tripStatusCounts[1].value) / Math.max(1, totalStatus)) * 100}% 100%)` }}><div><strong>{rangedTrips.length}</strong><span>نهمة</span></div></div>
+              <div className="legend-list">{tripStatusCounts.map((item) => <div key={item.label}><span><i style={{ background: item.color }} />{item.label}</span><strong>{item.value}</strong></div>)}</div>
+            </div>
+          </section>
         </div>
 
-        {/* Export buttons - Task 64, 65, 66 */}
-        <p style={{ fontSize: 12, fontWeight: 700, color: th.sub, textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 10px' }}>
-          تصدير
-        </p>
-        <input
-          ref={importInputRef}
-          type="file"
-          accept="application/json,.json"
-          hidden
-          onChange={(event) => {
-            const file = event.target.files?.[0]
-            if (file) void importBackup(file)
-            event.target.value = ""
-          }}
-        />
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {[
-            { 
-              label: 'طباعة التقرير', 
-              color: '#DC2626',
-              action: () => {
-                window.print()
-                showSnackbar('تم فتح نافذة الطباعة')
-              }
-            },
-            { 
-              label: '📊 تصدير Excel', 
-              color: '#16A34A',
-              action: () => {
-                const csv = `اسم,القيمة\nإجمالي البوابير,${totalDrivers}\nالنشطين,${activeDrivers}\nالنهمات,${completedTrips}\nالمخالفات,${totalViolations}\nالتعويضات,${totalComp}`
-                const blob = new Blob([csv], { type: 'text/csv' })
-                const url = URL.createObjectURL(blob)
-                const a = document.createElement('a')
-                a.href = url
-                a.download = `تقرير_${fromDate}_${toDate}.csv`
-                a.click()
-                showSnackbar('تم تصدير Excel ✅')
-              }
-            },
-            { 
-              label: '💾 تصدير قاعدة البيانات', 
-              color: T.primary,
-              action: () => {
-                const backup = {
-                  exportDate: new Date().toISOString(),
-                  drivers: state.drivers,
-                  trips: state.trips,
-                  violations: state.violations,
-                  breakdowns: state.breakdowns,
-                  users: state.users,
-                  notifications: state.notifications,
-                }
-                const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' })
-                const url = URL.createObjectURL(blob)
-                const a = document.createElement('a')
-                a.href = url
-                a.download = `backup_${new Date().toISOString().split('T')[0]}.json`
-                a.click()
-                showSnackbar('تم تصدير قاعدة البيانات ✅')
-              }
-            },
-            { 
-              label: 'استيراد قاعدة البيانات', 
-              color: '#7C3AED',
-              action: () => importInputRef.current?.click()
-            },
-          ].map(btn => (
-            <button key={btn.label}
-              onClick={btn.action}
-              style={{
-                padding: '14px 16px', borderRadius: 12,
-                border: `1px solid ${th.border}`, background: th.card,
-                color: btn.color, fontSize: 13, fontWeight: 700,
-                cursor: 'pointer', fontFamily: 'inherit', textAlign: 'right',
-                display: 'flex', alignItems: 'center', gap: 8,
-              }}>{btn.label}</button>
-          ))}
+        <div className="reports-grid reports-grid-three">
+          <section className="report-card"><div className="report-card-header"><div><h2>حسب نوع النهمة</h2><p>مقارنة الأنواع</p></div></div><div className="bar-list">{tripTypeCounts.map((item) => <div className="bar-row" key={item.label}><span>{item.label}</span><div><i style={{ width: `${(item.value / Math.max(1, ...tripTypeCounts.map((value) => value.value))) * 100}%` }} /></div><strong>{item.value}</strong></div>)}</div></section>
+          <section className="report-card"><div className="report-card-header"><div><h2>توزيع المحافظات</h2><p>أكثر الوجهات تسجيلًا</p></div></div><div className="rank-list">{provinceCounts.length ? provinceCounts.map(([name, value], index) => <div key={name}><b>{index + 1}</b><span>{name}</span><strong>{value}</strong></div>) : <EmptyReport text="لا توجد بيانات خلال الفترة المحددة" th={th} />}</div></section>
+          <section className="report-card"><div className="report-card-header"><div><h2>الحمولات</h2><p>توزيع النهمات حسب الحمولة</p></div></div><div className="bar-list">{payloadCounts.length ? payloadCounts.map(([name, value]) => <div className="bar-row" key={name}><span>{name}</span><div><i style={{ width: `${(value / Math.max(1, ...payloadCounts.map((item) => item[1]))) * 100}`, background: "#0EA5E9" }} /></div><strong>{value}</strong></div>) : <EmptyReport text="لا توجد بيانات خلال الفترة المحددة" th={th} />}</div></section>
         </div>
+
+        <div className="reports-grid reports-grid-two">
+          <section className="report-card"><div className="report-card-header"><div><h2>الأعطال</h2><p>قريب وبعيد عن المصنع</p></div><span className="section-total">{rangedBreakdowns.length}</span></div><div className="mini-metrics"><div><strong>{closeBreakdowns}</strong><span>قريب</span></div><div><strong>{farBreakdowns}</strong><span>بعيد</span></div><div><strong>{finishedBreakdowns}</strong><span>منتهي</span></div></div><div className="comparison-track"><i style={{ width: `${(closeBreakdowns / Math.max(1, rangedBreakdowns.length)) * 100}%` }} /><i style={{ width: `${(farBreakdowns / Math.max(1, rangedBreakdowns.length)) * 100}%` }} /></div></section>
+          <section className="report-card"><div className="report-card-header"><div><h2>المخالفات</h2><p>الأنواع وحالة المعالجة</p></div><span className="section-total">{totalViolations}</span></div><div className="mini-metrics"><div><strong>{rangedViolations.filter((violation) => violation.type === "ت").length}</strong><span>نوع ت</span></div><div><strong>{rangedViolations.filter((violation) => violation.type === "ح").length}</strong><span>نوع ح</span></div><div><strong>{raisedViolations}</strong><span>مرفوعة</span></div><div><strong>{totalViolations - raisedViolations}</strong><span>غير مرفوعة</span></div></div></section>
+        </div>
+
+        <section className="report-card violators-card">
+          <div className="report-card-header"><div><h2>أكثر البوابير مخالفة</h2><p>ترتيب تنازلي حسب عدد المخالفات خلال الفترة</p></div><button type="button" className="text-action" onClick={() => { setReportType("المخالفات"); setQuery("") }}>عرض الكل</button></div>
+          {topViolators.length ? <div className="violators-list">{topViolators.map((item, index) => <div className="violator-row" key={item.name}><b className="rank-number">{index + 1}</b><span className="violator-avatar">{item.name.slice(0, 1)}</span><div className="violator-name"><strong>{item.name}</strong><small>{item.plate}</small></div><span className="violation-type">{item.types.join(" · ")}</span><strong className="violation-count">{item.count} مخالفات</strong><small className="last-date">آخرها {item.date}</small></div>)}</div> : <EmptyReport text="لا توجد بيانات خلال الفترة المحددة" th={th} />}
+        </section>
+
+        <div className="reports-grid reports-grid-two">
+          <section className="report-card"><div className="report-card-header"><div><h2>حالة السائقين</h2><p>ملخص أسطول السائقين</p></div></div><div className="driver-summary"><div className="driver-progress"><div style={{ width: `${(activeDrivers / Math.max(1, state.drivers.length)) * 100}%` }} /></div><strong>{state.drivers.length} <small>إجمالي السائقين</small></strong><div className="summary-pills"><span>نشط {activeDrivers}</span><span>غير نشط {inactiveDrivers}</span></div></div><div className="info-grid"><span>القابلون للإضافة <b>{state.drivers.filter((driver) => driver.statusReason === "قابل_للإضافة").length}</b></span><span>لديهم مخالفات <b>{state.drivers.filter((driver) => driver.violation).length}</b></span></div></section>
+          <section className="report-card"><div className="report-card-header"><div><h2>الضمانات</h2><p>حالة الضامنين والحد الأدنى</p></div></div><div className="guarantee-highlight"><strong>{completeGuarantees}</strong><span>مضمونون بضمانات مكتملة</span></div><div className="info-grid"><span>إجمالي المضمونين <b>{driversWithGuarantees}</b></span><span>بدون ضمانة <b>{state.drivers.length - driversWithGuarantees}</b></span><span>عدد الضمانات المسجلة <b>{activeGuarantors}</b></span><span>الحد الأدنى المطلوب <b>{state.minGuarantors}</b></span></div></section>
+        </div>
+
+        <section className="report-card detailed-report">
+          <div className="report-card-header detail-header"><div><h2>التقرير التفصيلي</h2><p>ابحث وفلتر بيانات الفترة المحددة</p></div><div className="detail-controls"><select value={reportType} onChange={(event) => { setReportType(event.target.value); setQuery("") }} aria-label="نوع التقرير">{Object.keys(detailHeaders).map((type) => <option key={type}>{type}</option>)}</select><div className="report-search"><MonochromeIcon name="search" size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="بحث في التقرير..." /></div></div></div>
+          {visibleRows.length ? <div className="detail-table-wrap"><table><thead><tr>{detailHeaders[reportType].map((header) => <th key={header}>{header}</th>)}</tr></thead><tbody>{visibleRows.map((row) => <tr key={row.id}>{row.cells.map((cell, index) => <td key={`${row.id}-${index}`} data-label={detailHeaders[reportType][index]}>{String(cell)}</td>)}</tr>)}</tbody></table></div> : <EmptyReport text="لا توجد بيانات خلال الفترة المحددة" th={th} />}
+        </section>
+
+        <section className="report-card report-actions-card">
+          <div className="report-card-header"><div><h2>التصدير والنسخ الاحتياطي</h2><p>احفظ التقرير أو بيانات النظام للاستخدام لاحقًا</p></div></div>
+          <input ref={importInputRef} type="file" accept="application/json,.json" hidden onChange={(event) => { const file = event.target.files?.[0]; if (file) void importBackup(file); event.target.value = "" }} />
+          <div className="action-buttons"><button type="button" onClick={() => { window.print(); showSnackbar("تم فتح نافذة الطباعة لإنشاء PDF") }}><MonochromeIcon name="note" size={17} /> تصدير PDF</button><button type="button" onClick={exportCsv}><MonochromeIcon name="chart" size={17} /> تصدير Excel</button><button type="button" onClick={exportBackup}><MonochromeIcon name="save" size={17} /> تصدير قاعدة البيانات</button><button type="button" onClick={() => importInputRef.current?.click()}><MonochromeIcon name="refresh" size={17} /> استيراد قاعدة البيانات</button></div>
+          <div className="backup-warning"><MonochromeIcon name="warning" size={17} /><span>تنبيه: استعادة النسخة الاحتياطية قد تستبدل البيانات الحالية. تأكد من تصدير نسخة قبل الاستيراد.</span></div>
+        </section>
       </div>
     </div>
   )
