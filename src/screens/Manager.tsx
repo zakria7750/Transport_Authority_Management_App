@@ -744,21 +744,107 @@ export function GuaranteesScreen() {
               const activeGuarantors = driver.guarantors.filter((g) => g.status === "فعال" && !g.suspended)
               return (
                 <Card key={driver.id}>
-                  <article style={{ padding: 14, minWidth: 0, width: "100%" }}>
-                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, minWidth: 0 }}>
-                      <div style={{ minWidth: 0, flex: 1 }}>
-                        <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: th.text, overflowWrap: "anywhere" }}>{driver.ownerName}</p>
-                        <p style={{ margin: "4px 0 0", fontSize: 12, color: th.sub, overflowWrap: "anywhere" }}>لوحة: {driver.plate}</p>
+                  <article style={{ padding: "12px 16px", minWidth: 0, width: "100%" }}>
+                    <div style={{ display: "flex", alignItems: "flex-start", gap: 10, minWidth: 0 }}>
+                      <div
+                        style={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: 8,
+                          flexShrink: 0,
+                          background: active >= state.minGuarantors ? "#D1FAE5" : "#FEE2E2",
+                          color: active >= state.minGuarantors ? "#065F46" : "#991B1B",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: 11,
+                          fontWeight: 800,
+                        }}
+                      >
+                        {active}/{state.minGuarantors}
                       </div>
-                      <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, padding: "4px 9px", borderRadius: 99, background: active >= state.minGuarantors ? "#D1FAE5" : "#FEE2E2", color: active >= state.minGuarantors ? "#065F46" : "#991B1B" }}>{active}/{state.minGuarantors}</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: th.text, overflowWrap: "anywhere" }}>{driver.ownerName}</p>
+                        <div style={{ display: "flex", gap: 8, marginTop: 4, flexWrap: "wrap", alignItems: "center" }}>
+                          <span style={{ fontSize: 11, color: th.sub, overflowWrap: "anywhere" }}>🚗 {driver.plate}</span>
+                          <span style={{ fontSize: 10, fontWeight: 700, color: active >= state.minGuarantors ? T.success : T.danger }}>
+                            {active >= state.minGuarantors ? "ضمانات مكتملة" : "ضمانات ناقصة"}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                    <div style={{ marginTop: 12, paddingTop: 10, borderTop: `1px solid ${th.border}` }}>
-                      <p style={{ margin: "0 0 8px", fontSize: 11, color: th.sub }}>الضامنون ({activeGuarantors.length})</p>
-                      {activeGuarantors.length === 0 ? <span style={{ fontSize: 11, color: th.sub }}>لا يوجد ضامنون نشطون</span> : <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>{activeGuarantors.map((g) => <div key={g.id} style={{ padding: "8px 10px", borderRadius: 8, background: th.surfaceVariant, color: th.text, fontSize: 11, overflowWrap: "anywhere" }}>{g.name}</div>)}</div>}
+                    <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${th.border}` }}>
+                      <p style={{ margin: "0 0 7px", fontSize: 11, color: th.sub }}>الضامنون ({activeGuarantors.length})</p>
+                      {activeGuarantors.length === 0 ? (
+                        <span style={{ fontSize: 11, color: th.sub }}>لا يوجد ضامنون نشطون</span>
+                      ) : (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                          {activeGuarantors.map((g) => (
+                            <div
+                              key={g.id}
+                              style={{
+                                padding: "7px 10px",
+                                borderRadius: 8,
+                                background: th.surfaceVariant,
+                                color: th.text,
+                                fontSize: 11,
+                                lineHeight: 1.5,
+                                overflowWrap: "anywhere",
+                              }}
+                            >
+                              {g.name}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                    <div style={{ display: "flex", gap: 8, marginTop: 12, paddingTop: 10, borderTop: `1px solid ${th.border}` }}>
-                      <button type="button" onClick={() => openGuaranteedEdit(driver.id)} style={{ flex: 1, minWidth: 0, minHeight: 38, border: `1px solid ${th.border}`, borderRadius: 9, background: th.inputBg, color: th.text, fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>تعديل</button>
-                      <button type="button" onClick={() => deleteGuaranteesForDriver(driver.id, driver.ownerName)} style={{ flex: 1, minWidth: 0, minHeight: 38, border: "none", borderRadius: 9, background: "#FEE2E2", color: T.danger, fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>إلغاء الضمانات</button>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8, marginTop: 10, paddingTop: 10, borderTop: `1px solid ${th.border}` }}>
+                      <button
+                        type="button"
+                        onClick={() => openGuaranteedEdit(driver.id)}
+                        style={{
+                          width: "100%",
+                          minWidth: 0,
+                          minHeight: 38,
+                          padding: "7px 8px",
+                          border: `1px solid ${th.border}`,
+                          borderRadius: 9,
+                          background: th.inputBg,
+                          color: th.text,
+                          fontSize: 11,
+                          lineHeight: 1.45,
+                          fontWeight: 700,
+                          cursor: "pointer",
+                          fontFamily: "inherit",
+                          whiteSpace: "normal",
+                          overflowWrap: "anywhere",
+                        }}
+                      >
+                        تعديل
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => deleteGuaranteesForDriver(driver.id, driver.ownerName)}
+                        style={{
+                          width: "100%",
+                          minWidth: 0,
+                          minHeight: 38,
+                          padding: "7px 8px",
+                          border: "none",
+                          borderRadius: 9,
+                          background: "#FEE2E2",
+                          color: T.danger,
+                          fontSize: 11,
+                          lineHeight: 1.45,
+                          fontWeight: 700,
+                          cursor: "pointer",
+                          fontFamily: "inherit",
+                          whiteSpace: "normal",
+                          overflowWrap: "anywhere",
+                        }}
+                      >
+                        إلغاء الضمانات
+                      </button>
                     </div>
                   </article>
                 </Card>
@@ -770,21 +856,101 @@ export function GuaranteesScreen() {
         ) : (
           guarantorGroups.map((group) => (
             <Card key={group.nationalId}>
-              <article style={{ padding: 14, minWidth: 0, width: "100%" }}>
-                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, minWidth: 0 }}>
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: th.text, overflowWrap: "anywhere" }}>{group.name}</p>
-                    <p style={{ margin: "4px 0 0", fontSize: 11, color: th.sub, overflowWrap: "anywhere" }}>الهاتف: {group.phone || "غير مسجل"}</p>
+              <article style={{ padding: "12px 16px", minWidth: 0, width: "100%" }}>
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 10, minWidth: 0 }}>
+                  <div
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 8,
+                      flexShrink: 0,
+                      background: "#D1FAE5",
+                      color: "#065F46",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 11,
+                      fontWeight: 800,
+                    }}
+                  >
+                    {group.entries.length}
                   </div>
-                  <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, padding: "4px 9px", borderRadius: 99, background: "#D1FAE5", color: "#065F46" }}>{group.entries.length} مضمون</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: th.text, overflowWrap: "anywhere" }}>{group.name}</p>
+                    <div style={{ display: "flex", gap: 8, marginTop: 4, flexWrap: "wrap", alignItems: "center" }}>
+                      <span style={{ fontSize: 11, color: th.sub, overflowWrap: "anywhere" }}>☎ {group.phone || "غير مسجل"}</span>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: T.success }}>{group.entries.length} مضمون</span>
+                    </div>
+                  </div>
                 </div>
-                <div style={{ marginTop: 12, paddingTop: 10, borderTop: `1px solid ${th.border}` }}>
-                  <p style={{ margin: "0 0 8px", fontSize: 11, color: th.sub }}>المضمونون</p>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>{group.entries.map((entry) => <div key={`${entry.driverId}-${entry.guarantorId}`} style={{ padding: "8px 10px", borderRadius: 8, background: th.surfaceVariant, color: th.text, fontSize: 11, overflowWrap: "anywhere" }}>{entry.driverName} · {entry.plate}</div>)}</div>
+                <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${th.border}` }}>
+                  <p style={{ margin: "0 0 7px", fontSize: 11, color: th.sub }}>المضمونون</p>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                    {group.entries.map((entry) => (
+                      <div
+                        key={`${entry.driverId}-${entry.guarantorId}`}
+                        style={{
+                          padding: "7px 10px",
+                          borderRadius: 8,
+                          background: th.surfaceVariant,
+                          color: th.text,
+                          fontSize: 11,
+                          lineHeight: 1.5,
+                          overflowWrap: "anywhere",
+                        }}
+                      >
+                        {entry.driverName} · {entry.plate}
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <div style={{ display: "flex", gap: 8, marginTop: 12, paddingTop: 10, borderTop: `1px solid ${th.border}` }}>
-                  <button type="button" onClick={() => openGuarantorEdit(group)} style={{ flex: 1, minWidth: 0, minHeight: 38, border: `1px solid ${th.border}`, borderRadius: 9, background: th.inputBg, color: th.text, fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>تعديل</button>
-                  <button type="button" onClick={() => cancelAllForGuarantor(group.nationalId, group.name)} style={{ flex: 1, minWidth: 0, minHeight: 38, border: "none", borderRadius: 9, background: "#FEE2E2", color: T.danger, fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>إلغاء الضمانات</button>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8, marginTop: 10, paddingTop: 10, borderTop: `1px solid ${th.border}` }}>
+                  <button
+                    type="button"
+                    onClick={() => openGuarantorEdit(group)}
+                    style={{
+                      width: "100%",
+                      minWidth: 0,
+                      minHeight: 38,
+                      padding: "7px 8px",
+                      border: `1px solid ${th.border}`,
+                      borderRadius: 9,
+                      background: th.inputBg,
+                      color: th.text,
+                      fontSize: 11,
+                      lineHeight: 1.45,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      fontFamily: "inherit",
+                      whiteSpace: "normal",
+                      overflowWrap: "anywhere",
+                    }}
+                  >
+                    تعديل
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => cancelAllForGuarantor(group.nationalId, group.name)}
+                    style={{
+                      width: "100%",
+                      minWidth: 0,
+                      minHeight: 38,
+                      padding: "7px 8px",
+                      border: "none",
+                      borderRadius: 9,
+                      background: "#FEE2E2",
+                      color: T.danger,
+                      fontSize: 11,
+                      lineHeight: 1.45,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      fontFamily: "inherit",
+                      whiteSpace: "normal",
+                      overflowWrap: "anywhere",
+                    }}
+                  >
+                    إلغاء الضمانات
+                  </button>
                 </div>
               </article>
             </Card>
