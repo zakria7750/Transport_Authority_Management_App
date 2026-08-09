@@ -1117,7 +1117,7 @@ export function GuaranteesScreen() {
   )
 }
 
-// ══════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════���═════
 //  BREAKDOWNS SCREEN  (tasks 44-49, 55)
 // ══════════════════════════════════════════════════════════
 export function BreakdownsScreen() {
@@ -1448,6 +1448,10 @@ export function BreakdownsScreen() {
 // ══════════════════════════════════════════════════════════
 //  REPORTS SCREEN
 // ══════════════════════════════════════════════════════════
+function EmptyReport({ text, th }: { text: string; th: ReturnType<typeof useTheme> }) {
+  return <div style={{ padding: '18px 8px', textAlign: 'center', color: th.sub, fontSize: 12 }}>{text}</div>
+}
+
 export function ReportsScreen() {
   const { state, dispatch, showSnackbar } = useApp()
   const importInputRef = useRef<HTMLInputElement>(null)
@@ -1511,6 +1515,28 @@ export function ReportsScreen() {
     .sort((a, b) => b.count - a.count)
     .slice(0, 5)
 
+  const pendingTrips = rangedTrips.filter((t) => ['مسودة', 'مؤكدة_مبدئياً', 'معلقة'].includes(t.status)).length
+  const tripStatusCounts = [
+    { label: 'مكتملة', value: completedTrips, color: T.success },
+    { label: 'معلقة', value: rangedTrips.filter((t) => t.status === 'معلقة').length, color: T.warning },
+    { label: 'ملغاة', value: cancelledTrips, color: T.danger },
+  ]
+  const provinceCounts = Object.entries(rangedTrips.reduce<Record<string, number>>((acc, t) => { acc[t.province] = (acc[t.province] ?? 0) + 1; return acc }, {})).sort((a, b) => b[1] - a[1]).slice(0, 5)
+  const payloadCounts = Object.entries(rangedTrips.reduce<Record<string, number>>((acc, t) => { acc[t.payload] = (acc[t.payload] ?? 0) + 1; return acc }, {})).sort((a, b) => b[1] - a[1]).slice(0, 5)
+  const closeBreakdowns = rangedBreakdowns.filter((b) => b.location === 'قريب').length
+  const farBreakdowns = rangedBreakdowns.filter((b) => b.location === 'بعيد').length
+  const raisedViolations = rangedViolations.filter((v) => v.raised).length
+  const activeGuarantors = state.drivers.reduce((sum, d) => sum + d.guarantors.filter((g) => g.status === 'فعال' && !g.suspended).length, 0)
+  const completeGuarantees = state.drivers.filter((d) => d.guarantors.filter((g) => g.status === 'فعال' && !g.suspended).length >= state.minGuarantors).length
+  const detailedRows = rangedTrips.slice(0, 12)
+
+  const resetRange = () => {
+    setPeriod('week')
+    const end = new Date()
+    const start = new Date(end); start.setDate(end.getDate() - 7)
+    setFromDate(start.toISOString().split('T')[0]); setToDate(end.toISOString().split('T')[0])
+  }
+
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: th.bg, overflow: 'hidden' }}>
       <StandardAppBar title="التقارير" back="home" />
@@ -1546,14 +1572,14 @@ export function ReportsScreen() {
         {/* Stats Grid */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
           {[
-            { label: 'إجمالي البوابير', value: totalDrivers, icon: '🚛', color: T.primary },
-            { label: 'النشطين', value: activeDrivers, icon: '✅', color: T.success },
-            { label: 'النهمات المكتملة', value: completedTrips, icon: '🚀', color: T.accent },
-            { label: 'المخالفات', value: totalViolations, icon: '⚠️', color: T.danger },
-            { label: 'التعويضات (ر)', value: totalComp.toLocaleString(), icon: '💰', color: T.warning },
-            { label: 'النهمات الملغاة', value: cancelledTrips, icon: '×', color: T.danger },
-            { label: 'الأعطال', value: rangedBreakdowns.length, icon: '🔧', color: '#8B5CF6' },
-            { label: 'غير النشطين', value: inactiveDrivers, icon: '○', color: th.sub },
+            { label: 'إجمالي النهمات', value: rangedTrips.length, icon: '01', color: T.primary },
+            { label: 'النهمات المكتملة', value: completedTrips, icon: '02', color: T.success },
+            { label: 'النهمات الملغاة', value: cancelledTrips, icon: '03', color: T.danger },
+            { label: 'النهمات المعلقة', value: pendingTrips, icon: '04', color: T.warning },
+            { label: 'إجمالي الأعطال', value: rangedBreakdowns.length, icon: '05', color: '#8B5CF6' },
+            { label: 'إجمالي المخالفات', value: totalViolations, icon: '06', color: T.danger },
+            { label: 'السائقون النشطون', value: activeDrivers, icon: '07', color: T.success },
+            { label: 'السائقون غير النشطين', value: inactiveDrivers, icon: '08', color: th.sub },
           ].map(s => (
             <Card key={s.label}>
               <div style={{ padding: '14px 16px' }}>
@@ -1601,9 +1627,23 @@ export function ReportsScreen() {
           </div>
         </Card>
 
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12, marginBottom: 16 }}>
+          <Card><div style={{ padding: 14 }}><p style={{ margin: '0 0 12px', fontWeight: 800, color: th.text }}>توزيع النهمات حسب الحالة</p>{tripStatusCounts.map((item) => <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '10px 0' }}><span style={{ width: 58, fontSize: 11, color: th.sub }}>{item.label}</span><div style={{ flex: 1, height: 10, background: th.surfaceVariant, borderRadius: 99 }}><div style={{ width: `${rangedTrips.length ? item.value / rangedTrips.length * 100 : 0}%`, height: '100%', background: item.color, borderRadius: 99 }} /></div><strong style={{ color: item.color, fontSize: 12 }}>{item.value}</strong></div>)}</div></Card>
+          <Card><div style={{ padding: 14 }}><p style={{ margin: '0 0 12px', fontWeight: 800, color: th.text }}>توزيع المحافظات</p>{provinceCounts.length ? provinceCounts.map(([name, value]) => <div key={name} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: `1px solid ${th.border}`, fontSize: 12 }}><span style={{ color: th.text }}>{name}</span><strong style={{ color: T.primary }}>{value}</strong></div>) : <EmptyReport text="لا توجد بيانات خلال الفترة المحددة" th={th} />}</div></Card>
+          <Card><div style={{ padding: 14 }}><p style={{ margin: '0 0 12px', fontWeight: 800, color: th.text }}>الحمولات</p>{payloadCounts.length ? payloadCounts.map(([name, value]) => <div key={name} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: `1px solid ${th.border}`, fontSize: 12 }}><span style={{ color: th.text }}>{name || 'بدون'}</span><strong style={{ color: T.accent }}>{value}</strong></div>) : <EmptyReport text="لا توجد بيانات خلال الفترة المحددة" th={th} />}</div></Card>
+          <Card><div style={{ padding: 14 }}><p style={{ margin: '0 0 12px', fontWeight: 800, color: th.text }}>الأعطال</p><div style={{ display: 'flex', gap: 8 }}>{[['قريب', closeBreakdowns, T.warning], ['بعيد', farBreakdowns, T.danger], ['منتهي', rangedBreakdowns.filter((b) => b.status === 'منتهي').length, T.success]].map(([label, value, color]) => <div key={label} style={{ flex: 1, textAlign: 'center', padding: 10, borderRadius: 10, background: th.surfaceVariant }}><strong style={{ display: 'block', color: color as string, fontSize: 20 }}>{value}</strong><span style={{ color: th.sub, fontSize: 10 }}>{label}</span></div>)}</div></div></Card>
+        </div>
+
+        <Card style={{ marginBottom: 16 }}><div style={{ padding: 14 }}><p style={{ margin: '0 0 12px', fontWeight: 800, color: th.text }}>تقرير المخالفات</p><div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>{[['إجمالي', totalViolations, T.danger], ['نوع ت', rangedViolations.filter((v) => v.type === 'ت').length, T.warning], ['نوع ح', rangedViolations.filter((v) => v.type === 'ح').length, T.primary], ['مرفوعة', raisedViolations, T.success], ['غير مرفوعة', totalViolations - raisedViolations, th.sub]].map(([label, value, color]) => <div key={label} style={{ flex: '1 1 90px', padding: 10, borderRadius: 10, background: th.surfaceVariant, textAlign: 'center' }}><strong style={{ display: 'block', color: color as string, fontSize: 19 }}>{value}</strong><span style={{ fontSize: 10, color: th.sub }}>{label}</span></div>)}</div></div></Card>
+
+        <Card style={{ marginBottom: 16 }}><div style={{ padding: 14 }}><p style={{ margin: '0 0 12px', fontWeight: 800, color: th.text }}>حالة السائقين والضمانات</p><div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>{[['السائقون', totalDrivers], ['القابلون للإضافة', state.drivers.filter((d) => d.statusReason === 'قابل_للإضافة').length], ['لديهم مخالفات', state.drivers.filter((d) => d.violation).length], ['لديهم ضمانات', state.drivers.filter((d) => d.guarantors.length > 0).length], ['ضمانات مكتملة', completeGuarantees], ['إجمالي الضامنين', activeGuarantors]].map(([label, value]) => <div key={label} style={{ padding: 9, borderRadius: 9, background: th.surfaceVariant, display: 'flex', justifyContent: 'space-between', fontSize: 11 }}><span style={{ color: th.sub }}>{label}</span><strong style={{ color: T.primary }}>{value}</strong></div>)}</div></div></Card>
+
+        <Card style={{ marginBottom: 16 }}><div style={{ padding: 14 }}><p style={{ margin: '0 0 12px', fontWeight: 800, color: th.text }}>التقرير التفصيلي</p>{detailedRows.length ? <div style={{ overflowX: 'auto' }}><table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 520, fontSize: 11 }}><thead><tr>{['النهمة', 'المالك', 'المحافظة', 'النوع', 'الحالة'].map((h) => <th key={h} style={{ padding: 8, textAlign: 'right', color: th.sub, borderBottom: `1px solid ${th.border}` }}>{h}</th>)}</tr></thead><tbody>{detailedRows.map((trip) => <tr key={trip.id}>{[trip.breakNum, state.drivers.find((d) => d.id === trip.driverId)?.ownerName ?? '—', trip.province, trip.type, trip.status].map((cell, index) => <td key={index} style={{ padding: 8, color: th.text, borderBottom: `1px solid ${th.border}` }}>{cell}</td>)}</tr>)}</tbody></table></div> : <EmptyReport text="لا توجد بيانات خلال الفترة المحددة" th={th} />}</div></Card>
+
         {/* Date range for export - Task 60 */}
         <p style={{ fontSize: 12, fontWeight: 700, color: th.sub, textTransform: 'uppercase', letterSpacing: 1, margin: '16px 0 10px' }}>
-          نطاق التاريخ
+          <span>نطاق التاريخ</span>
+          <button type="button" onClick={resetRange} style={{ float: 'left', border: 'none', background: 'transparent', color: T.primary, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>إعادة تعيين</button>
         </p>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
           <div>
