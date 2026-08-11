@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useApp, useSaveScrollPosition, useGetScrollPosition } from '../context'
-import { AppBar, useTheme, T, PullToRefresh, AppBarStandardSlots, APP_FULL_BRAND } from '../components'
+import { AppBar, useTheme, T, PullToRefresh, AppBarStandardSlots, APP_FULL_BRAND, MonochromeIcon } from '../components'
 import { isPendingTripStatus, violatorCount } from '../domain'
 import type { Screen } from '../context'
 
@@ -38,10 +38,10 @@ export default function HomeScreen() {
   const pendingTrips = state.trips.filter(t => isPendingTripStatus(t.status)).length
 
   const stats: { label: string; value: string | number; icon: string; color: string; bg: string; screen?: Screen; filter?: string }[] = [
-    { label: 'البوابير النشطة', value: activeCount, icon: '✅', color: T.success, bg: '#D1FAE5', screen: 'drivers', filter: 'نشط' },
-    { label: 'غير النشطة', value: inactiveCount, icon: '⏸', color: T.sub, bg: '#F1F5F9', screen: 'drivers', filter: 'غير_نشط' },
-    { label: 'المخالفين', value: violatorsCount, icon: '⚠️', color: T.danger, bg: '#FEE2E2', screen: 'violations' },
-    { label: 'التعويضات', value: `${totalCompensation.toLocaleString()} ر`, icon: '💰', color: T.warning, bg: '#FEF9C3', screen: 'guarantees' },
+    { label: 'البوابير النشطة', value: activeCount, icon: 'check', color: T.success, bg: '#D1FAE5', screen: 'drivers', filter: 'نشط' },
+    { label: 'غير النشطة', value: inactiveCount, icon: 'pause', color: T.sub, bg: '#F1F5F9', screen: 'drivers', filter: 'غير_نشط' },
+    { label: 'المخالفين', value: violatorsCount, icon: 'warning', color: T.danger, bg: '#FEE2E2', screen: 'violations' },
+    { label: 'التعويضات', value: `${totalCompensation.toLocaleString()} ر`, icon: 'money', color: T.warning, bg: '#FEF9C3', screen: 'guarantees' },
   ]
 
   const roleLabel =
@@ -57,16 +57,16 @@ export default function HomeScreen() {
 
   // Screens for manager/trip officer
   const availableScreens: { label: string; icon: string; screen: Screen; roles: any[] }[] = [
-    { label: 'كشف البوابير', icon: '📋', screen: 'drivers', roles: ['موظف_نهمة', 'مدير_مكتب'] },
-    { label: 'كشف التحضير', icon: '📝', screen: 'attendance-sheet', roles: ['موظف_نهمة', 'مدير_مكتب'] },
-    { label: 'النهمات المعلقة', icon: '🚛', screen: 'pending-trips', roles: ['موظف_نهمة', 'مدير_مكتب'] },
-    { label: 'سجل الأعطال', icon: '🔧', screen: 'breakdowns', roles: ['موظف_نهمة', 'مدير_مكتب'] },
+    { label: 'كشف البوابير', icon: 'clipboard', screen: 'drivers', roles: ['موظف_نهمة', 'مدير_مكتب'] },
+    { label: 'كشف التحضير', icon: 'note', screen: 'attendance-sheet', roles: ['موظف_نهمة', 'مدير_مكتب'] },
+    { label: 'النهمات المعلقة', icon: 'truck', screen: 'pending-trips', roles: ['موظف_نهمة', 'مدير_مكتب'] },
+    { label: 'سجل الأعطال', icon: 'wrench', screen: 'breakdowns', roles: ['موظف_نهمة', 'مدير_مكتب'] },
     ...(isManager ? [
-      { label: 'المخالفات', icon: '⚠️', screen: 'violations' as Screen, roles: ['مدير_مكتب'] },
-      { label: 'الضمانات', icon: '🏦', screen: 'guarantees' as Screen, roles: ['مدير_مكتب'] },
-      { label: 'التقارير', icon: '📊', screen: 'reports' as Screen, roles: ['مدير_مكتب'] },
-      { label: 'المستخدمين', icon: '👥', screen: 'users' as Screen, roles: ['مدير_مكتب'] },
-      { label: 'إدارة السائقين', icon: '🚗', screen: 'driver-management' as Screen, roles: ['مدير_مكتب'] },
+      { label: 'المخالفات', icon: 'warning', screen: 'violations' as Screen, roles: ['مدير_مكتب'] },
+      { label: 'الضمانات', icon: 'bank', screen: 'guarantees' as Screen, roles: ['مدير_مكتب'] },
+      { label: 'التقارير', icon: 'chart', screen: 'reports' as Screen, roles: ['مدير_مكتب'] },
+      { label: 'المستخدمين', icon: 'users', screen: 'users' as Screen, roles: ['مدير_مكتب'] },
+      { label: 'إدارة السائقين', icon: 'car', screen: 'driver-management' as Screen, roles: ['مدير_مكتب'] },
     ] : []),
   ]
 
@@ -87,12 +87,12 @@ export default function HomeScreen() {
                 minWidth: 180, border: '1px solid #334155',
               }}>
                 {[
-                  { label: 'تسجيل مالك جديد', icon: '👤', action: () => { navigate('registration', { tab: 'register' }); setShowQuickMenu(false) } },
-                  { label: 'إضافة مالك للكشف', icon: '📋', action: () => { navigate('registration', { tab: 'add' }); setShowQuickMenu(false) } },
-                  { label: 'كشف التحضير', icon: '📝', action: () => { navigate('attendance-sheet'); setShowQuickMenu(false) } },
+                  { label: 'تسجيل مالك جديد', icon: 'user', action: () => { navigate('registration', { tab: 'register' }); setShowQuickMenu(false) } },
+                  { label: 'إضافة مالك للكشف', icon: 'clipboard', action: () => { navigate('registration', { tab: 'add' }); setShowQuickMenu(false) } },
+                  { label: 'كشف التحضير', icon: 'note', action: () => { navigate('attendance-sheet'); setShowQuickMenu(false) } },
                   ...(isManager ? [
-                    { label: 'إضافة مخالفة', icon: '⚠️', action: () => { navigate('violations'); setShowQuickMenu(false) } },
-                    { label: 'إضافة مستخدم', icon: '🔑', action: () => { navigate('users'); setShowQuickMenu(false) } },
+                    { label: 'إضافة مخالفة', icon: 'warning', action: () => { navigate('violations'); setShowQuickMenu(false) } },
+                    { label: 'إضافة مستخدم', icon: 'key', action: () => { navigate('users'); setShowQuickMenu(false) } },
                   ] : []),
                 ].map(item => (
                   <button key={item.label} onClick={item.action}
@@ -103,7 +103,7 @@ export default function HomeScreen() {
                       fontSize: 13, textAlign: 'right', fontFamily: 'inherit',
                       borderBottom: '1px solid #334155',
                     }}>
-                    <span>{item.icon}</span>{item.label}
+                    <MonochromeIcon name={item.icon} size={17} />{item.label}
                   </button>
                 ))}
               </div>
@@ -145,7 +145,7 @@ export default function HomeScreen() {
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: 22 }}>{s.icon}</span>
+              <MonochromeIcon name={s.icon} size={22} />
               <div style={{ padding: '2px 8px', borderRadius: 99, background: s.bg, fontSize: 10, fontWeight: 700, color: s.color }}>
                 اليوم
               </div>
@@ -195,7 +195,7 @@ export default function HomeScreen() {
                 elem.style.transform = 'scale(1)'
               }}
             >
-              <span style={{ fontSize: 24 }}>{screen.icon}</span>
+              <MonochromeIcon name={screen.icon} size={24} />
               <span style={{ fontSize: 12, fontWeight: 600, color: th.text }}>{screen.label}</span>
             </button>
           ))}

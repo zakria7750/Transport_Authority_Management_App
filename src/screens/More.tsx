@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useApp, type Screen } from '../context'
-import { useTheme, T, Toggle, useDebounce, StatusChip, OFFICE_BRAND, APP_FULL_BRAND, APP_TAGLINE, StandardAppBar } from '../components'
+import { useTheme, T, Toggle, useDebounce, StatusChip, OFFICE_BRAND, APP_FULL_BRAND, APP_TAGLINE, StandardAppBar, MonochromeIcon } from '../components'
 import type { ThemePreference } from '../context'
 
 // ══════════════════════════════════════════════════════════
@@ -11,8 +11,8 @@ export function MoreScreen() {
   const th = useTheme()
 
   const items: { icon: string; label: string; screen: Screen }[] = [
-    ...(isManager ? [{ icon: '👥', label: 'إدارة المستخدمين', screen: 'users' as Screen }] : []),
-    { icon: '⚙️', label: 'الإعدادات', screen: 'settings' as Screen },
+    ...(isManager ? [{ icon: 'users', label: 'إدارة المستخدمين', screen: 'users' as Screen }] : []),
+    { icon: 'settings', label: 'الإعدادات', screen: 'settings' as Screen },
   ]
 
   return (
@@ -34,7 +34,7 @@ export function MoreScreen() {
         <div>
           <p style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#F1F5F9' }}>{state.user?.name}</p>
           <p style={{ margin: '4px 0 0', fontSize: 12, color: '#94A3B8' }}>
-            {state.user?.role === 'مدير_مكتب' ? '🔑 مدير مكتب' : state.user?.role === 'موظف_تسجيل' ? '📝 موظف تسجيل' : '👤 موظف نهمة'}
+            {state.user?.role === 'مدير_مكتب' ? 'مدير مكتب' : state.user?.role === 'موظف_تسجيل' ? 'موظف تسجيل' : 'موظف نهمة'}
             {' · '}{OFFICE_BRAND}
           </p>
         </div>
@@ -44,7 +44,7 @@ export function MoreScreen() {
             border: '1px solid rgba(239,68,68,0.3)', borderRadius: 10,
             color: '#FCA5A5', padding: '8px 12px',
             fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
-          }}>خروج 🚪</button>
+          }}><MonochromeIcon name="logout" size={15} /> خروج</button>
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto' }}>
@@ -61,8 +61,8 @@ export function MoreScreen() {
               <span style={{
                 width: 36, height: 36, borderRadius: 10, flexShrink: 0,
                 background: th.dark ? '#2C2C2C' : '#F1F5F9',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18,
-              }}>{item.icon}</span>
+                 display: 'flex', alignItems: 'center', justifyContent: 'center',
+               }}><MonochromeIcon name={item.icon} size={18} /></span>
               <span style={{ fontSize: 14, fontWeight: 500, color: th.text, flex: 1 }}>{item.label}</span>
               <span style={{ color: th.muted, fontSize: 12 }}>‹</span>
             </button>
@@ -105,7 +105,7 @@ export function SettingsScreen() {
       title: 'عن التطبيق',
       items: [
         {
-          icon: '🏢',
+           icon: 'building',
           label: APP_FULL_BRAND,
           desc: APP_TAGLINE,
         },
@@ -115,7 +115,7 @@ export function SettingsScreen() {
       title: 'المظهر والألوان',
       items: [
         {
-          icon: '🌓',
+           icon: 'theme',
           label: 'وضع المظهر',
           desc: themeLabel,
           control: (
@@ -139,7 +139,7 @@ export function SettingsScreen() {
           ),
         },
         {
-          icon: '🌙',
+           icon: 'moon',
           label: 'الوضع الداكن',
           desc: state.darkMode ? 'مفعّل (#121212)' : 'معطّل',
           control: <Toggle checked={state.darkMode} onChange={() => dispatch({ type: 'TOGGLE_DARK' })} />,
@@ -150,7 +150,7 @@ export function SettingsScreen() {
       title: 'الأمان',
       items: [
         {
-          icon: '👆',
+           icon: 'fingerprint',
           label: 'الدخول بالبصمة',
           desc: state.biometricEnabled
             ? 'يظهر زر البصمة في شاشة الدخول'
@@ -168,11 +168,11 @@ export function SettingsScreen() {
       title: 'البيانات',
       items: [
         {
-          icon: '🔄', label: 'المزامنة التلقائية', desc: 'مزامنة البيانات تلقائياً',
+           icon: 'refresh', label: 'المزامنة التلقائية', desc: 'مزامنة البيانات تلقائياً',
           control: <Toggle checked={autoSync} onChange={() => setAutoSync(!autoSync)} />,
         },
         {
-          icon: '💾', label: 'النسخ الاحتياطي التلقائي', desc: 'نسخ يومي تلقائي',
+           icon: 'save', label: 'النسخ الاحتياطي التلقائي', desc: 'نسخ يومي تلقائي',
           control: <Toggle checked={autoBackup} onChange={() => setAutoBackup(!autoBackup)} />,
         },
       ],
@@ -199,8 +199,8 @@ export function SettingsScreen() {
                   <span style={{
                     width: 36, height: 36, borderRadius: 10, flexShrink: 0,
                     background: th.dark ? '#2C2C2C' : '#F1F5F9',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18,
-                  }}>{item.icon}</span>
+                 display: 'flex', alignItems: 'center', justifyContent: 'center',
+                 }}><MonochromeIcon name={item.icon} size={18} /></span>
                   <div style={{ flex: 1 }}>
                     <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: th.text }}>{item.label}</p>
                     <p style={{ margin: '2px 0 0', fontSize: 11, color: th.sub }}>{item.desc}</p>
@@ -219,7 +219,7 @@ export function SettingsScreen() {
           borderRadius: 12,
           border: `1px solid ${state.pendingSyncCount > 0 ? '#F59E0B' : th.border}`,
         }}>
-          <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: th.text }}>📡 حالة المزامنة — {OFFICE_BRAND}</p>
+           <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: th.text }}><MonochromeIcon name="refresh" size={15} /> حالة المزامنة — {OFFICE_BRAND}</p>
           <p style={{ margin: '6px 0 0', fontSize: 12, color: th.sub }}>
             {state.pendingSyncCount > 0
               ? `${state.pendingSyncCount} عملية بانتظار المزامنة مع خادم ${OFFICE_BRAND}`
@@ -230,11 +230,11 @@ export function SettingsScreen() {
         <div style={{ padding: '0 16px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
           <button onClick={() => void handleSync()}
             style={{ padding: '14px', borderRadius: 12, border: `1px solid ${th.border}`, background: th.card, color: T.primary, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
-            🔄 مزامنة يدوية {state.pendingSyncCount > 0 ? `(${state.pendingSyncCount})` : ''}
+             <MonochromeIcon name="refresh" size={16} /> مزامنة يدوية {state.pendingSyncCount > 0 ? `(${state.pendingSyncCount})` : ''}
           </button>
           <button onClick={() => showSnackbar('تم إنشاء نسخة احتياطية ✅')}
             style={{ padding: '14px', borderRadius: 12, border: `1px solid ${th.border}`, background: th.card, color: T.success, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
-            💾 نسخ احتياطي الآن
+             <MonochromeIcon name="save" size={16} /> نسخ احتياطي الآن
           </button>
         </div>
       </div>
@@ -283,7 +283,7 @@ export function SearchScreen() {
       <div style={{ padding: '12px 16px', background: th.card, borderBottom: `1px solid ${th.border}`, display: 'flex', flexDirection: 'column', gap: 8 }}>
         {/* Task 70-71: Search with plate separator and status chip */}
         <div style={{ position: 'relative' }}>
-          <span style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', fontSize: 18 }}>🔍</span>
+           <span style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)' }}><MonochromeIcon name="search" size={18} /></span>
           <input
             autoFocus
             value={query}
@@ -299,7 +299,7 @@ export function SearchScreen() {
           />
         </div>
         <div style={{ position: 'relative' }}>
-          <span style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', fontSize: 16 }}>🔢</span>
+           <span style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)' }}><MonochromeIcon name="hash" size={16} /></span>
           <input
             value={separator}
             onChange={e => setSeparator(e.target.value.replace(/[^\d\u0660-\u0669]/g, ''))}
@@ -331,12 +331,12 @@ export function SearchScreen() {
       <div style={{ flex: 1, overflowY: 'auto' }}>
         {!query.trim() && !separator.trim() ? (
           <div style={{ padding: 40, textAlign: 'center' }}>
-            <span style={{ fontSize: 48, display: 'block', marginBottom: 12 }}>🔍</span>
+             <MonochromeIcon name="search" size={48} />
             <p style={{ color: th.sub, fontSize: 14 }}>ابحث عن سائق بالاسم أو رقم اللوحة أو فاصل اللوحة</p>
           </div>
         ) : total === 0 ? (
           <div style={{ padding: 40, textAlign: 'center' }}>
-            <span style={{ fontSize: 48, display: 'block', marginBottom: 12 }}>😔</span>
+             <MonochromeIcon name="inbox" size={48} />
             <p style={{ color: th.sub, fontSize: 14 }}>لا توجد نتائج</p>
           </div>
         ) : (
@@ -344,7 +344,7 @@ export function SearchScreen() {
             {results.active.length > 0 && (
               <>
                 <div style={{ padding: '12px 16px 6px', background: th.bg }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: T.success }}>✅ في الكشف النشط ({results.active.length})</span>
+                   <span style={{ fontSize: 12, fontWeight: 700, color: T.success }}><MonochromeIcon name="check" size={14} /> في الكشف النشط ({results.active.length})</span>
                 </div>
                 {results.active.map(d => (
                   <button key={d.id}
@@ -373,7 +373,7 @@ export function SearchScreen() {
             {results.inactive.length > 0 && (
               <>
                 <div style={{ padding: '12px 16px 6px', background: th.bg }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: th.sub }}>⏸ غير النشطين ({results.inactive.length})</span>
+                   <span style={{ fontSize: 12, fontWeight: 700, color: th.sub }}><MonochromeIcon name="pause" size={14} /> غير النشطين ({results.inactive.length})</span>
                 </div>
                 {results.inactive.map(d => (
                   <button key={d.id}
@@ -473,7 +473,7 @@ export function NotificationsScreen() {
       <div style={{ flex: 1, overflowY: 'auto' }}>
         {visible.length === 0 ? (
           <div style={{ padding: 40, textAlign: 'center' }}>
-            <span style={{ fontSize: 48, display: 'block', marginBottom: 12 }}>🔔</span>
+             <MonochromeIcon name="bell" size={48} />
             <p style={{ color: th.sub, fontSize: 14 }}>لا توجد إشعارات في هذا التبويب</p>
           </div>
         ) : (
@@ -492,7 +492,7 @@ export function NotificationsScreen() {
                 opacity: n.read ? 0.85 : 1,
               }}
             >
-              <span style={{ fontSize: n.read ? 20 : 22, flexShrink: 0 }}>{n.icon}</span>
+               <span style={{ flexShrink: 0 }}><MonochromeIcon name={n.icon} size={n.read ? 20 : 22} /></span>
               <div style={{ flex: 1 }}>
                 <p style={{ margin: 0, fontSize: 13, fontWeight: n.read ? 600 : 700, color: th.text }}>{n.title}</p>
                 <p style={{ margin: '3px 0 0', fontSize: 12, color: th.sub, lineHeight: 1.4 }}>{n.message}</p>
@@ -505,7 +505,7 @@ export function NotificationsScreen() {
                   onClick={e => { e.stopPropagation(); dispatch({ type: 'DELETE_NOTIFICATION', id: n.id }) }}
                   style={{ background: 'none', border: 'none', color: th.muted, cursor: 'pointer', fontSize: 14 }}
                 >
-                  ✕
+                   <MonochromeIcon name="close" size={14} />
                 </button>
               </div>
             </div>

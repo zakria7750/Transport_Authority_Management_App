@@ -151,6 +151,20 @@ const ICON_ALIASES: Record<string, string> = {
   "📅": "calendar",
   "⏳": "loading",
   "🔒": "lock",
+  "🚪": "logout",
+  "📦": "package",
+  "📍": "pin",
+  "🔩": "hash",
+  "📞": "phone",
+  "🔢": "hash",
+  "🏢": "building",
+  "🌓": "theme",
+  "🌙": "moon",
+  "👆": "fingerprint",
+  "🔵": "circle",
+  "🟢": "circle",
+  "🟡": "circle",
+  "🔴": "circle",
 }
 
 const ICON_PATHS: Record<string, string[]> = {
@@ -186,6 +200,15 @@ const ICON_PATHS: Record<string, string[]> = {
   calendar: ["M4 5h16v16H4z", "M8 3v4M16 3v4M4 10h16"],
   loading: ["M12 3a9 9 0 1 0 9 9"],
   lock: ["M6 10h12v11H6z", "M8 10V7a4 4 0 0 1 8 0v3"],
+  logout: ["M10 17l5-5-5-5", "M15 12H3", "M21 19V5a2 2 0 0 0-2-2h-6"],
+  package: ["m16.5 9.4-9-5.1", "M21 16V8a2 2 0 0 0-1-1.7l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.7l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z", "M3.3 7 12 12l8.7-5M12 22V12"],
+  pin: ["M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z", "M12 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"],
+  hash: ["M10 3 8 21M16 3l-2 18M4 9h16M3 15h16"],
+  building: ["M4 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16", "M2 21h20", "M8 7h2M8 11h2M12 7h2M12 11h2", "M16 21v-5h4v5"],
+  theme: ["M12 3v2M12 19v2M3 12h2M19 12h2", "m5.6 5.6 1.4 1.4M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4", "M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z"],
+  moon: ["M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5 8.5 8.5 0 1 0 20.5 14.5Z"],
+  fingerprint: ["M12 11a2 2 0 0 1 2 2v5", "M8 18v-5a4 4 0 0 1 8 0v5", "M5 18v-5a7 7 0 0 1 14 0v2", "M12 3a10 10 0 0 1 10 10", "M2 13A10 10 0 0 1 12 3"],
+  circle: ["M12 12h.01"],
   dot: ["M12 12h.01"],
 }
 
@@ -553,7 +576,7 @@ export function AppBarStandardSlots({
         style={{ background: "none", border: "none", color: "#CBD5E1", cursor: "pointer", fontSize: 18, lineHeight: 1, padding: 4 }}
         title="الإشعارات"
       >
-        🔔
+        <MonochromeIcon name="bell" size={18} />
       </button>
       {unreadCount > 0 && (
         <div
@@ -591,7 +614,7 @@ export function AppBarStandardSlots({
       style={{ background: "none", border: "none", color: "#CBD5E1", cursor: "pointer", fontSize: 18, padding: 4, position: "relative" }}
       title={`مزامنة — ${OFFICE_BRAND}`}
     >
-      🔄
+      <MonochromeIcon name="refresh" size={18} />
       {state.pendingSyncCount > 0 && (
         <span
           style={{
@@ -626,7 +649,7 @@ export function AppBarStandardSlots({
           style={{ background: "none", border: "none", color: "#CBD5E1", cursor: "pointer", fontSize: 18, padding: 4 }}
           title="الإ��دادات"
         >
-          ◉
+          <MonochromeIcon name="settings" size={18} />
         </button>
         <span aria-hidden="true" style={{ width: 1, height: 24, background: th.border }} />
       </div>
@@ -851,7 +874,7 @@ export function AppBar({ title, back, rightSlot, leftSlot, hideBell }: AppBarPro
           <div style={{ position: 'relative' }}>
             <button onClick={() => navigate('notifications')}
               style={{ background: 'none', border: 'none', color: '#CBD5E1', cursor: 'pointer', fontSize: 18, lineHeight: 1, padding: 4 }}>
-              ◌
+              <MonochromeIcon name="bell" size={18} />
             </button>
             {unreadCount > 0 && (
               <div style={{
@@ -870,10 +893,10 @@ export function AppBar({ title, back, rightSlot, leftSlot, hideBell }: AppBarPro
 
 // ─── BottomNav ────────────────────────────────────────────
 const NAV_ITEMS: { screen: Screen; icon: string; label: string }[] = [
-  { screen: 'home', label: 'الرئيسية', icon: '⌂' },
-  { screen: 'drivers', label: 'الكشف', icon: '▤' },
-  { screen: 'registration', label: 'تسجيل', icon: '+' },
-  { screen: 'more', label: 'المزيد', icon: '⋯' },
+  { screen: 'home', label: 'الرئيسية', icon: 'home' },
+  { screen: 'drivers', label: 'الكشف', icon: 'list' },
+  { screen: 'registration', label: 'تسجيل', icon: 'plus' },
+  { screen: 'more', label: 'المزيد', icon: 'more' },
 ]
 
 export function BottomNav() {
@@ -885,8 +908,8 @@ export function BottomNav() {
 
   const items = isRegistrationClerk
     ? [
-        { screen: "registration" as Screen, icon: "➕", label: "تسجيل" },
-        { screen: "settings" as Screen, icon: "⚙️", label: "إعدادات" },
+        { screen: "registration" as Screen, icon: "plus", label: "تسجيل" },
+        { screen: "settings" as Screen, icon: "settings", label: "إعدادات" },
       ]
     : NAV_ITEMS
 
@@ -922,7 +945,7 @@ export function BottomNav() {
               transform: active ? 'scale(1.1)' : 'scale(1)',
               position: 'relative',
             }}>
-            <span style={{ fontSize: 20 }}>{item.icon}</span>
+            <MonochromeIcon name={item.icon} size={20} />
             <span style={{ fontSize: 10, fontWeight: active ? 700 : 400 }}>{item.label}</span>
             {active && (
               <div style={{ width: 20, height: 2, borderRadius: 1, background: T.primary, position: 'absolute', bottom: 0, animation: 'pulse 0.5s ease-out' }} />
@@ -958,7 +981,7 @@ export function Snackbar() {
       )}
       <button onClick={() => dispatch({ type: 'HIDE_SNACKBAR' })}
         style={{ background: 'none', border: 'none', color: '#94A3B8', cursor: 'pointer', fontSize: 16, padding: '0 4px' }}>
-        ✕
+        <MonochromeIcon name="close" size={16} />
       </button>
     </div>
   )
@@ -1073,7 +1096,7 @@ export function EmptyState({ icon, text }: { icon: string; text: string }) {
   const th = useTheme()
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 40, gap: 12 }}>
-      <span style={{ fontSize: 40 }}>{icon}</span>
+      <MonochromeIcon name={icon} size={40} strokeWidth={1.6} />
       <p style={{ color: th.sub, fontSize: 14, textAlign: 'center', margin: 0 }}>{text}</p>
     </div>
   )
