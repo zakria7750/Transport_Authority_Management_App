@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, type ReactNode } from "react"
-import html2canvas from "html2canvas"
 import { jsPDF } from "jspdf"
+import * as XLSX from "xlsx"
 import { useApp } from "../context"
 import { useTheme, T, Card, EmptyState, SkeletonRow, SearchableField, SearchableRosterField, APP_FULL_BRAND, StandardAppBar, MonochromeIcon } from "../components"
 import BreakdownSheet from "../BreakdownSheet"
@@ -14,6 +14,7 @@ import {
 } from "../domain"
 import type { ViolationType, UserRole, Trip, Guarantor, Driver } from "../data"
 import { nextId } from "../domain"
+import { dateKey, formatDateForReport, isDateInRange, shiftDateKey, todayKey } from "../reportUtils"
 
 // ══════════════════════════════════════════════════════════
 //  VIOLATIONS SCREEN
@@ -29,7 +30,7 @@ export function ViolationsScreen() {
   const [raiseDialog, setRaiseDialog] = useState<{ id: number; name: string } | null>(null)
   const [raiseReason, setRaiseReason] = useState("")
   // Task 38: date field for adding violation
-  const [addDate, setAddDate] = useState(() => new Date().toLocaleDateString("ar-SA"))
+  const [addDate, setAddDate] = useState(() => todayKey())
 
   // Task 36: eligible drivers includes inactive (all drivers without active violation)
   const eligibleDrivers = state.drivers.filter((d) => !d.violation)
@@ -56,7 +57,7 @@ export function ViolationsScreen() {
     showSnackbar(`تم تسجيل مخالفة (${addType}) للسائق ${driver.ownerName} ✅`)
     setShowAdd(false)
     setAddDriverLabel("")
-    setAddDate(new Date().toLocaleDateString("ar-SA"))
+    setAddDate(todayKey())
   }
 
   const toggleType = (vId: number, current: ViolationType) => {
@@ -1574,6 +1575,11 @@ export function ReportsScreen() {
   const [period, setPeriod] = useState("week")
   const [reportType, setReportType] = useState("النهمات")
   const [query, setQuery] = useState("")
+  const [detailFilters, setDetailFilters] = useState<Record<number, string>>({})
+  const [detailSortIndex, setDetailSortIndex] = useState(0)
+  const [detailSortDirection, setDetailSortDirection] = useState<"asc" | "desc">("asc")
+  const [showAllRows, setShowAllRows] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
   const [exportingPdf, setExportingPdf] = useState(false)
   const [pdfExportMode, setPdfExportMode] = useState(false)
   const periodLabels: Record<string, string> = {
@@ -1584,23 +1590,13 @@ export function ReportsScreen() {
     custom: "فترة مخصصة",
   }
   const pdfGeneratedAt = new Date().toLocaleString("ar-YE", { dateStyle: "medium", timeStyle: "short" })
-  const activityDates = [
-    ...state.trips.map((item) => (item.completedAt ?? item.createdAt).slice(0, 10)),
-    ...state.violations.map((item) => item.date.slice(0, 10)),
-    ...state.breakdowns.map((item) => item.date.slice(0, 10)),
-  ].sort()
-  const referenceDate = activityDates.at(-1) ?? new Date().toISOString().slice(0, 10)
+  const referenceDate = todayKey()
   const [fromDate, setFromDate] = useState(() => {
-    const date = new Date(`${referenceDate}T12:00:00`)
-    date.setDate(date.getDate() - 6)
-    return date.toISOString().slice(0, 10)
+    return shiftDateKey(referenceDate, -6)
   })
   const [toDate, setToDate] = useState(referenceDate)
 
-  const inRange = (value: string) => {
-    const date = value.slice(0, 10)
-    return date >= fromDate && date <= toDate
-  }
+  const inRange = (value: string) => isDateInRange(value, fromDate, toDate)
   const rangedTrips = state.trips.filter((trip) => inRange(trip.completedAt ?? trip.createdAt))
   const rangedViolations = state.violations.filter((violation) => inRange(violation.date))
   const rangedBreakdowns = state.breakdowns.filter((breakdown) => inRange(breakdown.date))
@@ -1636,13 +1632,18 @@ export function ReportsScreen() {
     { label: "معلقة", value: rangedTrips.filter((trip) => trip.status === "معلقة").length, color: T.warning },
     { label: "ملغاة", value: cancelledTrips, color: T.danger },
   ]
-  const tripTypeCounts = (["فرزة", "م1", "م2"] as const).map((type) => ({
-    label: type,
-    value: rangedTrips.filter((trip) => trip.type === type).length,
-  })).concat([{
-    label: "بدون",
-    value: rangedBreakdowns.filter((breakdown) => breakdown.rescuerTripType === "بدون").length,
-  }])
+  const tripTypeCounts: Array<{ label: string; value: number }> = [
+    ...(["فرزة", "م1", "م2"] as const).map((type) => ({
+      label: type,
+      value: rangedTrips.filter((trip) => trip.type === type).length,
+    })),
+    {
+      label: "بدون",
+      // «بدون» means a distant breakdown where no rescue trip was created.
+      // It is deliberately not inferred from the trip type itself.
+      value: rangedBreakdowns.filter((breakdown) => breakdown.rescuerTripType === "بدون").length,
+    },
+  ]
   const cargoKeywords = ["زيت", "صابون", "سمن"] as const
   const cargoCounts = cargoKeywords.map((keyword) => ({
     label: keyword,
@@ -1693,7 +1694,9 @@ export function ReportsScreen() {
   const chartValues = useMemo(() => {
     const groups = new Map<string, number>()
     const bucketKey = (date: string) => {
-      const value = new Date(`${date}T12:00:00`)
+      const normalized = dateKey(date)
+      if (!normalized) return date
+      const value = new Date(`${normalized}T12:00:00`)
       if (period === "year") return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}`
       if (period === "month") {
         const weekStart = new Date(value)
@@ -1703,7 +1706,8 @@ export function ReportsScreen() {
       return date
     }
     rangedTrips.forEach((trip) => {
-      const date = (trip.completedAt ?? trip.createdAt).slice(0, 10)
+      const date = dateKey(trip.completedAt ?? trip.createdAt)
+      if (!date) return
       const key = bucketKey(date)
       groups.set(key, (groups.get(key) ?? 0) + 1)
     })
@@ -1719,14 +1723,17 @@ export function ReportsScreen() {
   const setPreset = (value: string) => {
     setPeriod(value)
     if (value === "custom") return
-    const end = new Date(`${referenceDate}T12:00:00`)
-    const start = new Date(end)
-    if (value === "day") start.setDate(end.getDate())
-    if (value === "week") start.setDate(end.getDate() - 6)
-    if (value === "month") start.setMonth(end.getMonth() - 1)
-    if (value === "year") start.setFullYear(end.getFullYear() - 1)
-    setFromDate(start.toISOString().slice(0, 10))
-    setToDate(end.toISOString().slice(0, 10))
+    const end = referenceDate
+    const [year, month] = end.split("-").map(Number)
+    const start = value === "day"
+      ? end
+      : value === "week"
+        ? shiftDateKey(end, -6)
+        : value === "month"
+          ? `${year}-${String(month).padStart(2, "0")}-01`
+          : `${year}-01-01`
+    setFromDate(start)
+    setToDate(end)
   }
   const resetRange = () => setPreset("week")
   const download = (content: string, filename: string, type: string) => {
@@ -1737,21 +1744,86 @@ export function ReportsScreen() {
     link.click()
     URL.revokeObjectURL(url)
   }
-  const exportCsv = () => {
-    const rows = [
-      ["التقرير", "القيمة"],
-      ["الفترة", `${fromDate} إلى ${toDate}`],
+  const exportExcel = () => {
+    const workbook = XLSX.utils.book_new()
+    const summaryRows = [
+      ["الفترة", `${formatDateForReport(fromDate)} إلى ${formatDateForReport(toDate)}`],
+      ["نوع التقرير التفصيلي", reportType],
       ["إجمالي النهمات", rangedTrips.length],
       ["النهمات المكتملة", completedTrips],
       ["النهمات الملغاة", cancelledTrips],
       ["النهمات المعلقة", pendingTrips],
       ["إجمالي الأعطال", rangedBreakdowns.length],
+      ["الأعطال القريبة", closeBreakdowns],
+      ["الأعطال البعيدة", farBreakdowns],
       ["إجمالي المخالفات", totalViolations],
+      ["المخالفات المرفوعة", raisedViolations],
+      ["إجمالي الضمانات", uniqueGuarantorCount],
       ["السائقون النشطون", activeDrivers],
       ["السائقون غير النشطين", inactiveDrivers],
     ]
-    download(`\uFEFF${rows.map((row) => row.join(",")).join("\n")}`, `تقرير_${fromDate}_${toDate}.csv`, "text/csv;charset=utf-8")
-    showSnackbar("تم تصدير التقرير بصيغة Excel")
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(summaryRows), "الملخص")
+
+    const tripsRows = rangedTrips.map((trip) => [
+      trip.breakNum,
+      state.drivers.find((driver) => driver.id === trip.driverId)?.ownerName ?? "—",
+      trip.province,
+      trip.type,
+      trip.status,
+      formatDateForReport(trip.completedAt ?? trip.createdAt),
+    ])
+    const breakdownRows = rangedBreakdowns.map((breakdown) => [
+      breakdown.driverName,
+      breakdown.plate,
+      breakdown.location,
+      breakdown.status,
+      formatDateForReport(breakdown.date),
+      breakdown.rescuerName ?? "—",
+      breakdown.rescuerTripType ?? "—",
+    ])
+    const violationRows = rangedViolations.map((violation) => [
+      violation.driverName,
+      violation.type,
+      violation.raised ? "مرفوعة" : "غير مرفوعة",
+      formatDateForReport(violation.date),
+      violation.note,
+    ])
+    const driverRows = state.drivers.map((driver) => [
+      driver.ownerName,
+      driver.plate,
+      driver.status === "نشط" ? "نشط" : "غير نشط",
+      driver.violation ?? "—",
+      driver.guarantors.filter((guarantor) => guarantor.status === "فعال" && !guarantor.suspended).length,
+    ])
+    const guaranteeRows = state.drivers.flatMap((driver) => driver.guarantors.map((guarantor) => [
+      guarantor.name,
+      driver.ownerName,
+      guarantor.status,
+      guarantor.suspended ? "موقوف" : "فعال",
+      guarantor.phone,
+    ]))
+    const sheets: Array<[string, string[], unknown[][]]> = [
+      ["النهمات", ["رقم النهمة", "المالك", "المحافظة", "النوع", "الحالة", "التاريخ"], tripsRows],
+      ["الأعطال", ["السائق", "اللوحة", "الموقع", "الحالة", "التاريخ", "المسعف", "نوع نهمة المسعف"], breakdownRows],
+      ["المخالفات", ["السائق", "النوع", "المعالجة", "التاريخ", "الملاحظات"], violationRows],
+      ["السائقون", ["المالك", "اللوحة", "الحالة", "المخالفة", "الضمانات الفعالة"], driverRows],
+      ["الضمانات", ["الضامن", "المضمون", "الحالة", "الإجراء", "الهاتف"], guaranteeRows],
+    ]
+    for (const [name, headers, rows] of sheets) {
+      const sheet = XLSX.utils.aoa_to_sheet([headers, ...rows])
+      sheet["!autofilter"] = { ref: `A1:${String.fromCharCode(64 + headers.length)}${Math.max(1, rows.length + 1)}` }
+      XLSX.utils.book_append_sheet(workbook, sheet, name)
+    }
+    XLSX.writeFile(workbook, `تقرير_${fromDate}_${toDate}.xlsx`)
+    showSnackbar("تم تصدير ملف Excel التفصيلي")
+  }
+  const refreshReportData = () => {
+    if (refreshing) return
+    setRefreshing(true)
+    window.setTimeout(() => {
+      setRefreshing(false)
+      showSnackbar("تم تحديث بيانات التقرير")
+    }, 450)
   }
   const exportBackup = () => {
     download(JSON.stringify({
@@ -1775,78 +1847,165 @@ export function ReportsScreen() {
 
     setExportingPdf(true)
     try {
-      setPdfExportMode(true)
-      document.body.classList.add("reports-exporting")
-      await new Promise<void>((resolve) => {
-        requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
-      })
-
-      reportContent.scrollTop = 0
-      if (screenStage) screenStage.scrollTop = 0
-
-      await document.fonts.ready
-
-      const captureWidth = Math.max(reportContent.scrollWidth, reportContent.clientWidth, 760)
-      const captureHeight = reportContent.scrollHeight
-
-      const canvas = await html2canvas(reportContent, {
-        backgroundColor: th.bg,
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        width: captureWidth,
-        height: captureHeight,
-        windowWidth: captureWidth,
-        windowHeight: captureHeight,
-        scrollX: 0,
-        scrollY: -window.scrollY,
-        x: 0,
-        y: 0,
-        onclone: (clonedDocument) => {
-          clonedDocument.querySelectorAll<HTMLElement>("[data-pdf-exclude]").forEach((element) => {
-            element.style.display = "none"
-          })
-          clonedDocument.querySelectorAll<HTMLElement>("[data-pdf-only]").forEach((element) => {
-            element.style.display = "block"
-          })
-          clonedDocument.querySelectorAll<HTMLElement>(".report-collapsible-body").forEach((element) => {
-            element.style.display = "block"
-          })
-          clonedDocument.querySelectorAll<HTMLElement>(".report-collapsible-trigger .report-collapse-icon").forEach((element) => {
-            element.style.display = "none"
-          })
-          const expandSelectors = [".reports-screen", ".reports-content", ".screen-stage", ".app-shell", ".app-root"]
-          expandSelectors.forEach((selector) => {
-            clonedDocument.querySelectorAll<HTMLElement>(selector).forEach((element) => {
-              element.style.height = "auto"
-              element.style.maxHeight = "none"
-              element.style.overflow = "visible"
-            })
-          })
-          const clonedContent = clonedDocument.querySelector<HTMLElement>(".reports-content")
-          if (clonedContent) {
-            clonedContent.style.width = `${captureWidth}px`
-            clonedContent.style.padding = "24px"
-          }
-        },
-      })
-
+      const pdfTripsRows = rangedTrips.map((trip) => [
+        trip.breakNum,
+        state.drivers.find((driver) => driver.id === trip.driverId)?.ownerName ?? "—",
+        trip.province,
+        trip.type,
+        trip.status,
+        formatDateForReport(trip.completedAt ?? trip.createdAt),
+      ])
+      const pdfBreakdownRows = rangedBreakdowns.map((breakdown) => [
+        breakdown.driverName,
+        breakdown.plate,
+        breakdown.location,
+        breakdown.status,
+        formatDateForReport(breakdown.date),
+        breakdown.rescuerName ?? "—",
+        breakdown.rescuerTripType ?? "—",
+      ])
+      const pdfViolationRows = rangedViolations.map((violation) => [
+        violation.driverName,
+        violation.type,
+        violation.raised ? "مرفوعة" : "غير مرفوعة",
+        formatDateForReport(violation.date),
+        violation.note,
+      ])
+      const pdfDriverRows = state.drivers.map((driver) => [
+        driver.ownerName,
+        driver.plate,
+        driver.status === "نشط" ? "نشط" : "غير نشط",
+        driver.violation ?? "—",
+        driver.guarantors.filter((guarantor) => guarantor.status === "فعال" && !guarantor.suspended).length,
+      ])
+      const pdfGuaranteeRows = state.drivers.flatMap((driver) => driver.guarantors.map((guarantor) => [
+        guarantor.name,
+        driver.ownerName,
+        guarantor.status,
+        guarantor.suspended ? "موقوف" : "فعال",
+        guarantor.phone,
+      ]))
       const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4", compress: true })
       const pageWidth = 210
       const pageHeight = 297
-      const margin = 10
-      const imageWidth = pageWidth - margin * 2
-      const imageHeight = (canvas.height * imageWidth) / canvas.width
-      const contentHeight = pageHeight - margin * 2
-      const pageCount = Math.max(1, Math.ceil(imageHeight / contentHeight))
-      const image = canvas.toDataURL("image/jpeg", 0.92)
-
-      for (let page = 0; page < pageCount; page += 1) {
-        if (page > 0) pdf.addPage()
-        pdf.addImage(image, "JPEG", margin, margin - page * contentHeight, imageWidth, imageHeight)
-        pdf.setFontSize(8)
+      const margin = 14
+      const contentWidth = pageWidth - margin * 2
+      const rtl = (value: unknown) => {
+        const text = String(value ?? "—")
+        return typeof pdf.processArabic === "function" ? pdf.processArabic(text) : text
+      }
+      const textRight = (value: unknown, x: number, y: number, size = 9) => {
+        pdf.setFontSize(size)
+        pdf.setTextColor(32, 42, 58)
+        pdf.text(rtl(value), x, y, { align: "right" })
+      }
+      const addFooter = () => {
+        pdf.setDrawColor(220, 226, 235)
+        pdf.line(margin, pageHeight - 14, pageWidth - margin, pageHeight - 14)
+        pdf.setFontSize(7)
         pdf.setTextColor(120, 130, 145)
-        pdf.text(`تقرير حركة النظام · ${fromDate} — ${toDate} · ${page + 1} / ${pageCount}`, pageWidth - margin, pageHeight - 5, { align: "right" })
+        pdf.text(rtl(`تقرير حركة النظام · ${fromDate} — ${toDate}`), pageWidth - margin, pageHeight - 7, { align: "right" })
+      }
+      const addPageTitle = (title: string, subtitle?: string) => {
+        pdf.setFillColor(36, 87, 214)
+        pdf.roundedRect(margin, 16, contentWidth, 18, 4, 4, "F")
+        pdf.setTextColor(255, 255, 255)
+        pdf.setFontSize(14)
+        pdf.text(rtl(title), pageWidth - margin - 6, 27, { align: "right" })
+        if (subtitle) {
+          pdf.setFontSize(8)
+          pdf.text(rtl(subtitle), pageWidth - margin - 6, 31, { align: "right" })
+        }
+        addFooter()
+      }
+      const addTable = (title: string, headers: string[], rows: unknown[][]) => {
+        let y = 44
+        if (pdf.getNumberOfPages() > 1) {
+          pdf.addPage()
+          addPageTitle(title, `${rows.length} سجل`)
+        } else {
+          addPageTitle(title, `${rows.length} سجل`)
+        }
+        const rowHeight = 8
+        const columnWidth = contentWidth / headers.length
+        const drawRow = (cells: unknown[], header = false) => {
+          if (y > pageHeight - 24) {
+            addFooter()
+            pdf.addPage()
+            addPageTitle(title, `${rows.length} سجل`)
+            y = 44
+          }
+          cells.forEach((cell, index) => {
+            const x = pageWidth - margin - (index + 1) * columnWidth
+            pdf.setFillColor(header ? 231 : (index % 2 ? 249 : 255), header ? 239 : (index % 2 ? 249 : 255), header ? 255 : 255)
+            pdf.setDrawColor(220, 226, 235)
+            pdf.rect(x, y, columnWidth, rowHeight, "FD")
+            pdf.setTextColor(header ? 36 : 45, header ? 87 : 55, header ? 150 : 70)
+            pdf.setFontSize(header ? 7 : 6.5)
+            const content = rtl(cell)
+            const clipped = content.length > 24 ? `${content.slice(0, 23)}…` : content
+            pdf.text(clipped, x + columnWidth / 2, y + 5.2, { align: "center" })
+          })
+          y += rowHeight
+        }
+        drawRow(headers, true)
+        rows.forEach((row) => drawRow(row))
+      }
+
+      // The PDF is assembled from report data, not a screenshot. This keeps
+      // rows selectable, gives tables predictable page breaks, and includes
+      // every record in the selected range.
+      pdf.setFillColor(15, 32, 65)
+      pdf.rect(0, 0, pageWidth, pageHeight, "F")
+      pdf.setTextColor(255, 255, 255)
+      pdf.setFontSize(11)
+      pdf.text(rtl("مكتب تعز — نظام إدارة البوابير"), pageWidth - margin, 60, { align: "right" })
+      pdf.setFontSize(24)
+      pdf.text(rtl("تقرير حركة النظام"), pageWidth - margin, 82, { align: "right" })
+      pdf.setFontSize(11)
+      pdf.text(rtl(`الفترة: ${fromDate} إلى ${toDate}`), pageWidth - margin, 98, { align: "right" })
+      pdf.text(rtl(`التقرير التفصيلي المحدد: ${reportType}`), pageWidth - margin, 108, { align: "right" })
+      pdf.setFontSize(9)
+      pdf.setTextColor(183, 199, 228)
+      pdf.text(rtl("تقرير إداري قابل للبحث والفرز والطباعة"), pageWidth - margin, 120, { align: "right" })
+      pdf.addPage()
+      addPageTitle("المؤشرات الرئيسية", `${fromDate} — ${toDate}`)
+      const summary = [
+        ["إجمالي النهمات", rangedTrips.length],
+        ["النهمات المكتملة", completedTrips],
+        ["النهمات الملغاة", cancelledTrips],
+        ["النهمات المعلقة", pendingTrips],
+        ["إجمالي الأعطال", rangedBreakdowns.length],
+        ["الأعطال القريبة", closeBreakdowns],
+        ["الأعطال البعيدة", farBreakdowns],
+        ["إجمالي المخالفات", totalViolations],
+        ["إجمالي الضمانات", uniqueGuarantorCount],
+        ["السائقون النشطون", activeDrivers],
+        ["السائقون غير النشطين", inactiveDrivers],
+      ]
+      let summaryY = 52
+      summary.forEach(([label, value], index) => {
+        const x = margin + (index % 2) * (contentWidth / 2)
+        const y = summaryY + Math.floor(index / 2) * 19
+        pdf.setFillColor(index % 2 ? 245 : 238, 245, 255)
+        pdf.roundedRect(x, y, contentWidth / 2 - 7, 13, 3, 3, "F")
+        textRight(label, x + contentWidth / 2 - 14, y + 5, 8)
+        pdf.setFontSize(13)
+        pdf.setTextColor(36, 87, 214)
+        pdf.text(String(value), x + 10, y + 8, { align: "left" })
+      })
+      addFooter()
+      addTable("تفاصيل النهمات", ["رقم النهمة", "المالك", "المحافظة", "النوع", "الحالة", "التاريخ"], pdfTripsRows)
+      addTable("تفاصيل الأعطال", ["السائق", "اللوحة", "الموقع", "الحالة", "التاريخ", "المسعف", "نوع نهمة المسعف"], pdfBreakdownRows)
+      addTable("تفاصيل المخالفات", ["السائق", "النوع", "المعالجة", "التاريخ", "الملاحظات"], pdfViolationRows)
+      addTable("حالة السائقين", ["المالك", "اللوحة", "الحالة", "المخالفة", "الضمانات الفعالة"], pdfDriverRows)
+      addTable("تفاصيل الضمانات", ["الضامن", "المضمون", "الحالة", "الإجراء", "الهاتف"], pdfGuaranteeRows)
+      const pageCount = pdf.getNumberOfPages()
+      for (let page = 1; page <= pageCount; page += 1) {
+        pdf.setPage(page)
+        pdf.setFontSize(7)
+        pdf.setTextColor(120, 130, 145)
+        pdf.text(rtl(`صفحة ${page} من ${pageCount}`), margin, pageHeight - 7, { align: "left" })
       }
 
       pdf.setProperties({
@@ -1888,11 +2047,10 @@ export function ReportsScreen() {
   }
 
   const detailRows = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase()
     if (reportType === "النهمات") return rangedTrips.map((trip) => ({
       id: trip.id,
       cells: [trip.breakNum, state.drivers.find((driver) => driver.id === trip.driverId)?.ownerName ?? "—", trip.province, trip.type, trip.status],
-      search: `${trip.breakNum} ${trip.province} ${trip.type} ${trip.status}`,
+      search: `${trip.breakNum} ${state.drivers.find((driver) => driver.id === trip.driverId)?.ownerName ?? ""} ${trip.province} ${trip.type} ${trip.status}`,
     }))
     if (reportType === "الأعطال") return rangedBreakdowns.map((breakdown) => ({
       id: breakdown.id,
@@ -1914,15 +2072,43 @@ export function ReportsScreen() {
       cells: [guarantor.name, driver.ownerName, guarantor.status, guarantor.suspended ? "موقوف" : "فعال", guarantor.phone],
       search: `${guarantor.name} ${driver.ownerName} ${guarantor.status}`,
     })))
-  }, [reportType, query, rangedTrips, rangedBreakdowns, rangedViolations, state.drivers])
-  const filteredDetailRows = detailRows.filter((row) => !query.trim() || row.search.toLowerCase().includes(query.trim().toLowerCase()))
-  const visibleRows = pdfExportMode ? filteredDetailRows : filteredDetailRows.slice(0, 30)
+  }, [reportType, rangedTrips, rangedBreakdowns, rangedViolations, state.drivers])
+  const normalizedQuery = query.trim().toLocaleLowerCase("ar")
+  const filteredDetailRows = detailRows
+    .filter((row) => !normalizedQuery || row.search.toLocaleLowerCase("ar").includes(normalizedQuery))
+    .filter((row) => Object.entries(detailFilters).every(([index, value]) => {
+      const normalizedFilter = value.trim().toLocaleLowerCase("ar")
+      return !normalizedFilter || String(row.cells[Number(index)] ?? "").toLocaleLowerCase("ar").includes(normalizedFilter)
+    }))
+    .sort((a, b) => {
+      const left = String(a.cells[detailSortIndex] ?? "").toLocaleLowerCase("ar")
+      const right = String(b.cells[detailSortIndex] ?? "").toLocaleLowerCase("ar")
+      const comparison = left.localeCompare(right, "ar", { numeric: true })
+      return detailSortDirection === "asc" ? comparison : -comparison
+    })
+  const visibleRows = pdfExportMode || showAllRows ? filteredDetailRows : filteredDetailRows.slice(0, 30)
   const detailHeaders: Record<string, string[]> = {
     النهمات: ["رقم النهمة", "المالك", "المحافظة", "النوع", "الحالة"],
     الأعطال: ["السائق", "اللوحة", "الموقع", "الحالة", "التاريخ"],
     المخالفات: ["السائق", "النوع", "المعالجة", "التاريخ", "الملاحظات"],
     السائقون: ["المالك", "اللوحة", "الحالة", "المخالفة", "الضمانات"],
     الضمانات: ["الضامن", "المضمون", "الحالة", "الإجراء", "الهاتف"],
+  }
+  const changeDetailType = (nextType: string) => {
+    setReportType(nextType)
+    setQuery("")
+    setDetailFilters({})
+    setDetailSortIndex(0)
+    setDetailSortDirection("asc")
+    setShowAllRows(false)
+  }
+  const toggleDetailSort = (index: number) => {
+    if (detailSortIndex === index) {
+      setDetailSortDirection((value) => value === "asc" ? "desc" : "asc")
+    } else {
+      setDetailSortIndex(index)
+      setDetailSortDirection("asc")
+    }
   }
   const totalStatus = tripStatusCounts.reduce((sum, item) => sum + item.value, 0)
 
@@ -1973,9 +2159,12 @@ export function ReportsScreen() {
             <option value="custom">فترة مخصصة</option>
           </select>
           <button type="button" className="report-reset" onClick={resetRange}>إعادة تعيين</button>
+          <button type="button" className="report-reset" onClick={refreshReportData} disabled={refreshing}>
+            <MonochromeIcon name="refresh" size={14} /> {refreshing ? "جارٍ التحميل..." : "تحديث البيانات"}
+          </button>
           <div className="report-export-inline" data-pdf-exclude>
             <button type="button" onClick={() => void exportPdf()} disabled={exportingPdf}><MonochromeIcon name="note" size={15} /> {exportingPdf ? "PDF..." : "PDF"}</button>
-            <button type="button" onClick={exportCsv}><MonochromeIcon name="chart" size={15} /> Excel</button>
+            <button type="button" onClick={exportExcel}><MonochromeIcon name="chart" size={15} /> Excel</button>
           </div>
           {period === "custom" && (
             <div className="custom-date-fields">
@@ -1998,7 +2187,10 @@ export function ReportsScreen() {
             ["النهمات الملغاة", cancelledTrips, "close", T.danger],
             ["النهمات المعلقة", pendingTrips, "pause", T.warning],
             ["إجمالي الأعطال", rangedBreakdowns.length, "wrench", "#7C3AED"],
+            ["الأعطال القريبة", closeBreakdowns, "pin", T.warning],
+            ["الأعطال البعيدة", farBreakdowns, "pin", T.danger],
             ["إجمالي المخالفات", totalViolations, "warning", T.danger],
+            ["إجمالي الضمانات", uniqueGuarantorCount, "key", "#0EA5E9"],
             ["السائقون النشطون", activeDrivers, "users", T.success],
             ["السائقون غير النشطين", inactiveDrivers, "user", th.sub],
           ].map(([label, value, icon, color]) => (
@@ -2086,7 +2278,7 @@ export function ReportsScreen() {
           forceOpen={pdfExportMode}
           title="أكثر البوابير مخالفة"
           subtitle="ترتيب تنازلي حسب عدد المخالفات خلال الفترة"
-          action={<button type="button" className="text-action" onClick={() => { setReportType("المخالفات"); setQuery("") }}>عرض الكل</button>}
+           action={<button type="button" className="text-action" onClick={() => changeDetailType("المخالفات")}>عرض الكل</button>}
           defaultOpen={false}
         >
           {topViolators.length ? (
@@ -2134,11 +2326,29 @@ export function ReportsScreen() {
 
         <ReportSection forceOpen={pdfExportMode} title="التقرير التفصيلي" subtitle="ابحث وفلتر بيانات الفترة المحددة">
           <div className="detail-controls detail-controls-block" data-pdf-exclude>
-            <select value={reportType} onChange={(event) => { setReportType(event.target.value); setQuery("") }} aria-label="نوع التقرير">{Object.keys(detailHeaders).map((type) => <option key={type}>{type}</option>)}</select>
+            <select value={reportType} onChange={(event) => changeDetailType(event.target.value)} aria-label="نوع التقرير">{Object.keys(detailHeaders).map((type) => <option key={type}>{type}</option>)}</select>
             <div className="report-search"><MonochromeIcon name="search" size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="بحث في التقرير..." /></div>
+            <span className="detail-count">{filteredDetailRows.length} نتيجة</span>
+            {filteredDetailRows.length > 30 && (
+              <button type="button" className="report-reset" onClick={() => setShowAllRows((value) => !value)}>
+                {showAllRows ? "عرض أول 30" : "عرض الكل"}
+              </button>
+            )}
+          </div>
+          <div className="detail-field-filters" data-pdf-exclude>
+            {detailHeaders[reportType].map((header, index) => (
+              <label key={header}>
+                <span>{header}</span>
+                <input
+                  value={detailFilters[index] ?? ""}
+                  onChange={(event) => setDetailFilters((current) => ({ ...current, [index]: event.target.value }))}
+                  placeholder={`فلترة ${header}`}
+                />
+              </label>
+            ))}
           </div>
           {visibleRows.length ? (
-            <div className="detail-table-wrap"><table><thead><tr>{detailHeaders[reportType].map((header) => <th key={header}>{header}</th>)}</tr></thead><tbody>{visibleRows.map((row) => <tr key={row.id}>{row.cells.map((cell, index) => <td key={`${row.id}-${index}`} data-label={detailHeaders[reportType][index]}>{String(cell)}</td>)}</tr>)}</tbody></table></div>
+            <div className="detail-table-wrap"><table><thead><tr>{detailHeaders[reportType].map((header, index) => <th key={header}><button type="button" className="detail-sort-button" onClick={() => toggleDetailSort(index)}>{header} {detailSortIndex === index ? (detailSortDirection === "asc" ? "↑" : "↓") : "↕"}</button></th>)}</tr></thead><tbody>{visibleRows.map((row) => <tr key={row.id}>{row.cells.map((cell, index) => <td key={`${row.id}-${index}`} data-label={detailHeaders[reportType][index]}>{String(cell)}</td>)}</tr>)}</tbody></table></div>
           ) : (
             <EmptyReport text="لا توجد بيانات خلال الفترة المحددة" onChangePeriod={focusPeriodFilter} />
           )}
@@ -2147,7 +2357,7 @@ export function ReportsScreen() {
         <ReportSection title="التصدير" subtitle="احفظ التقرير بصيغة PDF أو Excel" defaultOpen={false} excludeFromPdf>
           <div className="action-buttons">
             <button type="button" onClick={() => void exportPdf()} disabled={exportingPdf}><MonochromeIcon name="note" size={17} /> {exportingPdf ? "جارٍ إنشاء PDF..." : "تصدير PDF"}</button>
-            <button type="button" onClick={exportCsv}><MonochromeIcon name="chart" size={17} /> تصدير Excel</button>
+            <button type="button" onClick={exportExcel}><MonochromeIcon name="chart" size={17} /> تصدير Excel</button>
           </div>
         </ReportSection>
 

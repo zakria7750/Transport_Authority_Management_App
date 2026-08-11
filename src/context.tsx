@@ -313,7 +313,7 @@ function applyViolationToState(
   )
 
   const gSnap = guarantorSnapshotRecord(state.drivers)
-  const now = date ?? new Date().toLocaleDateString("ar-SA")
+  const now = date ?? new Date().toISOString()
   const newViolation: Violation = {
     id: nextId(),
     driverId,
@@ -535,7 +535,7 @@ function reducer(state: AppState, action: Action): AppState {
     case "RAISE_VIOLATION": {
       const viol = state.violations.find((v) => v.id === action.violationId)
       if (!viol) return state
-      const today = new Date().toLocaleDateString("ar-SA")
+      const today = new Date().toISOString()
       const raiseNote = action.reason?.trim()
         ? `${viol.note} · سبب الرفع: ${action.reason.trim()}`
         : viol.note
@@ -567,7 +567,7 @@ function reducer(state: AppState, action: Action): AppState {
     }
 
     case "RAISE_ALL_VIOLATIONS": {
-      const today = new Date().toLocaleDateString("ar-SA")
+      const today = new Date().toISOString()
       const openIds = new Set(state.violations.filter((v) => !v.raised).map((v) => v.driverId))
       return {
         ...state,
@@ -1079,7 +1079,7 @@ compensationBalance:
         breakNum: action.breakdown.breakNum,
         compensationGiven: action.breakdown.compensationGiven,
         compensation: action.breakdown.compensationGiven,
-        date: new Date().toLocaleDateString("ar-SA"),
+        date: new Date().toISOString(),
         status: "نشط",
       }
 
@@ -1187,7 +1187,7 @@ compensationBalance:
         driverName: driver.ownerName,
         plate: driver.plate,
         location: action.location,
-        date: action.date ?? new Date().toLocaleDateString("ar-SA"),
+        date: action.date ?? new Date().toISOString(),
         status: "نشط",
       }
       return {
