@@ -1532,6 +1532,7 @@ function ReportSection({
   badge,
   action,
   excludeFromPdf,
+  forceOpen,
 }: {
   title: string
   subtitle?: string
@@ -1540,11 +1541,13 @@ function ReportSection({
   badge?: React.ReactNode
   action?: React.ReactNode
   excludeFromPdf?: boolean
+  forceOpen?: boolean
 }) {
   const [open, setOpen] = useState(defaultOpen)
+  const isOpen = forceOpen ?? open
   return (
     <section className="report-card report-collapsible" {...(excludeFromPdf ? { "data-pdf-exclude": "" } : {})}>
-      <button type="button" className="report-collapsible-trigger" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+      <button type="button" className="report-collapsible-trigger" onClick={() => setOpen((v) => !v)} aria-expanded={isOpen}>
         <div className="report-card-header report-collapsible-header">
           <div>
             <h2>{title}</h2>
@@ -1553,11 +1556,11 @@ function ReportSection({
           <div className="report-collapsible-meta">
             {badge}
             {action}
-            <span className="report-collapse-icon">{open ? "▾" : "◂"}</span>
+            <span className="report-collapse-icon">{isOpen ? "▾" : "◂"}</span>
           </div>
         </div>
       </button>
-      {open && <div className="report-collapsible-body">{children}</div>}
+      {isOpen && <div className="report-collapsible-body">{children}</div>}
     </section>
   )
 }
@@ -1572,6 +1575,15 @@ export function ReportsScreen() {
   const [reportType, setReportType] = useState("النهمات")
   const [query, setQuery] = useState("")
   const [exportingPdf, setExportingPdf] = useState(false)
+  const [pdfExportMode, setPdfExportMode] = useState(false)
+  const periodLabels: Record<string, string> = {
+    day: "اليوم",
+    week: "هذا الأسبوع",
+    month: "هذا الشهر",
+    year: "هذه السنة",
+    custom: "فترة مخصصة",
+  }
+  const pdfGeneratedAt = new Date().toLocaleString("ar-YE", { dateStyle: "medium", timeStyle: "short" })
   const activityDates = [
     ...state.trips.map((item) => (item.completedAt ?? item.createdAt).slice(0, 10)),
     ...state.violations.map((item) => item.date.slice(0, 10)),
@@ -1758,44 +1770,83 @@ export function ReportsScreen() {
     const reportContent = reportContentRef.current
     if (!reportContent || exportingPdf) return
 
+    const screenStage = reportContent.closest(".screen-stage") as HTMLElement | null
+    const savedScroll = { content: reportContent.scrollTop, stage: screenStage?.scrollTop ?? 0 }
+
     setExportingPdf(true)
     try {
+      setPdfExportMode(true)
+      document.body.classList.add("reports-exporting")
+      await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+      })
+
+      reportContent.scrollTop = 0
+      if (screenStage) screenStage.scrollTop = 0
+
       await document.fonts.ready
+
+      const captureWidth = Math.max(reportContent.scrollWidth, reportContent.clientWidth, 760)
+      const captureHeight = reportContent.scrollHeight
+
       const canvas = await html2canvas(reportContent, {
         backgroundColor: th.bg,
-        scale: Math.min(2, window.devicePixelRatio || 1.5),
+        scale: 2,
         useCORS: true,
         logging: false,
+        width: captureWidth,
+        height: captureHeight,
+        windowWidth: captureWidth,
+        windowHeight: captureHeight,
+        scrollX: 0,
+        scrollY: -window.scrollY,
+        x: 0,
+        y: 0,
         onclone: (clonedDocument) => {
           clonedDocument.querySelectorAll<HTMLElement>("[data-pdf-exclude]").forEach((element) => {
             element.style.display = "none"
           })
+          clonedDocument.querySelectorAll<HTMLElement>("[data-pdf-only]").forEach((element) => {
+            element.style.display = "block"
+          })
+          clonedDocument.querySelectorAll<HTMLElement>(".report-collapsible-body").forEach((element) => {
+            element.style.display = "block"
+          })
+          clonedDocument.querySelectorAll<HTMLElement>(".report-collapsible-trigger .report-collapse-icon").forEach((element) => {
+            element.style.display = "none"
+          })
+          const expandSelectors = [".reports-screen", ".reports-content", ".screen-stage", ".app-shell", ".app-root"]
+          expandSelectors.forEach((selector) => {
+            clonedDocument.querySelectorAll<HTMLElement>(selector).forEach((element) => {
+              element.style.height = "auto"
+              element.style.maxHeight = "none"
+              element.style.overflow = "visible"
+            })
+          })
           const clonedContent = clonedDocument.querySelector<HTMLElement>(".reports-content")
           if (clonedContent) {
-            clonedContent.style.height = "auto"
-            clonedContent.style.maxHeight = "none"
-            clonedContent.style.overflow = "visible"
+            clonedContent.style.width = `${captureWidth}px`
+            clonedContent.style.padding = "24px"
           }
-          const clonedScreen = clonedDocument.querySelector<HTMLElement>(".reports-screen")
-          if (clonedScreen) clonedScreen.style.overflow = "visible"
         },
       })
+
       const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4", compress: true })
       const pageWidth = 210
       const pageHeight = 297
-      const margin = 8
+      const margin = 10
       const imageWidth = pageWidth - margin * 2
       const imageHeight = (canvas.height * imageWidth) / canvas.width
       const contentHeight = pageHeight - margin * 2
       const pageCount = Math.max(1, Math.ceil(imageHeight / contentHeight))
-      const image = canvas.toDataURL("image/jpeg", 0.94)
+      const image = canvas.toDataURL("image/jpeg", 0.92)
 
       for (let page = 0; page < pageCount; page += 1) {
         if (page > 0) pdf.addPage()
         pdf.addImage(image, "JPEG", margin, margin - page * contentHeight, imageWidth, imageHeight)
         pdf.setFontSize(8)
         pdf.setTextColor(120, 130, 145)
-        pdf.text(`${page + 1} / ${pageCount}`, pageWidth - margin, pageHeight - 3, { align: "right" })
+        pdf.text(`تقرير حركة النظام · ${fromDate} — ${toDate} · ${page + 1} / ${pageCount}`, pageWidth - margin, pageHeight - 5, { align: "right" })
       }
 
       pdf.setProperties({
@@ -1808,6 +1859,10 @@ export function ReportsScreen() {
     } catch {
       showSnackbar("تعذر إنشاء ملف PDF، حاول مرة أخرى")
     } finally {
+      document.body.classList.remove("reports-exporting")
+      setPdfExportMode(false)
+      reportContent.scrollTop = savedScroll.content
+      if (screenStage) screenStage.scrollTop = savedScroll.stage
       setExportingPdf(false)
     }
   }
@@ -1860,7 +1915,8 @@ export function ReportsScreen() {
       search: `${guarantor.name} ${driver.ownerName} ${guarantor.status}`,
     })))
   }, [reportType, query, rangedTrips, rangedBreakdowns, rangedViolations, state.drivers])
-  const visibleRows = detailRows.filter((row) => !query.trim() || row.search.toLowerCase().includes(query.trim().toLowerCase())).slice(0, 30)
+  const filteredDetailRows = detailRows.filter((row) => !query.trim() || row.search.toLowerCase().includes(query.trim().toLowerCase()))
+  const visibleRows = pdfExportMode ? filteredDetailRows : filteredDetailRows.slice(0, 30)
   const detailHeaders: Record<string, string[]> = {
     النهمات: ["رقم النهمة", "المالك", "المحافظة", "النوع", "الحالة"],
     الأعطال: ["السائق", "اللوحة", "الموقع", "الحالة", "التاريخ"],
@@ -1871,21 +1927,43 @@ export function ReportsScreen() {
   const totalStatus = tripStatusCounts.reduce((sum, item) => sum + item.value, 0)
 
   return (
-    <div className="reports-screen" style={{ background: th.bg }}>
+    <div className={`reports-screen${pdfExportMode ? " reports-pdf-capture" : ""}`} style={{ background: th.bg }}>
       <StandardAppBar title="التقارير" back="home" />
+      {exportingPdf && (
+        <div className="reports-pdf-overlay" data-pdf-exclude>
+          <div className="reports-pdf-overlay-card">
+            <span className="reports-pdf-spinner" />
+            <strong>جارٍ إعداد التقرير للطباعة...</strong>
+            <small>يتم تجميع جميع الأقسام والبيانات</small>
+          </div>
+        </div>
+      )}
       <div className="reports-content" ref={reportContentRef}>
+        <div className="reports-pdf-cover" data-pdf-only>
+          <div>
+            <p>مكتب تعز — نظام إدارة البوابير</p>
+            <h2>تقرير حركة النظام</h2>
+          </div>
+          <div className="reports-pdf-cover-meta">
+            <span><b>الفترة:</b> {periodLabels[period] ?? period}</span>
+            <span><b>من</b> {fromDate} <b>إلى</b> {toDate}</span>
+            <span><b>تاريخ الإنشاء:</b> {pdfGeneratedAt}</span>
+            <span><b>نوع التقرير التفصيلي:</b> {reportType}</span>
+          </div>
+        </div>
+
         <header className="reports-heading">
           <div>
             <p className="reports-eyebrow">لوحة تحكم المدير</p>
             <h1>ملخص حركة النظام</h1>
             <p>نظرة سريعة على النهمات والسائقين والعمليات التشغيلية</p>
           </div>
-          <div className="reports-heading-meta">
+          <div className="reports-heading-meta" data-pdf-exclude>
             <span className="reports-live-dot" /> محدث الآن
           </div>
         </header>
 
-        <section ref={periodFilterRef} className="report-filter-card" aria-label="اختيار الفترة الزمنية">
+        <section ref={periodFilterRef} className="report-filter-card" aria-label="اختيار الفترة الزمنية" data-pdf-exclude>
           <div className="report-filter-title"><span className="report-icon"><MonochromeIcon name="calendar" size={17} /></span><div><strong>الفترة الزمنية</strong><small>تتحدث جميع المؤشرات تلقائيًا</small></div></div>
           <select value={period} onChange={(event) => setPreset(event.target.value)} aria-label="الفترة الزمنية">
             <option value="day">اليوم</option>
@@ -1908,7 +1986,7 @@ export function ReportsScreen() {
           <span className="report-range-label">{fromDate} — {toDate}</span>
         </section>
 
-        {!hasPeriodData && (
+        {!hasPeriodData && !pdfExportMode && (
           <EmptyReport text="لا توجد بيانات خلال الفترة المحددة" onChangePeriod={focusPeriodFilter} />
         )}
 
@@ -1924,7 +2002,7 @@ export function ReportsScreen() {
             ["السائقون النشطون", activeDrivers, "users", T.success],
             ["السائقون غير النشطين", inactiveDrivers, "user", th.sub],
           ].map(([label, value, icon, color]) => (
-            <article className="report-stat-card" key={String(label)}>
+            <article className="report-stat-card" key={String(label)} style={{ color: color as string }}>
               <span className="stat-icon" style={{ color: color as string, background: `${color as string}16` }}><MonochromeIcon name={icon as string} size={18} /></span>
               <strong style={{ color: color as string }}>{value as number}</strong>
               <span>{label}</span>
@@ -1932,7 +2010,7 @@ export function ReportsScreen() {
           ))}
         </section>
 
-        <ReportSection title="إحصائيات النهمات" subtitle="عدد النهمات خلال الفترة المحددة — التجميع تلقائي حسب الفترة" badge={<span className="chart-badge">تلقائي</span>}>
+        <ReportSection forceOpen={pdfExportMode} title="إحصائيات النهمات" subtitle="عدد النهمات خلال الفترة المحددة — التجميع تلقائي حسب الفترة" badge={<span className="chart-badge">تلقائي</span>}>
           {hasPeriodData ? (
             <div className="reports-grid reports-grid-main reports-grid-inner">
               <section className="report-card chart-card inner-card">
@@ -1959,7 +2037,7 @@ export function ReportsScreen() {
           )}
         </ReportSection>
 
-        <ReportSection title="تحليل النهمات" subtitle="النوع والمحافظات والحمولات">
+        <ReportSection forceOpen={pdfExportMode} title="تحليل النهمات" subtitle="النوع والمحافظات والحمولات">
           <div className="reports-grid reports-grid-three reports-grid-inner">
             <section className="report-card inner-card"><div className="report-card-header compact-header"><div><h3>حسب نوع النهمة</h3></div></div><div className="bar-list">{tripTypeCounts.map((item) => <div className="bar-row" key={item.label}><span>{item.label}</span><div><i style={{ width: `${(item.value / Math.max(1, ...tripTypeCounts.map((value) => value.value))) * 100}%` }} /></div><strong>{item.value}</strong></div>)}</div></section>
             <section className="report-card inner-card"><div className="report-card-header compact-header"><div><h3>توزيع المحافظات</h3></div></div><div className="rank-list">{provinceCounts.length ? provinceCounts.map(([name, value], index) => <div key={name}><b>{index + 1}</b><span>{name}</span><strong>{value}</strong></div>) : <EmptyReport text="لا توجد بيانات" onChangePeriod={focusPeriodFilter} />}</div></section>
@@ -1968,7 +2046,7 @@ export function ReportsScreen() {
         </ReportSection>
 
         <div className="reports-grid reports-grid-two">
-          <ReportSection title="الأعطال" subtitle="قريب وبعيد عن المصنع" badge={<span className="section-total">{rangedBreakdowns.length}</span>} defaultOpen={false}>
+          <ReportSection forceOpen={pdfExportMode} title="الأعطال" subtitle="قريب وبعيد عن المصنع" badge={<span className="section-total">{rangedBreakdowns.length}</span>} defaultOpen={false}>
             {rangedBreakdowns.length ? (
               <>
                 <div className="mini-metrics"><div><strong>{rangedBreakdowns.length}</strong><span>إجمالي</span></div><div><strong>{closeBreakdowns}</strong><span>قريب</span></div><div><strong>{farBreakdowns}</strong><span>بعيد</span></div><div><strong>{finishedBreakdowns}</strong><span>منتهي</span></div></div>
@@ -1992,7 +2070,7 @@ export function ReportsScreen() {
             )}
           </ReportSection>
 
-          <ReportSection title="المخالفات" subtitle="الأنواع وحالة المعالجة" badge={<span className="section-total">{totalViolations}</span>} defaultOpen={false}>
+          <ReportSection forceOpen={pdfExportMode} title="المخالفات" subtitle="الأنواع وحالة المعالجة" badge={<span className="section-total">{totalViolations}</span>} defaultOpen={false}>
             {totalViolations ? (
               <>
                 <div className="mini-metrics"><div><strong>{totalViolations}</strong><span>إجمالي</span></div><div><strong>{rangedViolations.filter((violation) => violation.type === "ت").length}</strong><span>نوع ت</span></div><div><strong>{rangedViolations.filter((violation) => violation.type === "ح").length}</strong><span>نوع ح</span></div><div><strong>{raisedViolations}</strong><span>مرفوعة</span></div><div><strong>{totalViolations - raisedViolations}</strong><span>غير مرفوعة</span></div></div>
@@ -2005,6 +2083,7 @@ export function ReportsScreen() {
         </div>
 
         <ReportSection
+          forceOpen={pdfExportMode}
           title="أكثر البوابير مخالفة"
           subtitle="ترتيب تنازلي حسب عدد المخالفات خلال الفترة"
           action={<button type="button" className="text-action" onClick={() => { setReportType("المخالفات"); setQuery("") }}>عرض الكل</button>}
@@ -2027,7 +2106,7 @@ export function ReportsScreen() {
         </ReportSection>
 
         <div className="reports-grid reports-grid-two">
-          <ReportSection title="حالة السائقين" subtitle="ملخص أسطول السائقين" defaultOpen={false}>
+          <ReportSection forceOpen={pdfExportMode} title="حالة السائقين" subtitle="ملخص أسطول السائقين" defaultOpen={false}>
             <div className="driver-summary">
               <div className="driver-progress"><div style={{ width: `${(activeDrivers / Math.max(1, state.drivers.length)) * 100}%` }} /></div>
               <strong>{state.drivers.length} <small>إجمالي السائقين</small></strong>
@@ -2040,7 +2119,7 @@ export function ReportsScreen() {
             </div>
           </ReportSection>
 
-          <ReportSection title="الضمانات" subtitle="حالة الضامنين والحد الأدنى" defaultOpen={false}>
+          <ReportSection forceOpen={pdfExportMode} title="الضمانات" subtitle="حالة الضامنين والحد الأدنى" defaultOpen={false}>
             <div className="guarantee-highlight"><strong>{completeGuarantees}</strong><span>مضمونون بضمانات مكتملة</span></div>
             <div className="info-grid">
               <span>إجمالي المضمونين <b>{driversWithGuarantees}</b></span>
@@ -2053,8 +2132,8 @@ export function ReportsScreen() {
           </ReportSection>
         </div>
 
-        <ReportSection title="التقرير التفصيلي" subtitle="ابحث وفلتر بيانات الفترة المحددة">
-          <div className="detail-controls detail-controls-block">
+        <ReportSection forceOpen={pdfExportMode} title="التقرير التفصيلي" subtitle="ابحث وفلتر بيانات الفترة المحددة">
+          <div className="detail-controls detail-controls-block" data-pdf-exclude>
             <select value={reportType} onChange={(event) => { setReportType(event.target.value); setQuery("") }} aria-label="نوع التقرير">{Object.keys(detailHeaders).map((type) => <option key={type}>{type}</option>)}</select>
             <div className="report-search"><MonochromeIcon name="search" size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="بحث في التقرير..." /></div>
           </div>
