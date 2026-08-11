@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, type ReactNode } from "react"
 import { jsPDF } from "jspdf"
+import amiriFontUrl from "../assets/Amiri-Regular.ttf?url"
 import * as XLSX from "xlsx"
 import { useApp } from "../context"
 import { useTheme, T, Card, EmptyState, SkeletonRow, SearchableField, SearchableRosterField, APP_FULL_BRAND, StandardAppBar, MonochromeIcon } from "../components"
@@ -15,6 +16,24 @@ import {
 import type { ViolationType, UserRole, Trip, Guarantor, Driver } from "../data"
 import { nextId } from "../domain"
 import { dateKey, formatDateForReport, isDateInRange, shiftDateKey, todayKey } from "../reportUtils"
+
+let amiriFontBase64Promise: Promise<string> | null = null
+
+const loadAmiriFontBase64 = async () => {
+  if (!amiriFontBase64Promise) {
+    amiriFontBase64Promise = fetch(amiriFontUrl).then(async (response) => {
+      if (!response.ok) throw new Error("تعذر تحميل الخط العربي")
+      const bytes = new Uint8Array(await response.arrayBuffer())
+      let binary = ""
+      const chunkSize = 0x8000
+      for (let index = 0; index < bytes.length; index += chunkSize) {
+        binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize))
+      }
+      return btoa(binary)
+    })
+  }
+  return amiriFontBase64Promise
+}
 
 // ══════════════════════════════════════════════════════════
 //  VIOLATIONS SCREEN
@@ -1886,6 +1905,10 @@ export function ReportsScreen() {
         guarantor.phone,
       ]))
       const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4", compress: true })
+      const amiriFontBase64 = await loadAmiriFontBase64()
+      pdf.addFileToVFS("Amiri-Regular.ttf", amiriFontBase64)
+      pdf.addFont("Amiri-Regular.ttf", "Amiri", "normal")
+      pdf.setFont("Amiri", "normal")
       const pageWidth = 210
       const pageHeight = 297
       const margin = 14
