@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react"
 import { useApp } from "./context"
-import { BottomSheet, useTheme, T, SearchableRosterField } from "./components"
+import { BottomSheet, useTheme, T, SearchableRosterField, MonochromeIcon } from "./components"
 import { suggestNextBreakNum, eligibleRescueDrivers, matchesNameOrPlate } from "./domain"
 import type { Trip, Breakdown } from "./data"
 import type { RescuerTripType } from "./data"
@@ -124,7 +124,7 @@ export default function BreakdownSheet({ trip, breakdown, onClose }: Props) {
               fontFamily: "inherit",
             }}
           >
-            {l === "قريب" ? "📍 قريب" : "🗺️ بعيد"}
+            <><MonochromeIcon name="pin" size={15} /> {l}</>
           </button>
         ))}
       </div>
@@ -282,7 +282,7 @@ export default function BreakdownSheet({ trip, breakdown, onClose }: Props) {
             fontFamily: "inherit",
           }}
         >
-          {isEdit ? "حفظ التعديل ✓" : "تأكيد التسجيل ✓"}
+          {isEdit ? <><MonochromeIcon name="check" size={15} /> حفظ التعديل</> : <><MonochromeIcon name="check" size={15} /> تأكيد التسجيل</>}
         </button>
       </div>
     </BottomSheet>

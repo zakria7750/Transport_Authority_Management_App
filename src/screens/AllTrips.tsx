@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react"
 import { useApp } from "../context"
-import { StandardAppBar, useTheme, T, Card, EmptyState, useInfiniteScroll, SkeletonRow } from "../components"
+import { StandardAppBar, useTheme, T, Card, EmptyState, useInfiniteScroll, SkeletonRow, MonochromeIcon } from "../components"
 import TripSheet from "../TripSheet"
 import type { Trip, TripStatus, TripType } from "../data"
 
@@ -168,7 +168,7 @@ export default function AllTripsScreen() {
                         color: trip.status === "مكتملة" ? "#065F46" : trip.status === "ملغاة" ? T.danger : T.primary,
                       }}
                     >
-                      {STATUS_LABELS[trip.status]}
+                       {STATUS_LABELS[trip.status]}
                     </span>
                   </div>
                   {trip.type !== "تعويض" && (
@@ -192,7 +192,7 @@ export default function AllTripsScreen() {
                         fontFamily: "inherit",
                       }}
                     >
-                      👤 الملف
+                      <MonochromeIcon name="user" size={15} /> الملف
                     </button>
                     {canEdit && driver && (
                       <button
@@ -211,7 +211,7 @@ export default function AllTripsScreen() {
                           fontFamily: "inherit",
                         }}
                       >
-                        ✏️ تعديل
+                        <MonochromeIcon name="edit" size={15} /> تعديل
                       </button>
                     )}
                     {canDelete && (
@@ -231,7 +231,7 @@ export default function AllTripsScreen() {
                           fontFamily: "inherit",
                         }}
                       >
-                        🗑 حذف
+                        <MonochromeIcon name="trash" size={15} /> حذف
                       </button>
                     )}
                   </div>

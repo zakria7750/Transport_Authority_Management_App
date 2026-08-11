@@ -1,16 +1,16 @@
 import { useState, useRef } from "react"
 import { useApp } from "../context"
-import { StandardAppBar, useTheme, T, Card, EmptyState } from "../components"
+import { StandardAppBar, useTheme, T, Card, EmptyState, MonochromeIcon } from "../components"
 import TripSheet from "../TripSheet"
 import BreakdownSheet from "../BreakdownSheet"
 import { isPendingTripStatus } from "../domain"
 import type { Trip, TripType, Driver } from "../data"
 
 const TRIP_TYPE_COLORS: Record<TripType, { bg: string; color: string; icon: string }> = {
-  فرزة: { bg: "#DBEAFE", color: "#1D4ED8", icon: "🔵" },
-  م1: { bg: "#D1FAE5", color: "#065F46", icon: "🟢" },
-  م2: { bg: "#FEF9C3", color: "#B45309", icon: "🟡" },
-  تعويض: { bg: "#FEE2E2", color: "#991B1B", icon: "🔴" },
+  فرزة: { bg: "#DBEAFE", color: "#1D4ED8", icon: "dot" },
+  م1: { bg: "#D1FAE5", color: "#065F46", icon: "dot" },
+  م2: { bg: "#FEF9C3", color: "#B45309", icon: "dot" },
+  تعويض: { bg: "#FEE2E2", color: "#991B1B", icon: "dot" },
 }
 
 function TripCard({
@@ -75,7 +75,7 @@ function TripCard({
             cursor: "pointer",
           }}
         >
-          ✅ خروج
+          <MonochromeIcon name="check" size={14} /> خروج
         </button>
         <button
           type="button"
@@ -93,7 +93,7 @@ function TripCard({
             cursor: "pointer",
           }}
         >
-          ❌ إلغاء
+          <MonochromeIcon name="close" size={14} /> إلغاء
         </button>
       </div>
 
@@ -121,7 +121,7 @@ function TripCard({
                   {driver.ownerName}
                 </p>
                 <p style={{ margin: "3px 0 0", fontSize: 12, color: th.sub }}>
-                  🚗 {driver.plate} · {driver.type}
+                   <MonochromeIcon name="car" size={14} /> {driver.plate} · {driver.type}
                 </p>
               </div>
               <div style={{ textAlign: "left" }}>
@@ -155,9 +155,9 @@ function TripCard({
                   color: th.sub,
                 }}
               >
-                <span>📦 الحمولة: {trip.payload}</span>
-                <span>📍 {trip.province} · {trip.destinationType}: {trip.destination}</span>
-                <span>🔩 رقم الفك: {trip.breakNum}</span>
+                <span><MonochromeIcon name="package" size={13} /> الحمولة: {trip.payload}</span>
+                <span><MonochromeIcon name="pin" size={13} /> {trip.province} · {trip.destinationType}: {trip.destination}</span>
+                <span><MonochromeIcon name="hash" size={13} /> رقم الفك: {trip.breakNum}</span>
               </div>
             ) : (
               <div
@@ -169,7 +169,7 @@ function TripCard({
                 }}
               >
                 <span style={{ fontSize: 13, fontWeight: 700, color: "#B45309" }}>
-                  💰 {trip.compensationAmount?.toLocaleString()} ريال
+                   <MonochromeIcon name="money" size={15} /> {trip.compensationAmount?.toLocaleString()} ريال
                 </span>
               </div>
             )}
@@ -191,7 +191,7 @@ function TripCard({
                   fontFamily: "inherit",
                 }}
               >
-                ✅ تأكيد الخروج
+                 <MonochromeIcon name="check" size={15} /> تأكيد الخروج
               </button>
               <button
                 type="button"
@@ -209,7 +209,7 @@ function TripCard({
                   fontFamily: "inherit",
                 }}
               >
-                ✏️ تعديل
+                 <MonochromeIcon name="edit" size={14} /> تعديل
               </button>
               <button
                 type="button"
@@ -227,7 +227,7 @@ function TripCard({
                   fontFamily: "inherit",
                 }}
               >
-                ❌ إلغاء
+                 <MonochromeIcon name="close" size={14} /> إلغاء
               </button>
               <button
                 type="button"
@@ -243,7 +243,7 @@ function TripCard({
                   fontFamily: "inherit",
                 }}
               >
-                🔧
+                 <MonochromeIcon name="wrench" size={15} />
               </button>
             </div>
           </div>
@@ -326,7 +326,7 @@ export default function PendingTripsScreen() {
                     gap: 12,
                   }}
                 >
-                  <span style={{ fontSize: 18 }}>{meta.icon}</span>
+                  <span style={{ color: th.text, display: "flex" }}><MonochromeIcon name={meta.icon} size={16} /></span>
                   <span
                     style={{
                       fontSize: 15,

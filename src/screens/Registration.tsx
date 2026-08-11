@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
 import { useApp } from "../context"
-import { StandardAppBar, useTheme, T, Input, Btn, EmptyState, SearchableRosterField } from "../components"
+import { StandardAppBar, useTheme, T, Input, Btn, EmptyState, SearchableRosterField, MonochromeIcon } from "../components"
 import { ADDABLE_STATUS_REASONS } from "../constants"
 import { countActiveGuarantors, eligibleGuarantorDrivers, canBeGuarantor, guarantorFromRosterDriver, matchesNameOrPlate } from "../domain"
 import { nextId } from "../domain"
@@ -178,8 +178,8 @@ export default function RegistrationScreen() {
           }}
         >
           {[
-            { key: "register", label: "📝 تسجيل مالك" },
-            { key: "add", label: "➕ إضافة مالك" },
+            { key: "register", label: "تسجيل مالك", icon: "note" },
+            { key: "add", label: "إضافة مالك", icon: "plus" },
           ].map((t) => (
             <button
               key={t.key}
@@ -198,7 +198,7 @@ export default function RegistrationScreen() {
                 fontFamily: "inherit",
               }}
             >
-              {t.label}
+              <MonochromeIcon name={t.icon} size={15} /> {t.label}
             </button>
           ))}
         </div>
@@ -233,7 +233,7 @@ export default function RegistrationScreen() {
                       fontFamily: "inherit",
                     }}
                   >
-                    {t.val === "ع" ? "🚛 " : "🚚 "}
+                    <MonochromeIcon name="truck" size={16} />
                     {t.label}
                   </button>
                 ))}
@@ -281,7 +281,7 @@ export default function RegistrationScreen() {
                 gap: 10,
               }}
             >
-              <span style={{ fontSize: 13, fontWeight: 700, color: th.text }}>📷 المرفقات (إلزامي: أمام + خلف)</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: th.text, display: "flex", alignItems: "center", gap: 6 }}><MonochromeIcon name="camera" size={16} /> المرفقات (إلزامي: أمام + خلف)</span>
               {imageFields.map(({ key, label }) => (
                 <label
                   key={key}
@@ -365,7 +365,7 @@ export default function RegistrationScreen() {
                     padding: "10px 12px",
                   }}
                 >
-                  <span style={{ fontSize: 16 }}>🏦</span>
+                   <MonochromeIcon name="bank" size={16} />
                   <div style={{ flex: 1 }}>
                     <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: th.text }}>{g.name}</p>
                     <p style={{ margin: "2px 0 0", fontSize: 11, color: th.sub }}>{g.phone}</p>
@@ -375,14 +375,14 @@ export default function RegistrationScreen() {
                     onClick={() => setGuarantors((p) => p.filter((x) => x.id !== g.id))}
                     style={{ background: "none", border: "none", color: T.danger, cursor: "pointer", fontSize: 18 }}
                   >
-                    ✕
+                     <MonochromeIcon name="close" size={16} />
                   </button>
                 </div>
               ))}
             </div>
 
             <Btn onClick={handleRegister} fullWidth disabled={saving}>
-              {saving ? "⏳ جاري الحفظ..." : "✅ حفظ وتسجيل"}
+              {saving ? <><MonochromeIcon name="loading" size={16} /> جاري الحفظ...</> : <><MonochromeIcon name="check" size={16} /> حفظ وتسجيل</>}
             </Btn>
           </div>
         )}
@@ -392,7 +392,7 @@ export default function RegistrationScreen() {
             <Input
               value={addSearch}
               onChange={(e) => setAddSearch(e.target.value)}
-              placeholder="🔍 بحث بالاسم أو ��قم اللوحة..."
+              placeholder="بحث بالاسم أو رقم اللوحة..."
               icon="🔍"
             />
             {filteredInactive.length === 0 ? (
@@ -425,7 +425,7 @@ export default function RegistrationScreen() {
                       color: driver.type === "س" ? T.primary : T.success,
                     }}
                   >
-                    {driver.statusReason === "قابل_للإضافة" ? "➕" : "—"}
+                    {driver.statusReason === "قابل_للإضافة" ? <MonochromeIcon name="plus" size={18} /> : "—"}
                   </div>
                   <div style={{ flex: 1 }}>
                     <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: th.text }}>
@@ -453,7 +453,7 @@ export default function RegistrationScreen() {
                       fontFamily: "inherit",
                     }}
                   >
-                    إضافة ✓
+                    إضافة <MonochromeIcon name="check" size={14} />
                   </button>
                 </div>
               ))

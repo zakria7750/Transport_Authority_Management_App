@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react"
 import { useApp } from "./context"
-import { BottomSheet, useTheme, T, SearchableField } from "./components"
+import { BottomSheet, useTheme, T, SearchableField, MonochromeIcon } from "./components"
 import { YEMEN_PROVINCES, PAYLOAD_OPTIONS, DESTINATION_TYPES, DESTINATION_SUGGESTIONS } from "./constants"
 import { suggestNextBreakNum, formatPayload } from "./domain"
 import type { Driver, Trip, TripType, DestinationType } from "./data"
@@ -252,7 +252,7 @@ export default function TripSheet({ driver, existingTrip, onClose }: Props) {
             fontFamily: "inherit",
           }}
         >
-          {isEdit ? "حفظ التعديل ✓" : "تأكيد مبدئي ✓"}
+          {isEdit ? <><MonochromeIcon name="check" size={15} /> حفظ التعديل</> : <><MonochromeIcon name="check" size={15} /> تأكيد مبدئي</>}
         </button>
       </div>
     </BottomSheet>

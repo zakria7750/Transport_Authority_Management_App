@@ -201,6 +201,7 @@ const ICON_PATHS: Record<string, string[]> = {
   loading: ["M12 3a9 9 0 1 0 9 9"],
   lock: ["M6 10h12v11H6z", "M8 10V7a4 4 0 0 1 8 0v3"],
   logout: ["M10 17l5-5-5-5", "M15 12H3", "M21 19V5a2 2 0 0 0-2-2h-6"],
+  upload: ["M12 16V4", "m7 9 5-5 5 5", "M5 20h14"],
   package: ["m16.5 9.4-9-5.1", "M21 16V8a2 2 0 0 0-1-1.7l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.7l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z", "M3.3 7 12 12l8.7-5M12 22V12"],
   pin: ["M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z", "M12 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"],
   hash: ["M10 3 8 21M16 3l-2 18M4 9h16M3 15h16"],
@@ -208,6 +209,8 @@ const ICON_PATHS: Record<string, string[]> = {
   theme: ["M12 3v2M12 19v2M3 12h2M19 12h2", "m5.6 5.6 1.4 1.4M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4", "M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z"],
   moon: ["M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5 8.5 8.5 0 1 0 20.5 14.5Z"],
   fingerprint: ["M12 11a2 2 0 0 1 2 2v5", "M8 18v-5a4 4 0 0 1 8 0v5", "M5 18v-5a7 7 0 0 1 14 0v2", "M12 3a10 10 0 0 1 10 10", "M2 13A10 10 0 0 1 12 3"],
+  camera: ["M4 7h4l1.5-2h5L16 7h4v13H4z", "M12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"],
+  filter: ["M4 6h16M7 12h10M10 18h4"],
   circle: ["M12 12h.01"],
   dot: ["M12 12h.01"],
 }
@@ -1019,8 +1022,8 @@ export function Input({ label, icon, style, ...props }: InputProps) {
       {label && <label style={{ fontSize: 12, fontWeight: 600, color: th.sub }}>{label}</label>}
       <div style={{ position: 'relative' }}>
         {icon && (
-          <span style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 16, color: th.muted }}>
-            {icon}
+          <span style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: th.muted, display: 'flex', alignItems: 'center' }}>
+            <MonochromeIcon name={icon} size={16} />
           </span>
         )}
         <input {...props} style={{

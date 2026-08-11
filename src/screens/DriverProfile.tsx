@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useApp } from "../context"
-import { StandardAppBar, StatusChip, useTheme, T, Card, Input, Btn } from "../components"
+import { StandardAppBar, StatusChip, useTheme, T, Card, Input, Btn, MonochromeIcon } from "../components"
 import type { Driver, DriverType, DriverImages } from "../data"
 
 type Tab = "info" | "guarantees" | "trips" | "violations"
@@ -43,10 +43,10 @@ export default function DriverProfileScreen() {
   const minG = state.minGuarantors
 
   const TABS: { key: Tab; label: string; icon: string }[] = [
-    { key: "info", label: "المعلومات", icon: "👤" },
-    { key: "guarantees", label: "الضمانات", icon: "🏦" },
-    { key: "trips", label: "النهمات", icon: "🚛" },
-    { key: "violations", label: "المخالفات", icon: "⚠️" },
+    { key: "info", label: "المعلومات", icon: "user" },
+    { key: "guarantees", label: "الضمانات", icon: "bank" },
+    { key: "trips", label: "النهمات", icon: "truck" },
+    { key: "violations", label: "المخالفات", icon: "warning" },
   ]
 
   const openEdit = () => {
@@ -103,7 +103,7 @@ export default function DriverProfileScreen() {
             onClick={openEdit}
             style={{ background: "none", border: "none", color: "#CBD5E1", cursor: "pointer", fontSize: 13, fontFamily: "inherit" }}
           >
-            ✏️
+            <MonochromeIcon name="edit" size={16} />
           </button>
         }
       />
@@ -132,7 +132,7 @@ export default function DriverProfileScreen() {
             {driver.images?.licenseImg ? (
               <img src={driver.images.licenseImg} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
             ) : (
-              "🚗"
+              <MonochromeIcon name="car" size={28} strokeWidth={1.6} />
             )}
           </div>
           <div>
@@ -171,7 +171,7 @@ export default function DriverProfileScreen() {
               justifyContent: "space-between",
             }}
           >
-            <span style={{ color: "#FCD34D", fontSize: 12 }}>💰 رصيد التعويض</span>
+            <span style={{ color: "#FCD34D", fontSize: 12, display: "flex", alignItems: "center", gap: 5 }}><MonochromeIcon name="money" size={14} /> رصيد التعويض</span>
             <span style={{ color: "#FCD34D", fontSize: 18, fontWeight: 800 }}>
               {driver.compensationBalance.toLocaleString()} ريال
             </span>
@@ -202,7 +202,7 @@ export default function DriverProfileScreen() {
               fontWeight: tab === t.key ? 700 : 400,
             }}
           >
-            <span style={{ fontSize: 16 }}>{t.icon}</span>
+            <MonochromeIcon name={t.icon} size={16} />
             {t.label}
           </button>
         ))}
@@ -245,7 +245,7 @@ export default function DriverProfileScreen() {
             {driver.images && Object.keys(driver.images).length > 0 && (
               <Card>
                 <div style={{ padding: "14px 16px" }}>
-                  <p style={{ fontSize: 11, fontWeight: 700, color: th.sub, margin: "0 0 12px" }}>📷 المرفقات</p>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: th.sub, margin: "0 0 12px", display: "flex", alignItems: "center", gap: 5 }}><MonochromeIcon name="camera" size={14} /> المرفقات</p>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                     {imageFields.map(({ key, label }) =>
                       driver.images?.[key] ? (
@@ -288,7 +288,7 @@ export default function DriverProfileScreen() {
               }}
             >
               <span style={{ fontSize: 20 }}>
-                {driver.guarantors.filter((g) => g.status === "فعال" && !g.suspended).length >= minG ? "✅" : "❌"}
+                <MonochromeIcon name={driver.guarantors.filter((g) => g.status === "فعال" && !g.suspended) .length >= minG ? "check" : "close"} size={20} />
               </span>
               <div>
                 <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: th.text }}>
@@ -318,7 +318,7 @@ export default function DriverProfileScreen() {
                         fontSize: 18,
                       }}
                     >
-                      🏦
+                      <MonochromeIcon name="bank" size={20} />
                     </div>
                     <div style={{ flex: 1 }}>
                       <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: th.text }}>{g.name}</p>
@@ -374,16 +374,16 @@ export default function DriverProfileScreen() {
                     </div>
                     {trip.type !== "تعويض" && (
                       <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                        <span style={{ fontSize: 12, color: th.sub }}>📦 {trip.payload}</span>
+                        <span style={{ fontSize: 12, color: th.sub }}><MonochromeIcon name="package" size={14} /> {trip.payload}</span>
                         <span style={{ fontSize: 12, color: th.sub }}>
-                          📍 {trip.province} · {trip.destinationType}: {trip.destination}
+                          <MonochromeIcon name="pin" size={14} /> {trip.province} · {trip.destinationType}: {trip.destination}
                         </span>
-                        <span style={{ fontSize: 12, color: th.sub }}>🔩 {trip.breakNum}</span>
+                        <span style={{ fontSize: 12, color: th.sub }}><MonochromeIcon name="hash" size={14} /> {trip.breakNum}</span>
                       </div>
                     )}
                     {trip.compensationAmount != null && (
                       <span style={{ fontSize: 13, fontWeight: 700, color: T.warning }}>
-                        💰 {trip.compensationAmount.toLocaleString()} ريال
+                        <MonochromeIcon name="money" size={14} /> {trip.compensationAmount.toLocaleString()} ريال
                       </span>
                     )}
                   </div>
@@ -429,8 +429,8 @@ export default function DriverProfileScreen() {
                     </div>
                     <p style={{ margin: "8px 0 0", fontSize: 12, color: th.text }}>{v.note}</p>
                     <div style={{ display: "flex", gap: 12, marginTop: 4 }}>
-                      <span style={{ fontSize: 11, color: th.sub }}>📅 {v.date}</span>
-                      {v.raisedDate && <span style={{ fontSize: 11, color: T.success }}>✅ رُفعت {v.raisedDate}</span>}
+                      <span style={{ fontSize: 11, color: th.sub }}><MonochromeIcon name="calendar" size={13} /> {v.date}</span>
+                      {v.raisedDate && <span style={{ fontSize: 11, color: T.success }}><MonochromeIcon name="check" size={13} /> رُفعت {v.raisedDate}</span>}
                     </div>
                   </div>
                 </Card>
@@ -487,7 +487,7 @@ export default function DriverProfileScreen() {
                 </div>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <span style={{ fontSize: 13, fontWeight: 700, color: th.text }}>📷 المرفقات</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: th.text, display: "flex", alignItems: "center", gap: 5 }}><MonochromeIcon name="camera" size={15} /> المرفقات</span>
                 {imageFields.map(({ key, label }) => (
                   <label
                     key={key}
@@ -515,7 +515,7 @@ export default function DriverProfileScreen() {
                   إلغاء
                 </Btn>
                 <Btn fullWidth onClick={saveEdit}>
-                  حفظ ✓
+                  <MonochromeIcon name="check" size={15} /> حفظ
                 </Btn>
               </div>
             </div>

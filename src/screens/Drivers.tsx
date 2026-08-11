@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { useApp, useSaveScrollPosition, useGetScrollPosition } from '../context'
-import { AppBar, StatusChip, SkeletonRow, useTheme, T, EmptyState, PullToRefresh, useInfiniteScroll, StandardAppBar } from '../components'
+import { AppBar, StatusChip, SkeletonRow, useTheme, T, EmptyState, PullToRefresh, useInfiniteScroll, StandardAppBar, MonochromeIcon } from '../components'
 import TripSheet from '../TripSheet'
 import { isViolator, sortDriversAllFilter } from '../domain'
 import type { Driver, ViolationType } from '../data'
@@ -74,13 +74,13 @@ function DriverRow({ driver, isManager, onNahma, onViolation, highlighted }: {
               }}>{driver.type}</span>
             </div>
             <div style={{ display: 'flex', gap: 8, marginTop: 4, flexWrap: 'wrap', alignItems: 'center' }}>
-              <span style={{ fontSize: 11, color: th.sub }}>🚗 {driver.plate}</span>
+              <span style={{ fontSize: 11, color: th.sub }}><MonochromeIcon name="car" size={13} /> {driver.plate}</span>
               <span style={{ fontSize: 11, color: th.muted }}>ف {driver.separator}</span>
               {driver.currentTrip && (
                 <span style={{ fontSize: 10, fontWeight: 700, color: T.warning }}>نهمة: {driver.currentTrip}</span>
               )}
               {driver.compensationBalance > 0 && (
-                <span style={{ fontSize: 11, color: T.warning }}>💰 {driver.compensationBalance.toLocaleString()}</span>
+                <span style={{ fontSize: 11, color: T.warning }}><MonochromeIcon name="money" size={13} /> {driver.compensationBalance.toLocaleString()}</span>
               )}
             </div>
             <div style={{ marginTop: 6 }}>
@@ -132,18 +132,18 @@ function DriverRow({ driver, isManager, onNahma, onViolation, highlighted }: {
             {canNahma && (
               <button onClick={() => { onNahma(driver); setShowMenu(false) }}
                 style={{ width: '100%', padding: '12px 16px', border: 'none', background: 'none', color: '#F1F5F9', cursor: 'pointer', textAlign: 'right', fontSize: 13, fontFamily: 'inherit', display: 'flex', gap: 8 }}>
-                🚛 نهمة
+                 <MonochromeIcon name="truck" size={16} /> نهمة
               </button>
             )}
             {canViolate && (
               <button onClick={() => { onViolation(driver, 'ت'); setShowMenu(false) }}
                 style={{ width: '100%', padding: '12px 16px', border: 'none', background: 'none', color: '#FCA5A5', cursor: 'pointer', textAlign: 'right', fontSize: 13, fontFamily: 'inherit', display: 'flex', gap: 8, borderTop: '1px solid #334155' }}>
-                ⚠️ تسجيل مخالفة (ت)
+               <MonochromeIcon name="warning" size={16} /> تسجيل مخالفة (ت)
               </button>
             )}
             <button onClick={() => { navigate('driver-profile', { driverId: driver.id }); setShowMenu(false) }}
               style={{ width: '100%', padding: '12px 16px', border: 'none', background: 'none', color: '#94A3B8', cursor: 'pointer', textAlign: 'right', fontSize: 13, fontFamily: 'inherit', display: 'flex', gap: 8, borderTop: '1px solid #334155' }}>
-              👤 ملف السائق
+               <MonochromeIcon name="user" size={16} /> ملف السائق
             </button>
           </div>
         </>
@@ -242,7 +242,7 @@ export default function DriversScreen() {
             }}
             title="فلتر"
           >
-            🎚
+            <MonochromeIcon name="filter" size={18} />
           </button>
         }
       />

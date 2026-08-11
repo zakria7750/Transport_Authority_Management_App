@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react"
 import { useApp } from "../context"
-import { StandardAppBar, useTheme, T, APP_PRINT_HEADER } from "../components"
+import { StandardAppBar, useTheme, T, APP_PRINT_HEADER, MonochromeIcon } from "../components"
 import { isPendingTripStatus } from "../domain"
 
 export default function AttendanceScreen() {
@@ -151,7 +151,7 @@ export default function AttendanceScreen() {
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="🔍 بحث بالاسم أو رقم اللوحة..."
+          placeholder="بحث بالاسم أو رقم اللوحة..."
           style={{
             width: "100%",
             padding: "10px 14px",
@@ -270,7 +270,7 @@ export default function AttendanceScreen() {
                   }}
                 >
                   {getVal(driver.id, field) && (
-                    <span style={{ color: "#fff", fontSize: 12 }}>✓</span>
+                     <MonochromeIcon name="check" size={13} />
                   )}
                 </div>
                 <span style={{ fontSize: 8, color: th.muted }}>{getDriverTripLabel(driver.id, tripType)}</span>
@@ -293,9 +293,9 @@ export default function AttendanceScreen() {
                 }}
               >
                 {getVal(driver.id, "t") ? (
-                  <span style={{ color: "#fff", fontSize: 12 }}>✓</span>
+                   <MonochromeIcon name="check" size={13} />
                 ) : (
-                  <span style={{ color: "#fff", fontSize: 10 }}>✕</span>
+                   <MonochromeIcon name="close" size={12} />
                 )}
               </div>
             </div>
@@ -329,7 +329,7 @@ export default function AttendanceScreen() {
             fontFamily: "inherit",
           }}
         >
-          {saving ? "⏳ جاري الحفظ..." : "💾 حفظ التحضير"}
+          {saving ? <><MonochromeIcon name="loading" size={15} /> جاري الحفظ...</> : <><MonochromeIcon name="save" size={15} /> حفظ التحضير</>}
         </button>
         <button
           onClick={handlePrintAttendance}
@@ -345,7 +345,7 @@ export default function AttendanceScreen() {
             fontFamily: "inherit",
           }}
         >
-          🖨️ التحضير
+          <MonochromeIcon name="note" size={15} /> التحضير
         </button>
         <button
           onClick={handlePrintTrips}
@@ -361,7 +361,7 @@ export default function AttendanceScreen() {
             fontFamily: "inherit",
           }}
         >
-          🖨️ النهمات
+          <MonochromeIcon name="truck" size={15} /> النهمات
         </button>
       </div>
     </div>

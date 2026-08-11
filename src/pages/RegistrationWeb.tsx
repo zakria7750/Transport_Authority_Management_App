@@ -9,7 +9,7 @@
 
 import { useState, useMemo } from 'react'
 import { useApp } from '../context'
-import { useTheme, T, Input, Btn, EmptyState, SkeletonRow } from '../components'
+import { useTheme, T, Input, Btn, EmptyState, SkeletonRow, MonochromeIcon } from '../components'
 import { countActiveGuarantors, matchesNameOrPlate } from '../domain'
 import { nextId } from '../domain'
 import type { Driver, DriverType } from '../data'
@@ -166,7 +166,7 @@ export default function RegistrationWebPage() {
                       {driver.plate}
                     </td>
                     <td style={{ padding: 14, fontSize: 13, color: th.sub }}>
-                      {driver.type === 'س' ? '🚚 سكس' : '🚛 عادي'}
+                      <MonochromeIcon name="truck" size={15} /> {driver.type === 'س' ? 'سكس' : 'عادي'}
                     </td>
                     <td style={{ padding: 14, fontSize: 13, color: th.sub }}>
                       {driver.separator}

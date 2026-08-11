@@ -140,10 +140,10 @@ export function ViolationsScreen() {
                   <div>
                     <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: th.text }}>{v.driverName}</p>
                     <p style={{ margin: "3px 0 0", fontSize: 12, color: th.sub }}>{v.note}</p>
-                    <p style={{ margin: "3px 0 0", fontSize: 11, color: th.muted }}>📅 {v.date}</p>
+                    <p style={{ margin: "3px 0 0", fontSize: 11, color: th.muted }}><MonochromeIcon name="calendar" size={13} /> {v.date}</p>
                     {/* Task 39: show recordedBy */}
                     {v.recordedBy && (
-                      <p style={{ margin: "2px 0 0", fontSize: 11, color: th.muted }}>👤 {v.recordedBy}</p>
+                      <p style={{ margin: "2px 0 0", fontSize: 11, color: th.muted }}><MonochromeIcon name="user" size={13} /> {v.recordedBy}</p>
                     )}
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
@@ -173,7 +173,7 @@ export function ViolationsScreen() {
                           fontFamily: "inherit",
                         }}
                       >
-                        رفع ↗️
+                        <MonochromeIcon name="upload" size={14} /> رفع
                       </button>
                     )}
                   </div>
@@ -259,7 +259,7 @@ export function ViolationsScreen() {
                   fontFamily: "inherit",
                 }}
               >
-                رفع ✅
+                <MonochromeIcon name="check" size={14} /> رفع
               </button>
             </div>
           </div>
@@ -341,7 +341,7 @@ export function DriverManagementScreen() {
 
       <div style={{ padding: "12px 16px", background: th.card, borderBottom: `1px solid ${th.border}` }}>
         <div style={{ position: "relative" }}>
-          <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 16 }}>🔍</span>
+          <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", display: "flex" }}><MonochromeIcon name="search" size={16} /></span>
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -396,7 +396,7 @@ export function DriverManagementScreen() {
                   fontWeight: 700,
                 }}
               >
-                {driver.status === "نشط" ? "✓" : "✕"}
+                <MonochromeIcon name={driver.status === "نشط" ? "check" : "close"} size={17} />
               </div>
               <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => navigate("driver-profile", { driverId: driver.id })}>
                 <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: th.text }}>{driver.ownerName}</p>
@@ -636,7 +636,7 @@ export function GuaranteesScreen() {
           justifyContent: "space-between",
         }}
       >
-        <span style={{ fontSize: 13, fontWeight: 600, color: th.text }}>🎯 الحد الأدنى للضامنين</span>
+        <span style={{ fontSize: 13, fontWeight: 600, color: th.text, display: "flex", alignItems: "center", gap: 6 }}><MonochromeIcon name="target" size={16} /> الحد الأدنى للضامنين</span>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <button
             type="button"
@@ -678,8 +678,8 @@ export function GuaranteesScreen() {
 
       <div style={{ background: th.card, borderBottom: `1px solid ${th.border}`, display: "flex" }}>
         {[
-          ["guaranteed", "🏦 المضمونون"],
-          ["guarantors", "👥 الضامنون"],
+          ["guaranteed", "المضمونون", "bank"],
+          ["guarantors", "الضامنون", "users"],
         ].map(([k, l]) => (
           <button
             key={k}
@@ -713,7 +713,7 @@ export function GuaranteesScreen() {
             ["all", "الكل"],
             ["complete", "مكتمل"],
             ["incomplete", "ناقص"],
-          ].map(([k, l]) => (
+          ].map(([k, l, icon]) => (
             <button
               key={k}
               type="button"
@@ -730,7 +730,7 @@ export function GuaranteesScreen() {
                 fontFamily: "inherit",
               }}
             >
-              {l}
+            <MonochromeIcon name={icon} size={15} /> {l}
             </button>
           ))}
         </div>
@@ -739,7 +739,7 @@ export function GuaranteesScreen() {
       <div style={{ flex: 1, overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
         {tab === "guaranteed" ? (
           driversWithGuarantors.length === 0 ? (
-            <EmptyState icon="🏦" text="لا يوجد مضمونون في هذا التصنيف" />
+            <EmptyState icon="bank" text="لا يوجد مضمونون في هذا التصنيف" />
           ) : (
             driversWithGuarantors.map((driver) => {
               const active = countActiveGuarantors(driver)
@@ -751,7 +751,7 @@ export function GuaranteesScreen() {
                       <div style={{ minWidth: 0, flex: 1 }}>
                         <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: th.text, overflowWrap: "anywhere" }}>{driver.ownerName}</p>
                         <div style={{ display: "flex", gap: 8, marginTop: 4, flexWrap: "wrap", alignItems: "center" }}>
-                          <span style={{ fontSize: 12, color: th.sub, overflowWrap: "anywhere" }}>🚗 {driver.plate}</span>
+                          <span style={{ fontSize: 12, color: th.sub, overflowWrap: "anywhere" }}><MonochromeIcon name="car" size={13} /> {driver.plate}</span>
                           <span style={{ fontSize: 10, fontWeight: 700, color: active >= state.minGuarantors ? T.success : T.danger, overflowWrap: "anywhere" }}>
                             {active >= state.minGuarantors ? "ضمانات مكتملة" : "ضمانات ناقصة"}
                           </span>
@@ -778,7 +778,7 @@ export function GuaranteesScreen() {
                       </div>
                     </div>
                     <div style={{ background: th.dark ? "#1E2D40" : "#F8FAFC", borderRadius: 10, padding: "10px 12px", display: "flex", flexDirection: "column", gap: 5, marginBottom: 12, color: th.sub }}>
-                      <span style={{ fontSize: 11, overflowWrap: "anywhere" }}>👥 الضامنون ({activeGuarantors.length})</span>
+                      <span style={{ fontSize: 11, overflowWrap: "anywhere" }}><MonochromeIcon name="users" size={13} /> الضامنون ({activeGuarantors.length})</span>
                       {activeGuarantors.length === 0 ? (
                         <span style={{ fontSize: 11, overflowWrap: "anywhere" }}>لا يوجد ضامنون نشطون</span>
                       ) : (
@@ -843,7 +843,7 @@ export function GuaranteesScreen() {
             })
           )
         ) : guarantorGroups.length === 0 ? (
-          <EmptyState icon="👥" text="لا يوجد ضامنون مسجلون" />
+          <EmptyState icon="users" text="لا يوجد ضامنون مسجلون" />
         ) : (
           guarantorGroups.map((group) => (
             <Card key={group.nationalId}>
@@ -852,7 +852,7 @@ export function GuaranteesScreen() {
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: th.text, overflowWrap: "anywhere" }}>{group.name}</p>
                     <div style={{ display: "flex", gap: 8, marginTop: 4, flexWrap: "wrap", alignItems: "center" }}>
-                      <span style={{ fontSize: 12, color: th.sub, overflowWrap: "anywhere" }}>☎ {group.phone || "غير مسجل"}</span>
+                      <span style={{ fontSize: 12, color: th.sub, overflowWrap: "anywhere" }}><MonochromeIcon name="phone" size={13} /> {group.phone || "غير مسجل"}</span>
                       <span style={{ fontSize: 10, fontWeight: 700, color: T.success, overflowWrap: "anywhere" }}>{group.entries.length} مضمون</span>
                     </div>
                   </div>
@@ -876,7 +876,7 @@ export function GuaranteesScreen() {
                   </div>
                 </div>
                 <div style={{ background: th.dark ? "#1E2D40" : "#F8FAFC", borderRadius: 10, padding: "10px 12px", display: "flex", flexDirection: "column", gap: 5, marginBottom: 12, color: th.sub }}>
-                  <span style={{ fontSize: 11, overflowWrap: "anywhere" }}>👥 المضمونون</span>
+                  <span style={{ fontSize: 11, overflowWrap: "anywhere" }}><MonochromeIcon name="users" size={13} /> المضمونون</span>
                   {group.entries.map((entry) => (
                     <span
                       key={`${entry.driverId}-${entry.guarantorId}`}
@@ -985,7 +985,7 @@ export function GuaranteesScreen() {
                     style={{ background: "none", border: "none", color: T.danger, cursor: "pointer", fontSize: 16 }}
                     title="إلغاء الضامن"
                   >
-                    ✕
+                    <MonochromeIcon name="close" size={16} />
                   </button>
                 </div>
               ))
@@ -1041,7 +1041,7 @@ export function GuaranteesScreen() {
                   fontFamily: "inherit",
                 }}
               >
-                حفظ ✓
+                <MonochromeIcon name="check" size={15} /> حفظ
               </button>
             </div>
           </div>
@@ -1078,7 +1078,7 @@ export function GuaranteesScreen() {
                   fontWeight: 600,
                 }}
               >
-                ⚠️ هذا الضامن مخالف — يمكنك إلغاء المضمونين فقط، لا إضافة جدد
+                <MonochromeIcon name="warning" size={15} /> هذا الضامن مخالف — يمكنك إلغاء المضمونين فقط، لا إضافة جدد
               </p>
             )}
 
@@ -1111,7 +1111,7 @@ export function GuaranteesScreen() {
                       style={{ background: "none", border: "none", color: T.danger, cursor: "pointer", fontSize: 16 }}
                       title="إلغاء الضمان"
                     >
-                      ✕
+                      <MonochromeIcon name="close" size={16} />
                     </button>
                   </div>
                 )
@@ -1172,7 +1172,7 @@ export function GuaranteesScreen() {
                   fontFamily: "inherit",
                 }}
               >
-                حفظ ✓
+                <MonochromeIcon name="check" size={15} /> حفظ
               </button>
             </div>
           </div>
@@ -1275,7 +1275,7 @@ export function BreakdownsScreen() {
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="🔍 بحث بالاسم أو اللوحة..."
+          placeholder="بحث بالاسم أو اللوحة..."
           style={{
             width: "100%", padding: "9px 12px", borderRadius: 10,
             border: `1px solid ${th.border}`, background: th.inputBg,
@@ -1328,7 +1328,7 @@ export function BreakdownsScreen() {
                       background: T.warning, color: "#fff", fontSize: 11,
                       fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
                     }}
-                  >🔧 تسجيل</button>
+            ><MonochromeIcon name="wrench" size={14} /> تسجيل</button>
                 </div>
               )
             })}
@@ -1338,7 +1338,7 @@ export function BreakdownsScreen() {
 
         {/* Tasks 45-49: full breakdown list with actions */}
         {allBreakdowns.length === 0 ? (
-          <EmptyState icon="🔧" text="لا توجد أعطال" />
+          <EmptyState icon="wrench" text="لا توجد أعطال" />
         ) : (
           allBreakdowns.map((b) => {
             const trip = b.tripId ? state.trips.find((t) => t.id === b.tripId) : undefined
@@ -1362,7 +1362,7 @@ export function BreakdownsScreen() {
                       {b.date && ` · ${b.date}`}
                     </p>
                     <p style={{ margin: "3px 0 0", fontSize: 11, color: th.muted }}>
-                      📍 {b.location}
+                      <MonochromeIcon name="pin" size={13} /> {b.location}
                       {b.action && ` · ${b.action.replace("_", " ")}`}
                       {b.rescuerName && ` · مسعف: ${b.rescuerName}`}
                       {b.rescuerTripType && ` (${b.rescuerTripType})`}
@@ -1377,7 +1377,7 @@ export function BreakdownsScreen() {
                       flexShrink: 0,
                     }}
                   >
-                    {b.status === "نشط" ? "🔧 جارٍ" : "✅ منتهٍ"}
+                    <MonochromeIcon name={b.status === "نشط" ? "wrench" : "check"} size={14} /> {b.status === "نشط" ? "جارٍ" : "منتهٍ"}
                   </span>
                 </div>
 
@@ -1394,7 +1394,7 @@ export function BreakdownsScreen() {
                         background: "#D1FAE5", color: "#065F46", fontSize: 11,
                         fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
                       }}
-                    >✅ إنهاء</button>
+                    ><MonochromeIcon name="check" size={14} /> إنهاء</button>
                   )}
                   {/* Task 46: edit button */}
                   {trip && (
@@ -1406,7 +1406,7 @@ export function BreakdownsScreen() {
                         color: T.primary, fontSize: 11,
                         fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
                       }}
-                    >✏️ تعديل</button>
+                    ><MonochromeIcon name="edit" size={14} /> تعديل</button>
                   )}
                   {/* Task 49: delete with undo */}
                   <button type="button"
@@ -1416,7 +1416,7 @@ export function BreakdownsScreen() {
                       background: "#FEE2E2", color: T.danger, fontSize: 11,
                       fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
                     }}
-                  >🗑</button>
+                   ><MonochromeIcon name="trash" size={14} /></button>
                 </div>
               </div>
             )
@@ -1500,7 +1500,7 @@ export function BreakdownsScreen() {
                   background: manualDriverId ? T.warning : th.border,
                   color: "#fff", fontWeight: 700, cursor: manualDriverId ? "pointer" : "not-allowed", fontFamily: "inherit",
                 }}>
-                ✅ حفظ
+                 <MonochromeIcon name="check" size={15} /> حفظ
               </button>
             </div>
           </div>
@@ -1952,7 +1952,7 @@ export function UsersScreen() {
               {user.id !== state.user?.id && (
                 <button onClick={() => handleDelete(user.id, user.name)}
                   style={{ background: '#FEE2E2', border: 'none', borderRadius: 8, padding: '8px 10px', color: T.danger, cursor: 'pointer', fontSize: 14 }}>
-                  🗑
+                   <MonochromeIcon name="trash" size={15} />
                 </button>
               )}
             </div>
@@ -2006,7 +2006,7 @@ export function UsersScreen() {
                 <button onClick={() => setShowAdd(false)}
                   style={{ flex: 1, padding: '13px', borderRadius: 12, border: `1px solid ${th.border}`, background: 'none', color: th.sub, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>إلغاء</button>
                 <button onClick={handleAdd}
-                  style={{ flex: 2, padding: '13px', borderRadius: 12, border: 'none', background: T.primary, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>✅ حفظ</button>
+                   style={{ flex: 2, padding: '13px', borderRadius: 12, border: 'none', background: T.primary, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}><MonochromeIcon name="check" size={15} /> حفظ</button>
               </div>
             </div>
           </div>

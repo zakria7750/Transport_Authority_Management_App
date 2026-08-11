@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useApp } from '../context'
-import { useTheme } from '../components'
+import { useTheme, MonochromeIcon } from '../components'
 
 import TripSheet from '../TripSheet'
 import type { Driver } from '../data'
@@ -303,7 +303,7 @@ export function AttendanceSheet() {
             fontFamily: 'inherit',
           }}
         >
-          حفظ التحضير ✅
+          <MonochromeIcon name="check" size={15} /> حفظ التحضير
         </button>
         <button
           onClick={handlePrintAttendance}
@@ -319,7 +319,7 @@ export function AttendanceSheet() {
             fontFamily: 'inherit',
           }}
         >
-          طباعة كشف التحضير 📄
+          <MonochromeIcon name="note" size={15} /> طباعة كشف التحضير
         </button>
         <button
           onClick={handlePrintTrips}
@@ -335,7 +335,7 @@ export function AttendanceSheet() {
             fontFamily: 'inherit',
           }}
         >
-          طباعة كشف النهمات 📄
+          <MonochromeIcon name="truck" size={15} /> طباعة كشف النهمات
         </button>
       </div>
 

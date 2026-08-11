@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useApp } from "../context"
-import { OFFICE_BRAND, TRANSPORT_AUTHORITY, APP_TAGLINE } from "../components"
+import { OFFICE_BRAND, TRANSPORT_AUTHORITY, APP_TAGLINE, MonochromeIcon } from "../components"
 import { type UserRole } from "../data"
 
 export default function LoginScreen() {
@@ -56,7 +56,7 @@ export default function LoginScreen() {
             boxShadow: "0 8px 32px rgba(14,165,233,0.3)",
           }}
         >
-          🚛
+          <MonochromeIcon name="truck" size={38} strokeWidth={1.6} />
         </div>
         <p style={{ color: "#94A3B8", fontSize: 13, fontWeight: 600, margin: "0 0 4px" }}>{TRANSPORT_AUTHORITY}</p>
         <h1 style={{ color: "#F1F5F9", fontSize: 24, fontWeight: 800, margin: 0 }}>{OFFICE_BRAND}</h1>
@@ -179,7 +179,7 @@ export default function LoginScreen() {
             boxShadow: loading ? "none" : "0 4px 20px rgba(29,78,216,0.4)",
           }}
         >
-          {loading ? "⏳ جاري التحقق..." : "🔑 دخول"}
+          {loading ? <><MonochromeIcon name="loading" size={16} /> جاري التحقق...</> : <><MonochromeIcon name="key" size={16} /> دخول</>}
         </button>
 
         <div style={{ fontSize: 11, color: "#475569", textAlign: "center", lineHeight: 1.8 }}>
@@ -207,7 +207,7 @@ export default function LoginScreen() {
             gap: 8,
           }}
         >
-          👆 الدخول بالبصمة
+          <MonochromeIcon name="fingerprint" size={17} /> الدخول بالبصمة
         </button>
       )}
     </div>

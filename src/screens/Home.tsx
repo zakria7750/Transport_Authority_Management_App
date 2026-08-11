@@ -238,7 +238,7 @@ export default function HomeScreen() {
                   fontSize: 12, cursor: 'pointer', fontFamily: 'inherit',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                 }}>
-                🔄 مزامنة الآن
+                 <MonochromeIcon name="refresh" size={15} /> مزامنة الآن
               </button>
             </div>
           </div>
@@ -252,18 +252,18 @@ export default function HomeScreen() {
         </p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
           {[
-            { icon: '📋', label: 'الكشف', screen: 'drivers' as const },
-            { icon: '🚛', label: 'النهمات', screen: 'pending-trips' as const },
-            { icon: '📝', label: 'التحضير', screen: 'attendance' as const },
-            { icon: '⚠️', label: 'المخالفات', screen: 'violations' as const },
-            { icon: '🔧', label: 'الأعطال', screen: 'breakdowns' as const },
-            { icon: '🏦', label: 'الضمانات', screen: 'guarantees' as const },
+            { icon: 'clipboard', label: 'الكشف', screen: 'drivers' as const },
+            { icon: 'truck', label: 'النهمات', screen: 'pending-trips' as const },
+            { icon: 'note', label: 'التحضير', screen: 'attendance' as const },
+            { icon: 'warning', label: 'المخالفات', screen: 'violations' as const },
+            { icon: 'wrench', label: 'الأعطال', screen: 'breakdowns' as const },
+            { icon: 'bank', label: 'الضمانات', screen: 'guarantees' as const },
             ...(isManager ? [
-              { icon: '📊', label: 'التقارير', screen: 'reports' as const },
-              { icon: '👥', label: 'المستخدمون', screen: 'users' as const },
+              { icon: 'chart', label: 'التقارير', screen: 'reports' as const },
+              { icon: 'users', label: 'المستخدمون', screen: 'users' as const },
             ] : [
-              { icon: '🔍', label: 'بحث', screen: 'search' as const },
-              { icon: '⚙️', label: 'الإعدادات', screen: 'settings' as const },
+              { icon: 'search', label: 'بحث', screen: 'search' as const },
+              { icon: 'settings', label: 'الإعدادات', screen: 'settings' as const },
             ]),
           ].map(item => (
             <button key={item.label}
@@ -275,7 +275,7 @@ export default function HomeScreen() {
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
                 transition: 'transform 0.1s',
               }}>
-              <span style={{ fontSize: 22 }}>{item.icon}</span>
+              <MonochromeIcon name={item.icon} size={22} />
               <span style={{ fontSize: 10, fontWeight: 600, color: th.sub, textAlign: 'center' }}>{item.label}</span>
             </button>
           ))}
