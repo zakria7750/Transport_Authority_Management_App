@@ -51,27 +51,7 @@ import {
   suggestNextBreakNum,
 } from "./domain"
 
-export type Screen =
-  | "login"
-  | "home"
-  | "drivers"
-  | "driver-profile"
-  | "attendance"
-  | "attendance-sheet"
-  | "registration"
-  | "pending-trips"
-  | "all-trips"
-  | "trips-management"
-  | "violations"
-  | "guarantees"
-  | "breakdowns"
-  | "reports"
-  | "settings"
-  | "users"
-  | "driver-management"
-  | "search"
-  | "notifications"
-  | "more"
+export type Screen = "login" | "home" | "drivers" | "driver-profile" | "attendance" | "attendance-sheet" | "registration" | "pending-trips" | "all-trips" | "trips-management" | "violations" | "guarantees" | "breakdowns" | "reports" | "settings" | "users" | "driver-management" | "search" | "notifications" | "more"
 
 export interface SnackbarState {
   message: string
@@ -135,73 +115,110 @@ export type BreakdownCreatePayload = {
   notes?: string
 }
 
-type Action =
-  | { type: "LOGIN"; user: User }
-  | { type: "LOGOUT" }
-  | { type: "NAVIGATE"; screen: Screen; params?: Record<string, unknown> }
-  | { type: "TOGGLE_DARK" }
-  | { type: "SET_THEME"; preference: ThemePreference }
-  | { type: "SET_BIOMETRIC"; enabled: boolean }
-  | { type: "SYNC_NOW" }
-  | { type: "SHOW_SNACKBAR"; message: string; undoFn?: () => void }
-  | { type: "HIDE_SNACKBAR" }
-  | { type: "ADD_VIOLATION"; driverId: number; vType: ViolationType; date?: string; recordedBy?: string }
-  | { type: "UNDO_VIOLATION"; violationId: number }
-  | { type: "UNDO_VIOLATION_BY_DRIVER"; driverId: number }
-  | { type: "RAISE_VIOLATION"; violationId: number; reason?: string }
-  | { type: "RAISE_ALL_VIOLATIONS" }
-  | { type: "EDIT_VIOLATION"; violationId: number; vType: ViolationType }
-  | { type: "DELETE_VIOLATION"; violationId: number }
-  | { type: "CREATE_TRIP"; trip: TripCreatePayload }
-  | { type: "EDIT_TRIP"; edit: TripEditPayload }
-  | { type: "UPDATE_TRIP"; trip: Trip }
-  | { type: "DELETE_TRIP"; tripId: number }
-  | { type: "COMPLETE_TRIP"; driverId: number }
-  | { type: "REGISTER_COMPLETED_TRIP"; tripId: number }
-  | { type: "CANCEL_TRIP"; driverId: number }
-  | { type: "RESTORE_TRIP"; trip: Trip; driver: Driver }
-  | { type: "ADD_DRIVER"; driver: Driver }
-  | { type: "UPDATE_DRIVER"; driver: Driver }
-  | { type: "DELETE_DRIVER"; driverId: number }
-  | { type: "DISABLE_DRIVER"; driverId: number }
-  | { type: "ACTIVATE_DRIVER"; driverId: number }
-  | { type: "RE_REGISTER_DRIVER"; driverId: number }
-  | { type: "SET_DRIVER_IMAGES"; driverId: number; images: DriverImages }
-  | { type: "READ_NOTIFICATION"; id: number }
-  | { type: "READ_ALL_NOTIFICATIONS" }
-  | { type: "DELETE_NOTIFICATION"; id: number }
-  | { type: "ADD_NOTIFICATION"; notification: Omit<Notification, "id" | "read" | "date"> }
-  | { type: "SAVE_ATTENDANCE"; absentDriverIds: number[] }
-  | { type: "UPDATE_GUARANTORS"; driverId: number; guarantors: Guarantor[] }
-  | { type: "CANCEL_GUARANTOR"; guarantorNationalId: string }
-  | {
-      type: "SET_GUARANTOR_TARGETS"
-      template: Pick<Guarantor, "name" | "phone" | "nationalId" | "sourceDriverId">
-      targetDriverIds: number[]
-    }
-  | { type: "ADD_BREAKDOWN"; breakdown: BreakdownCreatePayload }
-  | {
-      type: "ADD_BREAKDOWN_MANUAL"
-      driverId: number
-      location: "قريب" | "بعيد"
-      date?: string
-      note?: string
-    }
-  | { type: "UPDATE_BREAKDOWN"; breakdownId: number; patch: Partial<BreakdownCreatePayload> }
-  | { type: "END_BREAKDOWN"; breakdownId: number }
-  | { type: "DELETE_BREAKDOWN"; breakdownId: number }
-  | { type: "RESTORE_BREAKDOWN_STATE"; snapshot: Pick<AppState, "drivers" | "trips" | "breakdowns"> }
-  | { type: "DISMISS_COMPLETED_TRIP"; tripId: number }
-  | { type: "UPDATE_USER"; user: User }
-  | { type: "ADD_USER"; user: User }
-  | { type: "DELETE_USER"; userId: number }
-  | { type: "SET_MIN_GUARANTORS"; min: number }
-  | { type: "SET_HIGHLIGHT"; driverId: number | null }
-  | { type: "SAVE_SCROLL"; screen: Screen; position: number }
-  | { type: "IMPORT_DATA"; data: Partial<Pick<AppState, "drivers" | "trips" | "violations" | "breakdowns" | "notifications" | "users" | "minGuarantors">> }
+type Action = { type: "LOGIN" user: User } | { type: "LOGOUT" } | {
+  type: "NAVIGATE"
+  screen: Screen
+  params?: Record<string, unknown>
+} | { type: "TOGGLE_DARK" } | {
+  type: "SET_THEME"
+  preference: ThemePreference
+} | { type: "SET_BIOMETRIC" enabled: boolean } | { type: "SYNC_NOW" } | {
+  type: "SHOW_SNACKBAR"
+  message: string
+  undoFn?: () => void
+} | { type: "HIDE_SNACKBAR" } | {
+  type: "ADD_VIOLATION"
+  driverId: number
+  vType: ViolationType
+  date?: string
+  recordedBy?: string
+} | { type: "UNDO_VIOLATION" violationId: number } | {
+  type: "UNDO_VIOLATION_BY_DRIVER"
+  driverId: number
+} | { type: "RAISE_VIOLATION" violationId: number reason?: string } | {
+  type: "RAISE_ALL_VIOLATIONS"
+} | { type: "EDIT_VIOLATION" violationId: number vType: ViolationType } | {
+  type: "DELETE_VIOLATION"
+  violationId: number
+} | { type: "CREATE_TRIP" trip: TripCreatePayload } | {
+  type: "EDIT_TRIP"
+  edit: TripEditPayload
+} | { type: "UPDATE_TRIP" trip: Trip } | {
+  type: "DELETE_TRIP"
+  tripId: number
+} | { type: "COMPLETE_TRIP" driverId: number } | {
+  type: "REGISTER_COMPLETED_TRIP"
+  tripId: number
+} | { type: "CANCEL_TRIP" driverId: number } | {
+  type: "RESTORE_TRIP"
+  trip: Trip
+  driver: Driver
+} | { type: "ADD_DRIVER" driver: Driver } | {
+  type: "UPDATE_DRIVER"
+  driver: Driver
+} | { type: "DELETE_DRIVER" driverId: number } | {
+  type: "DISABLE_DRIVER"
+  driverId: number
+} | { type: "ACTIVATE_DRIVER" driverId: number } | {
+  type: "RE_REGISTER_DRIVER"
+  driverId: number
+} | { type: "SET_DRIVER_IMAGES" driverId: number images: DriverImages } | {
+  type: "READ_NOTIFICATION"
+  id: number
+} | { type: "READ_ALL_NOTIFICATIONS" } | {
+  type: "DELETE_NOTIFICATION"
+  id: number
+} | {
+  type: "ADD_NOTIFICATION"
+  notification: Omit<Notification, "id" | "read" | "date">
+} | { type: "SAVE_ATTENDANCE" absentDriverIds: number[] } | {
+  type: "UPDATE_GUARANTORS"
+  driverId: number
+  guarantors: Guarantor[]
+} | { type: "CANCEL_GUARANTOR" guarantorNationalId: string } | {
+  type: "SET_GUARANTOR_TARGETS"
+  template: Pick<Guarantor, "name" | "phone" | "nationalId" | "sourceDriverId">
+  targetDriverIds: number[]
+} | { type: "ADD_BREAKDOWN" breakdown: BreakdownCreatePayload } | {
+  type: "ADD_BREAKDOWN_MANUAL"
+  driverId: number
+  location: "قريب" | "بعيد"
+  date?: string
+  note?: string
+} | {
+  type: "UPDATE_BREAKDOWN"
+  breakdownId: number
+  patch: Partial<BreakdownCreatePayload>
+} | { type: "END_BREAKDOWN" breakdownId: number } | {
+  type: "DELETE_BREAKDOWN"
+  breakdownId: number
+} | {
+  type: "RESTORE_BREAKDOWN_STATE"
+  snapshot: Pick<AppState, "drivers" | "trips" | "breakdowns">
+} | { type: "DISMISS_COMPLETED_TRIP" tripId: number } | {
+  type: "UPDATE_USER"
+  user: User
+} | { type: "ADD_USER" user: User } | { type: "DELETE_USER" userId: number } | {
+  type: "SET_MIN_GUARANTORS"
+  min: number
+} | { type: "SET_HIGHLIGHT" driverId: number | null } | {
+  type: "SAVE_SCROLL"
+  screen: Screen
+  position: number
+} | {
+  type: "IMPORT_DATA"
+  data: Partial<Pick<AppState, "drivers" | "trips" | "violations" | "breakdowns" | "notifications" | "users" | "minGuarantors">>
+}
 
 const REGISTRATION_SCREENS: Screen[] = ["registration", "settings", "login"]
-const MANAGER_ONLY: Screen[] = ["violations", "guarantees", "breakdowns", "reports", "users", "driver-management"]
+const MANAGER_ONLY: Screen[] = [
+  "violations",
+  "guarantees",
+  "breakdowns",
+  "reports",
+  "users",
+  "driver-management",
+]
 
 function getInitialBool(key: string, fallback = false): boolean {
   if (typeof window === "undefined") return fallback
@@ -212,8 +229,12 @@ function getInitialBool(key: string, fallback = false): boolean {
 
 function getInitialThemePreference(): ThemePreference {
   if (typeof window === "undefined") return "auto"
-  const saved = localStorage.getItem("themePreference") as ThemePreference | null
-  return saved === "light" || saved === "dark" || saved === "auto" ? saved : "auto"
+  const saved = localStorage.getItem(
+    "themePreference",
+  ) as ThemePreference | null
+  return saved === "light" || saved === "dark" || saved === "auto"
+    ? saved
+    : "auto"
 }
 
 function resolveDarkMode(preference: ThemePreference): boolean {
@@ -258,7 +279,10 @@ function makeNotification(
   }
 }
 
-function pushNotif(state: AppState, partial: Omit<Notification, "id" | "read" | "date">): Notification[] {
+function pushNotif(
+  state: AppState,
+  partial: Omit<Notification, "id" | "read" | "date">,
+): Notification[] {
   return [makeNotification(partial), ...state.notifications]
 }
 
@@ -273,7 +297,9 @@ function canAccessScreen(role: UserRole | undefined, screen: Screen): boolean {
   return screen !== "login"
 }
 
-function guarantorSnapshotRecord(drivers: Driver[]): Record<number, Guarantor[]> {
+function guarantorSnapshotRecord(
+  drivers: Driver[],
+): Record<number, Guarantor[]> {
   const r: Record<number, Guarantor[]> = {}
   for (const d of drivers) {
     r[d.id] = d.guarantors.map((g) => ({ ...g }))
@@ -281,11 +307,19 @@ function guarantorSnapshotRecord(drivers: Driver[]): Record<number, Guarantor[]>
   return r
 }
 
-function syncDriversAfterGuaranteeChange(drivers: Driver[], minGuarantors: number): Driver[] {
+function syncDriversAfterGuaranteeChange(
+  drivers: Driver[],
+  minGuarantors: number,
+): Driver[] {
   const updated = drivers.map((d) => {
     const active = countActiveGuarantors(d)
     if (!meetsMinGuarantors(active, minGuarantors) && d.status === "نشط") {
-      return { ...d, status: "غير_نشط" as const, statusReason: "بدون_ضمانة" as const, seq: 0 }
+      return {
+        ...d,
+        status: "غير_نشط" as const,
+        statusReason: "بدون_ضمانة" as const,
+        seq: 0,
+      }
     }
     if (
       meetsMinGuarantors(active, minGuarantors) &&
@@ -309,7 +343,10 @@ function snapshotDriver(driver: Driver): PreTripSnapshot {
   }
 }
 
-function restoreDriverSnapshot(driver: Driver, snapshot?: PreTripSnapshot): Driver {
+function restoreDriverSnapshot(
+  driver: Driver,
+  snapshot?: PreTripSnapshot,
+): Driver {
   if (!snapshot) return driver
   return {
     ...driver,
@@ -461,47 +498,46 @@ const initialState: AppState = {
   themePreference: initialThemePreference,
   navDirection: "forward",
   biometricEnabled: getInitialBool("biometricEnabled"),
-    pendingSyncCount: 0,
-    screen: initialScreen,
-    screenParams: {},
-    snackbar: null,
-    drivers: DRIVERS_DATA,
-    trips: TRIPS_DATA,
-    violations: VIOLATIONS_DATA,
-    breakdowns: BREAKDOWNS_DATA,
-    notifications: NOTIFICATIONS_DATA,
-    users: USERS_DATA,
-    minGuarantors: 2,
-    lastHighlightedDriverId: null,
-    scrollPositions: {
-      login: 0,
-      home: 0,
-      drivers: 0,
-      "driver-profile": 0,
-      attendance: 0,
-      registration: 0,
-      "pending-trips": 0,
-      "all-trips": 0,
-      "trips-management": 0,
-      violations: 0,
-      guarantees: 0,
-      breakdowns: 0,
-      reports: 0,
-      settings: 0,
-      users: 0,
-      "driver-management": 0,
-      search: 0,
-      notifications: 0,
-      more: 0,
-      "attendance-sheet": 0,
-    },
+  pendingSyncCount: 0,
+  screen: initialScreen,
+  screenParams: {},
+  snackbar: null,
+  drivers: DRIVERS_DATA,
+  trips: TRIPS_DATA,
+  violations: VIOLATIONS_DATA,
+  breakdowns: BREAKDOWNS_DATA,
+  notifications: NOTIFICATIONS_DATA,
+  users: USERS_DATA,
+  minGuarantors: 2,
+  lastHighlightedDriverId: null,
+  scrollPositions: {
+    login: 0,
+    home: 0,
+    drivers: 0,
+    "driver-profile": 0,
+    attendance: 0,
+    registration: 0,
+    "pending-trips": 0,
+    "all-trips": 0,
+    "trips-management": 0,
+    violations: 0,
+    guarantees: 0,
+    breakdowns: 0,
+    reports: 0,
+    settings: 0,
+    users: 0,
+    "driver-management": 0,
+    search: 0,
+    notifications: 0,
+    more: 0,
+    "attendance-sheet": 0,
+  },
 }
 
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
     case "LOGIN": {
-      const screen =
-        action.user.role === "موظف_تسجيل" ? "registration" : "home"
+      const screen = action.user.role === "موظف_تسجيل" ? "registration" : "home"
       if (typeof window !== "undefined") {
         localStorage.setItem("sessionUserId", String(action.user.id))
       }
@@ -559,16 +595,27 @@ function reducer(state: AppState, action: Action): AppState {
 
     case "SHOW_SNACKBAR":
       if (state.snackbar?.timeoutId) clearTimeout(state.snackbar.timeoutId)
-      return { ...state, snackbar: { message: action.message, undoFn: action.undoFn } }
+      return {
+        ...state,
+        snackbar: { message: action.message, undoFn: action.undoFn },
+      }
 
     case "HIDE_SNACKBAR":
       return { ...state, snackbar: null }
 
     case "ADD_VIOLATION":
-      return applyViolationToState(state, action.driverId, action.vType, action.date, action.recordedBy)
+      return applyViolationToState(
+        state,
+        action.driverId,
+        action.vType,
+        action.date,
+        action.recordedBy,
+      )
 
     case "UNDO_VIOLATION_BY_DRIVER": {
-      const viol = state.violations.find((v) => v.driverId === action.driverId && !v.raised)
+      const viol = state.violations.find(
+        (v) => v.driverId === action.driverId && !v.raised,
+      )
       if (!viol) return state
       return reducer(state, { type: "UNDO_VIOLATION", violationId: viol.id })
     }
@@ -578,7 +625,12 @@ function reducer(state: AppState, action: Action): AppState {
       if (!viol || !viol.undoSnapshot) return state
       const snap = viol.undoSnapshot
       const snapMap = snap.guarantorSnapshot
-        ? new Map(Object.entries(snap.guarantorSnapshot).map(([k, v]) => [Number(k), v]))
+        ? new Map(
+            Object.entries(snap.guarantorSnapshot).map(([k, v]) => [
+              Number(k),
+              v,
+            ]),
+          )
         : captureGuarantorSnapshot(state.drivers)
       let drivers = state.drivers.map((d) =>
         d.id === viol.driverId
@@ -629,14 +681,18 @@ function reducer(state: AppState, action: Action): AppState {
           icon: "✅",
           type: "مخالفة",
           title: "رفع مخالفة",
-          message: `المدير رفع المخالفة عن ${viol.driverName}${raiseNote.includes("سبب الرفع") ? ` — ${action.reason?.trim()}` : ""}`,
+          message: `المدير رفع المخالفة عن ${viol.driverName}${
+            raiseNote.includes("سبب الرفع") ? ` — ${action.reason?.trim()}` : ""
+          }`,
         }),
       }
     }
 
     case "RAISE_ALL_VIOLATIONS": {
       const today = new Date().toISOString()
-      const openIds = new Set(state.violations.filter((v) => !v.raised).map((v) => v.driverId))
+      const openIds = new Set(
+        state.violations.filter((v) => !v.raised).map((v) => v.driverId),
+      )
       return {
         ...state,
         violations: state.violations.map((v) =>
@@ -687,7 +743,12 @@ function reducer(state: AppState, action: Action): AppState {
       if (!viol || !viol.undoSnapshot) return state
       const snap = viol.undoSnapshot
       const snapMap = snap.guarantorSnapshot
-        ? new Map(Object.entries(snap.guarantorSnapshot).map(([k, v]) => [Number(k), v]))
+        ? new Map(
+            Object.entries(snap.guarantorSnapshot).map(([k, v]) => [
+              Number(k),
+              v,
+            ]),
+          )
         : captureGuarantorSnapshot(state.drivers)
       let drivers = state.drivers.map((d) =>
         d.id === viol.driverId
@@ -722,7 +783,9 @@ function reducer(state: AppState, action: Action): AppState {
         return state
 
       const amount =
-        trip.tripType === "تعويض" ? Math.max(1, Math.floor(trip.compensationAmount ?? 1)) : undefined
+        trip.tripType === "تعويض"
+          ? Math.max(1, Math.floor(trip.compensationAmount ?? 1))
+          : undefined
       const newTrip: Trip = {
         id: nextId(),
         driverId: trip.driverId,
@@ -755,8 +818,8 @@ function reducer(state: AppState, action: Action): AppState {
             ? {
                 ...d,
                 currentTrip: trip.tripType,
-compensationBalance:
-                    trip.tripType === "تعويض"
+                compensationBalance:
+                  trip.tripType === "تعويض"
                     ? Math.max(0, d.compensationBalance - (amount ?? 0))
                     : d.compensationBalance,
               }
@@ -776,7 +839,9 @@ compensationBalance:
               title: "نهمة جديدة",
               message: `تم إنشاء نهمة (${trip.tripType}) للسائق ${driver.ownerName}`,
             }),
-        pendingSyncCount: trip.asDraft ? state.pendingSyncCount : bumpPendingSync(state),
+        pendingSyncCount: trip.asDraft
+          ? state.pendingSyncCount
+          : bumpPendingSync(state),
       }
     }
 
@@ -873,7 +938,9 @@ compensationBalance:
                 completionState: "جارية" as const,
                 completedAt: new Date().toLocaleString("ar-SA"),
                 // track total deducted: 1 on create + 1 on complete = 2
-                ...(isCompTrip ? { compensationAmount: (t.compensationAmount ?? 1) + 1 } : {}),
+                ...(isCompTrip
+                  ? { compensationAmount: (t.compensationAmount ?? 1) + 1 }
+                  : {}),
               }
             : t,
         ),
@@ -888,15 +955,28 @@ compensationBalance:
 
     case "REGISTER_COMPLETED_TRIP": {
       const trip = state.trips.find((item) => item.id === action.tripId)
-      const driver = trip ? state.drivers.find((item) => item.id === trip.driverId) : undefined
-      if (!trip || !driver || trip.status !== "مكتملة" || trip.completionState !== "جارية") return state
+      const driver = trip
+        ? state.drivers.find((item) => item.id === trip.driverId)
+        : undefined
+      if (
+        !trip ||
+        !driver ||
+        trip.status !== "مكتملة" ||
+        trip.completionState !== "جارية"
+      )
+        return state
       if (driver.violation) return state
 
       const drivers = reindexActiveDrivers(
         moveDriverToEndOfActive(
           state.drivers.map((item) =>
             item.id === driver.id
-              ? { ...item, currentTrip: null, statusReason: null, violation: null }
+              ? {
+                  ...item,
+                  currentTrip: null,
+                  statusReason: null,
+                  violation: null,
+                }
               : item,
           ),
           driver.id,
@@ -906,7 +986,9 @@ compensationBalance:
         ...state,
         drivers,
         trips: state.trips.map((item) =>
-          item.id === trip.id ? { ...item, completionState: "مكتملة" as TripCompletionState } : item,
+          item.id === trip.id
+            ? { ...item, completionState: "مكتملة" as TripCompletionState }
+            : item,
         ),
         notifications: pushNotif(state, {
           icon: "✅",
@@ -965,7 +1047,9 @@ compensationBalance:
     case "UPDATE_DRIVER":
       return {
         ...state,
-        drivers: state.drivers.map((d) => (d.id === action.driver.id ? action.driver : d)),
+        drivers: state.drivers.map((d) =>
+          d.id === action.driver.id ? action.driver : d,
+        ),
       }
 
     case "DELETE_DRIVER": {
@@ -977,7 +1061,9 @@ compensationBalance:
         ...state,
         drivers,
         trips: state.trips.filter((t) => t.driverId !== action.driverId),
-        violations: state.violations.filter((v) => v.driverId !== action.driverId),
+        violations: state.violations.filter(
+          (v) => v.driverId !== action.driverId,
+        ),
       }
     }
 
@@ -986,7 +1072,12 @@ compensationBalance:
       if (!driver || driver.status !== "نشط" || driver.currentTrip) return state
       let drivers = state.drivers.map((d) =>
         d.id === action.driverId
-          ? { ...d, status: "غير_نشط" as const, statusReason: "معطل" as const, seq: 0 }
+          ? {
+              ...d,
+              status: "غير_نشط" as const,
+              statusReason: "معطل" as const,
+              seq: 0,
+            }
           : d,
       )
       drivers = reindexActiveDrivers(drivers)
@@ -1006,7 +1097,10 @@ compensationBalance:
     case "ACTIVATE_DRIVER": {
       const driver = state.drivers.find((d) => d.id === action.driverId)
       if (!driver) return state
-      if (!meetsMinGuarantors(countActiveGuarantors(driver), state.minGuarantors)) return state
+      if (
+        !meetsMinGuarantors(countActiveGuarantors(driver), state.minGuarantors)
+      )
+        return state
       let drivers = appendActiveDriver(state.drivers, action.driverId)
       drivers = reindexActiveDrivers(drivers)
       return { ...state, drivers }
@@ -1016,10 +1110,18 @@ compensationBalance:
       // Task 33: re-register creates a brand NEW driver record, archives the old one
       const source = state.drivers.find((d) => d.id === action.driverId)
       if (!source || source.violation || source.status === "نشط") return state
-      if (!meetsMinGuarantors(countActiveGuarantors(source), state.minGuarantors)) return state
+      if (
+        !meetsMinGuarantors(countActiveGuarantors(source), state.minGuarantors)
+      )
+        return state
 
       // Archive old driver
-      const archivedOld = { ...source, status: "غير_نشط" as const, statusReason: "ملغي" as const, seq: 0 }
+      const archivedOld = {
+        ...source,
+        status: "غير_نشط" as const,
+        statusReason: "ملغي" as const,
+        seq: 0,
+      }
 
       // Create new driver record with fresh id/seq, copy guarantors/images
       const newDriver: Driver = {
@@ -1033,7 +1135,9 @@ compensationBalance:
         compensationBalance: 0,
       }
 
-      let drivers = state.drivers.map((d) => (d.id === source.id ? archivedOld : d))
+      let drivers = state.drivers.map((d) =>
+        d.id === source.id ? archivedOld : d,
+      )
       drivers = [...drivers, newDriver]
       drivers = appendActiveDriver(drivers, newDriver.id)
       drivers = reindexActiveDrivers(drivers)
@@ -1060,7 +1164,9 @@ compensationBalance:
       return {
         ...state,
         drivers: state.drivers.map((d) =>
-          d.id === action.driverId ? { ...d, images: { ...d.images, ...action.images } } : d,
+          d.id === action.driverId
+            ? { ...d, images: { ...d.images, ...action.images } }
+            : d,
         ),
       }
 
@@ -1075,13 +1181,22 @@ compensationBalance:
     case "UPDATE_GUARANTORS": {
       const driver = state.drivers.find((d) => d.id === action.driverId)
       if (!driver) return state
-      const sanitized = filterValidActiveGuarantors(action.guarantors, state.drivers)
-      const activeCount = sanitized.filter((g) => g.status === "فعال" && !g.suspended).length
+      const sanitized = filterValidActiveGuarantors(
+        action.guarantors,
+        state.drivers,
+      )
+      const activeCount = sanitized.filter(
+        (g) => g.status === "فعال" && !g.suspended,
+      ).length
       const meetsMin = meetsMinGuarantors(activeCount, state.minGuarantors)
       let drivers = state.drivers.map((d) => {
         if (d.id !== action.driverId) return d
         const updated = { ...d, guarantors: sanitized }
-        if (meetsMin && d.status === "غير_نشط" && d.statusReason === "بدون_ضمانة") {
+        if (
+          meetsMin &&
+          d.status === "غير_نشط" &&
+          d.statusReason === "بدون_ضمانة"
+        ) {
           return { ...updated, status: "نشط" as const, statusReason: null }
         }
         return updated
@@ -1100,17 +1215,24 @@ compensationBalance:
               message: `اكتملت ضمانة السائق ${driver.ownerName}`,
             })
           : state.notifications
-      return { ...state, drivers, notifications: notifs, pendingSyncCount: bumpPendingSync(state) }
+      return {
+        ...state,
+        drivers,
+        notifications: notifs,
+        pendingSyncCount: bumpPendingSync(state),
+      }
     }
 
     case "CANCEL_GUARANTOR": {
       const guarantorName =
         state.drivers
           .flatMap((d) => d.guarantors)
-          .find((g) => g.nationalId === action.guarantorNationalId)?.name ?? "الضامن"
+          .find((g) => g.nationalId === action.guarantorNationalId)?.name ??
+        "الضامن"
       const affectedBefore = state.drivers.filter((d) =>
         d.guarantors.some(
-          (g) => g.nationalId === action.guarantorNationalId && g.status === "فعال",
+          (g) =>
+            g.nationalId === action.guarantorNationalId && g.status === "فعال",
         ),
       )
       let drivers = state.drivers.map((d) => ({
@@ -1160,17 +1282,26 @@ compensationBalance:
 
     case "ADD_BREAKDOWN": {
       const trip = state.trips.find((t) => t.id === action.breakdown.tripId)
-      const driver = trip ? state.drivers.find((d) => d.id === trip.driverId) : undefined
+      const driver = trip
+        ? state.drivers.find((d) => d.id === trip.driverId)
+        : undefined
       if (!trip || !driver) return state
-      if (trip.status !== "مكتملة" || trip.completionState !== "جارية") return state
+      if (trip.status !== "مكتملة" || trip.completionState !== "جارية")
+        return state
 
       const location = action.breakdown.location
       const actionChoice = action.breakdown.action
       const keepOriginalTrip = actionChoice === "إبقاء_النهمة"
       const breakdownPlace = action.breakdown.breakdownPlace.trim()
       if (!breakdownPlace) return state
+      // A far-from-factory breakdown is handled by keeping the original trip.
+      // Rejecting the invalid combination here keeps the data model consistent
+      // even when an action is dispatched outside the form.
+      if (location === "بعيد" && actionChoice === "إلغاء_النهمة") return state
 
-      const rescuer = state.drivers.find((d) => d.id === action.breakdown.rescuerId)
+      const rescuer = state.drivers.find(
+        (d) => d.id === action.breakdown.rescuerId,
+      )
       if (!rescuer || rescuer.violation) return state
 
       const compensationGiven =
@@ -1178,6 +1309,7 @@ compensationBalance:
           ? Math.max(0, Math.floor(action.breakdown.compensationGiven ?? 0))
           : 0
       const rescuerType = action.breakdown.rescuerTripType
+      if (rescuerType !== "بدون" && rescuer.currentTrip) return state
 
       const b: Breakdown = {
         id: nextId(),
@@ -1192,7 +1324,11 @@ compensationBalance:
         rescuerId: rescuer.id,
         rescuerName: rescuer.ownerName,
         rescuerTripType: rescuerType,
-        breakNum: rescuerType === "بدون" ? undefined : action.breakdown.breakNum,
+        breakNum:
+          rescuerType === "بدون"
+            ? undefined
+            : action.breakdown.breakNum?.trim() ||
+              suggestNextBreakNum(state.trips),
         compensationGiven: location === "بعيد" ? compensationGiven : undefined,
         compensation: location === "بعيد" ? compensationGiven : undefined,
         payload: trip.payload,
@@ -1220,7 +1356,10 @@ compensationBalance:
         )
         drivers = drivers.map((item) =>
           item.id === driver.id
-            ? restoreDriverSnapshot(item, trip.preTripSnapshot ?? b.ownerSnapshot)
+            ? restoreDriverSnapshot(
+                item,
+                trip.preTripSnapshot ?? b.ownerSnapshot,
+              )
             : item,
         )
       } else {
@@ -1248,7 +1387,8 @@ compensationBalance:
           province: trip.province,
           destinationType: trip.destinationType,
           destination: trip.destination,
-          breakNum: action.breakdown.breakNum ?? suggestNextBreakNum(trips),
+          breakNum:
+            action.breakdown.breakNum?.trim() || suggestNextBreakNum(trips),
           status: "مؤكدة_مبدئياً",
           createdAt: new Date().toLocaleString("ar-SA"),
           breakdownLocation: breakdownPlace,
@@ -1271,7 +1411,11 @@ compensationBalance:
       } else if (location === "بعيد" && compensationGiven > 0) {
         drivers = drivers.map((item) =>
           item.id === rescuer.id
-            ? { ...item, compensationBalance: item.compensationBalance + compensationGiven }
+            ? {
+                ...item,
+                compensationBalance:
+                  item.compensationBalance + compensationGiven,
+              }
             : item,
         )
       }
@@ -1329,13 +1473,17 @@ compensationBalance:
       }
 
     case "DELETE_BREAKDOWN": {
-      const breakdown = state.breakdowns.find((item) => item.id === action.breakdownId)
+      const breakdown = state.breakdowns.find(
+        (item) => item.id === action.breakdownId,
+      )
       if (!breakdown) return state
       const restored = rollbackBreakdownRelations(state, breakdown)
       return {
         ...state,
         ...restored,
-        breakdowns: state.breakdowns.filter((item) => item.id !== action.breakdownId),
+        breakdowns: state.breakdowns.filter(
+          (item) => item.id !== action.breakdownId,
+        ),
         pendingSyncCount: bumpPendingSync(state),
       }
     }
@@ -1351,6 +1499,64 @@ compensationBalance:
       const existing = state.breakdowns.find((b) => b.id === action.breakdownId)
       if (!existing) return state
       const patch = action.patch
+
+      // A created breakdown is a transaction over the original trip, owner,
+      // rescuer and compensation balance. Rebuild that transaction from the
+      // saved snapshots so editing location/action/rescuer cannot leave stale
+      // related records behind.
+      if (existing.tripId && existing.rescuerId && existing.rescuerTripType) {
+        const rolledBack = rollbackBreakdownRelations(state, existing)
+        const baseState: AppState = {
+          ...state,
+          ...rolledBack,
+          breakdowns: state.breakdowns.filter((b) => b.id !== existing.id),
+        }
+        const recreated = reducer(baseState, {
+          type: "ADD_BREAKDOWN",
+          breakdown: {
+            tripId: existing.tripId,
+            location: patch.location ?? existing.location,
+            breakdownPlace:
+              patch.breakdownPlace?.trim() ?? existing.breakdownPlace ?? "",
+            action: patch.action ?? existing.action ?? "إبقاء_النهمة",
+            rescuerId: patch.rescuerId ?? existing.rescuerId,
+            rescuerTripType: patch.rescuerTripType ?? existing.rescuerTripType,
+            ...(patch.breakNum !== undefined
+              ? { breakNum: patch.breakNum }
+              : existing.breakNum
+                ? { breakNum: existing.breakNum }
+                : {}),
+            compensationGiven:
+              patch.location === "قريب"
+                ? 0
+                : (patch.compensationGiven ?? existing.compensationGiven ?? 0),
+            notes: patch.notes ?? existing.notes,
+          },
+        })
+        const recreatedBreakdown = recreated.breakdowns.find(
+          (b) => b.tripId === existing.tripId,
+        )
+        if (recreatedBreakdown) {
+          return {
+            ...recreated,
+            breakdowns: [
+              {
+                ...recreatedBreakdown,
+                id: existing.id,
+                date: existing.date,
+                status: existing.status,
+              },
+              ...recreated.breakdowns.filter(
+                (b) => b.id !== recreatedBreakdown.id,
+              ),
+            ],
+            pendingSyncCount: bumpPendingSync(state),
+          }
+        }
+      }
+
+      // Keep imported/legacy records editable even when they predate the
+      // snapshot fields. New records always use the transactional path above.
       const rescuerName = patch.rescuerId
         ? state.drivers.find((d) => d.id === patch.rescuerId)?.ownerName
         : existing.rescuerName
@@ -1376,9 +1582,18 @@ compensationBalance:
                 rescuerId: patch.rescuerId ?? b.rescuerId,
                 rescuerName,
                 rescuerTripType: patch.rescuerTripType ?? b.rescuerTripType,
-                breakNum: patch.breakNum ?? b.breakNum,
-                compensationGiven: patch.compensationGiven ?? b.compensationGiven,
-                compensation: patch.compensationGiven ?? b.compensation,
+                breakNum:
+                  patch.rescuerTripType === "بدون"
+                    ? undefined
+                    : (patch.breakNum ?? b.breakNum),
+                compensationGiven:
+                  (patch.location ?? b.location) === "قريب"
+                    ? undefined
+                    : (patch.compensationGiven ?? b.compensationGiven ?? 0),
+                compensation:
+                  (patch.location ?? b.location) === "قريب"
+                    ? undefined
+                    : (patch.compensationGiven ?? b.compensation ?? 0),
                 notes: patch.notes ?? b.notes,
               }
             : b,
@@ -1424,22 +1639,31 @@ compensationBalance:
     case "UPDATE_USER":
       return {
         ...state,
-        users: state.users.map((u) => (u.id === action.user.id ? action.user : u)),
+        users: state.users.map((u) =>
+          u.id === action.user.id ? action.user : u,
+        ),
       }
 
     case "DELETE_USER":
-      return { ...state, users: state.users.filter((u) => u.id !== action.userId) }
+      return {
+        ...state,
+        users: state.users.filter((u) => u.id !== action.userId),
+      }
 
     case "SET_MIN_GUARANTORS": {
       const min = Math.max(0, action.min)
       let drivers = state.drivers
       if (min === 0) {
         drivers = drivers.map((d) =>
-          d.status === "غير_نشط" && d.statusReason === "بدون_ضمانة" && !d.violation
+          d.status === "غير_نشط" &&
+          d.statusReason === "بدون_ضمانة" &&
+          !d.violation
             ? { ...d, status: "نشط" as const, statusReason: null, seq: 0 }
             : d,
         )
-        for (const d of drivers.filter((x) => x.status === "نشط" && x.seq === 0)) {
+        for (const d of drivers.filter(
+          (x) => x.status === "نشط" && x.seq === 0,
+        )) {
           drivers = appendActiveDriver(drivers, d.id)
         }
         drivers = reindexActiveDrivers(drivers)
@@ -1453,7 +1677,10 @@ compensationBalance:
     case "SAVE_SCROLL":
       return {
         ...state,
-        scrollPositions: { ...state.scrollPositions, [action.screen]: action.position },
+        scrollPositions: {
+          ...state.scrollPositions,
+          [action.screen]: action.position,
+        },
       }
 
     case "IMPORT_DATA": {
@@ -1461,7 +1688,10 @@ compensationBalance:
       return {
         ...state,
         ...data,
-        minGuarantors: typeof data.minGuarantors === "number" ? Math.max(0, data.minGuarantors) : state.minGuarantors,
+        minGuarantors:
+          typeof data.minGuarantors === "number"
+            ? Math.max(0, data.minGuarantors)
+            : state.minGuarantors,
       }
     }
 
@@ -1475,8 +1705,15 @@ interface AppContextType {
   dispatch: Dispatch<Action>
   navigate: (screen: Screen, params?: Record<string, unknown>) => void
   showSnackbar: (message: string, undoFn?: () => void) => void
-  scheduleDeferredViolation: (driverId: number, vType: ViolationType, driverName: string) => void
-  scheduleDeferredAttendance: (absentDriverIds: number[], onCommit?: () => void) => void
+  scheduleDeferredViolation: (
+    driverId: number,
+    vType: ViolationType,
+    driverName: string,
+  ) => void
+  scheduleDeferredAttendance: (
+    absentDriverIds: number[],
+    onCommit?: () => void,
+  ) => void
   isManager: boolean
   isRegistrationClerk: boolean
   unreadCount: number
@@ -1486,7 +1723,9 @@ const AppContext = createContext<AppContextType | null>(null)
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState)
-  const deferredTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
+  const deferredTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(
+    new Map(),
+  )
 
   useEffect(() => {
     if (state.themePreference !== "auto") return
@@ -1503,9 +1742,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  const navigate = useCallback((screen: Screen, params?: Record<string, unknown>) => {
-    dispatch({ type: "NAVIGATE", screen, params })
-  }, [])
+  const navigate = useCallback(
+    (screen: Screen, params?: Record<string, unknown>) => {
+      dispatch({ type: "NAVIGATE", screen, params })
+    },
+    [],
+  )
 
   const showSnackbar = useCallback((message: string, undoFn?: () => void) => {
     dispatch({ type: "SHOW_SNACKBAR", message, undoFn })
@@ -1549,9 +1791,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       cancelDeferred(key)
       const count = absentDriverIds.length
 
-      showSnackbar(
-        `سيتم حفظ التحضير (${count} مخالفة ت) خلال 5 ثوان...`,
-        () => cancelDeferred(key),
+      showSnackbar(`سيتم حفظ التحضير (${count} مخالفة ت) خلال 5 ثوان...`, () =>
+        cancelDeferred(key),
       )
 
       const timer = setTimeout(() => {

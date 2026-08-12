@@ -1,7 +1,17 @@
 import { useMemo, useState } from "react"
 import { useApp } from "./context"
-import { BottomSheet, useTheme, T, SearchableRosterField, MonochromeIcon } from "./components"
-import { suggestNextBreakNum, eligibleRescueDrivers, matchesNameOrPlate } from "./domain"
+import {
+  BottomSheet,
+  useTheme,
+  T,
+  SearchableRosterField,
+  MonochromeIcon,
+} from "./components"
+import {
+  suggestNextBreakNum,
+  eligibleRescueDrivers,
+  matchesNameOrPlate,
+} from "./domain"
 import { BREAKDOWN_PLACE_SUGGESTIONS } from "./constants"
 import type { Trip, Breakdown, RescuerTripType } from "./data"
 
@@ -14,16 +24,27 @@ type Props = {
 
 const RESCUER_TRIP_TYPES: RescuerTripType[] = ["فرزة", "م1", "م2", "بدون"]
 
-export default function BreakdownSheet({ trip, breakdown, onClose, onSaved }: Props) {
+export default function BreakdownSheet({
+  trip,
+  breakdown,
+  onClose,
+  onSaved,
+}: Props) {
   const { state, dispatch, showSnackbar } = useApp()
   const th = useTheme()
   const isEdit = !!breakdown
   const driver = state.drivers.find((d) => d.id === trip.driverId)
 
-  const [location, setLocation] = useState<"قريب" | "بعيد">(breakdown?.location ?? "قريب")
-  const [breakdownPlace, setBreakdownPlace] = useState(breakdown?.breakdownPlace ?? "")
+  const [location, setLocation] = useState<"قريب" | "بعيد">(
+    breakdown?.location ?? "قريب",
+  )
+  const [breakdownPlace, setBreakdownPlace] = useState(
+    breakdown?.breakdownPlace ?? "",
+  )
   const [action, setAction] = useState<"إلغاء_النهمة" | "إبقاء_النهمة">(
-    breakdown?.action ?? "إبقاء_النهمة",
+    breakdown?.location === "بعيد"
+      ? "إبقاء_النهمة"
+      : (breakdown?.action ?? "إبقاء_النهمة"),
   )
   const [rescuerSearch, setRescuerSearch] = useState("")
   const [rescuerLabel, setRescuerLabel] = useState(
@@ -37,13 +58,20 @@ export default function BreakdownSheet({ trip, breakdown, onClose, onSaved }: Pr
   const [rescuerTripType, setRescuerTripType] = useState<RescuerTripType>(
     breakdown?.rescuerTripType ?? "م2",
   )
-  const [breakNum, setBreakNum] = useState(breakdown?.breakNum ?? suggestNextBreakNum(state.trips))
-  const [compensationGiven, setCompensationGiven] = useState(breakdown?.compensationGiven ?? 0)
+  const [breakNum, setBreakNum] = useState(
+    breakdown?.breakNum ?? suggestNextBreakNum(state.trips),
+  )
+  const [compensationGiven, setCompensationGiven] = useState(
+    breakdown?.compensationGiven ?? 0,
+  )
   const [notes, setNotes] = useState(breakdown?.notes ?? "")
 
   const rescuers = useMemo(() => {
     const base = eligibleRescueDrivers(state.drivers, trip.driverId)
-    if (breakdown?.rescuerId && !base.some((d) => d.id === breakdown.rescuerId)) {
+    if (
+      breakdown?.rescuerId &&
+      !base.some((d) => d.id === breakdown.rescuerId)
+    ) {
       const existing = state.drivers.find((d) => d.id === breakdown.rescuerId)
       if (existing) return [...base, existing]
     }
@@ -52,7 +80,9 @@ export default function BreakdownSheet({ trip, breakdown, onClose, onSaved }: Pr
 
   const selectedRescuer = useMemo(() => {
     if (!rescuerLabel) return undefined
-    return state.drivers.find((r) => `${r.ownerName} · ${r.plate}` === rescuerLabel)
+    return state.drivers.find(
+      (r) => `${r.ownerName} · ${r.plate}` === rescuerLabel,
+    )
   }, [state.drivers, rescuerLabel])
 
   const placeSuggestions = useMemo(() => {
@@ -123,12 +153,20 @@ export default function BreakdownSheet({ trip, breakdown, onClose, onSaved }: Pr
     if (onSaved) {
       onSaved(undo)
     } else {
-      showSnackbar(`تم تسجيل عطل (${location}) للسائق ${driver?.ownerName ?? ""} ✅`, undo)
+      showSnackbar(
+        `تم تسجيل عطل (${location}) للسائق ${driver?.ownerName ?? ""} ✅`,
+        undo,
+      )
     }
     onClose()
   }
 
-  const fieldLabel = { fontSize: 12, color: th.sub, margin: "0 0 8px", fontWeight: 600 as const }
+  const fieldLabel = {
+    fontSize: 12,
+    color: th.sub,
+    margin: "0 0 8px",
+    fontWeight: 600 as const,
+  }
   const toggleBtn = (active: boolean, activeBg: string) => ({
     flex: 1,
     padding: "11px",
@@ -149,23 +187,48 @@ export default function BreakdownSheet({ trip, breakdown, onClose, onSaved }: Pr
       onClose={onClose}
       presentation="dialog"
     >
-      <div style={{ background: th.inputBg, borderRadius: 12, padding: "12px 14px", marginBottom: 16 }}>
+      <div
+        style={{
+          background: th.inputBg,
+          borderRadius: 12,
+          padding: "12px 14px",
+          marginBottom: 16,
+        }}
+      >
         <p style={{ margin: 0, color: th.text, fontSize: 13, fontWeight: 700 }}>
           {driver?.ownerName ?? "—"} · {driver?.plate ?? "—"}
         </p>
-        <p style={{ margin: "6px 0 0", color: th.sub, fontSize: 11, lineHeight: 1.6 }}>
-          نوع البابور: {driver?.type ?? "—"} · الحمولة: {trip.payload || "—"} · الوجهة: {trip.destination || trip.province || "—"}
+        <p
+          style={{
+            margin: "6px 0 0",
+            color: th.sub,
+            fontSize: 11,
+            lineHeight: 1.6,
+          }}
+        >
+          نوع البابور: {driver?.type ?? "—"} · الحمولة: {trip.payload || "—"} ·
+          الوجهة: {trip.destination || trip.province || "—"}
         </p>
         <p style={{ margin: "4px 0 0", color: th.sub, fontSize: 11 }}>
-          رقم الفك: {trip.breakNum || "—"} · تاريخ الخروج: {trip.completedAt ?? trip.createdAt}
+          رقم الفك: {trip.breakNum || "—"} · تاريخ الخروج:{" "}
+          {trip.completedAt ?? trip.createdAt}
         </p>
       </div>
 
       <p style={fieldLabel}>نوع العطل</p>
       <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
         {(["قريب", "بعيد"] as const).map((l) => (
-          <button key={l} type="button" onClick={() => setLocation(l)} style={toggleBtn(location === l, T.primary)}>
-            <MonochromeIcon name="pin" size={15} /> {l === "قريب" ? "قريب من المصنع" : "بعيد عن المصنع"}
+          <button
+            key={l}
+            type="button"
+            onClick={() => {
+              setLocation(l)
+              if (l === "بعيد") setAction("إبقاء_النهمة")
+            }}
+            style={toggleBtn(location === l, T.primary)}
+          >
+            <MonochromeIcon name="pin" size={15} />{" "}
+            {l === "قريب" ? "قريب من المصنع" : "بعيد عن المصنع"}
           </button>
         ))}
       </div>
@@ -198,14 +261,34 @@ export default function BreakdownSheet({ trip, breakdown, onClose, onSaved }: Pr
         </datalist>
       </label>
 
-      <p style={{ ...fieldLabel, marginTop: 16 }}>مصير النهمة الأصلية *</p>
+      <p style={{ ...fieldLabel, marginTop: 16 }}>
+        مصير النهمة الأصلية *
+        {location === "بعيد" && (
+          <span
+            style={{
+              display: "block",
+              marginTop: 4,
+              color: th.muted,
+              fontWeight: 400,
+            }}
+          >
+            العطل البعيد يُبقي النهمة الأصلية مكتملة
+          </span>
+        )}
+      </p>
       <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-        {(["إلغاء_النهمة", "إبقاء_النهمة"] as const).map((a) => (
+        {(location === "بعيد"
+          ? ["إبقاء_النهمة"] as const
+          : ["إلغاء_النهمة", "إبقاء_النهمة"] as const
+        ).map((a) => (
           <button
             key={a}
             type="button"
             onClick={() => setAction(a)}
-            style={toggleBtn(action === a, a === "إلغاء_النهمة" ? T.danger : T.success)}
+            style={toggleBtn(
+              action === a,
+              a === "إلغاء_النهمة" ? T.danger : T.success,
+            )}
           >
             {a === "إلغاء_النهمة" ? "إلغاء النهمة" : "إبقاء النهمة"}
           </button>
@@ -220,7 +303,9 @@ export default function BreakdownSheet({ trip, breakdown, onClose, onSaved }: Pr
         items={rescuers}
         getKey={(d) => d.id}
         formatLabel={(d) => d.ownerName}
-        formatSubLabel={(d) => `${d.plate} · ${d.status === "نشط" ? "نشط" : "غير نشط"}`}
+        formatSubLabel={(d) =>
+          `${d.plate} · ${d.status === "نشط" ? "نشط" : "غير نشط"}`
+        }
         filterItem={(d, q) => matchesNameOrPlate(q, d.ownerName, d.plate)}
         onPick={(d) => setRescuerLabel(`${d.ownerName} · ${d.plate}`)}
         placeholder="ابحث بالاسم أو اللوحة..."
@@ -229,7 +314,14 @@ export default function BreakdownSheet({ trip, breakdown, onClose, onSaved }: Pr
 
       <div style={{ marginTop: 14 }}>
         <p style={fieldLabel}>نوع نهمة المسعف</p>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            flexWrap: "wrap",
+            marginBottom: 12,
+          }}
+        >
           {RESCUER_TRIP_TYPES.map((t) => (
             <button
               key={t}
@@ -279,7 +371,10 @@ export default function BreakdownSheet({ trip, breakdown, onClose, onSaved }: Pr
                 key={n}
                 type="button"
                 onClick={() => setCompensationGiven(n)}
-                style={{ ...toggleBtn(compensationGiven === n, T.warning), flex: 1 }}
+                style={{
+                  ...toggleBtn(compensationGiven === n, T.warning),
+                  flex: 1,
+                }}
               >
                 {n}
               </button>
