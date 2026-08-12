@@ -108,6 +108,8 @@ export interface Breakdown {
   driverName: string
   plate: string
   location: "قريب" | "بعيد"
+  /** مكان وقوع العطل (نص حر أو من القائمة) */
+  breakdownPlace?: string
   action?: "إلغاء_النهمة" | "إبقاء_النهمة"
   rescuerId?: number
   rescuerName?: string
@@ -283,8 +285,8 @@ export const VIOLATIONS_DATA: Violation[] = [
 ]
 
 export const BREAKDOWNS_DATA: Breakdown[] = [
-  { id: 1, tripId: 5, tripType: "فرزة", driverId: 1, driverName: "أحمد محمد العمري", plate: "ع ب ج 1234", location: "قريب", action: "إبقاء_النهمة", date: "2024-01-14", status: "منتهي" },
-  { id: 2, tripId: 6, tripType: "م1", driverId: 4, driverName: "سلطان فهد الشمري", plate: "ح ط س 3456", location: "بعيد", rescuerId: 10, rescuerName: "نواف السبيعي", rescuerTripType: "م2", breakNum: "WS001", compensation: 800, compensationGiven: 800, date: "2024-01-13", status: "منتهي" },
+  { id: 1, tripId: 5, tripType: "فرزة", driverId: 1, driverName: "أحمد محمد العمري", plate: "ع ب ج 1234", location: "قريب", breakdownPlace: "قرب المصنع", action: "إبقاء_النهمة", date: "2024-01-14", status: "منتهي" },
+  { id: 2, tripId: 6, tripType: "م1", driverId: 4, driverName: "سلطان فهد الشمري", plate: "ح ط س 3456", location: "بعيد", breakdownPlace: "الطريق السريع", action: "إبقاء_النهمة", rescuerId: 10, rescuerName: "نواف السبيعي", rescuerTripType: "م2", breakNum: "WS001", compensation: 1, compensationGiven: 1, date: "2024-01-13", status: "منتهي" },
 ]
 
 export const NOTIFICATIONS_DATA: Notification[] = [

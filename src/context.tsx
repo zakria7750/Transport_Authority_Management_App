@@ -126,9 +126,10 @@ export type TripEditPayload = {
 export type BreakdownCreatePayload = {
   tripId: number
   location: "قريب" | "بعيد"
-  action?: "إلغاء_النهمة" | "إبقاء_النهمة"
-  rescuerId?: number
-  rescuerTripType?: RescuerTripType
+  breakdownPlace: string
+  action: "إلغاء_النهمة" | "إبقاء_النهمة"
+  rescuerId: number
+  rescuerTripType: RescuerTripType
   breakNum?: string
   compensationGiven?: number
   notes?: string
@@ -1161,17 +1162,23 @@ compensationBalance:
       const trip = state.trips.find((t) => t.id === action.breakdown.tripId)
       const driver = trip ? state.drivers.find((d) => d.id === trip.driverId) : undefined
       if (!trip || !driver) return state
+      if (trip.status !== "مكتملة" || trip.completionState !== "جارية") return state
 
       const location = action.breakdown.location
-      const actionChoice = action.breakdown.action ?? "إبقاء_النهمة"
+      const actionChoice = action.breakdown.action
       const keepOriginalTrip = actionChoice === "إبقاء_النهمة"
-      const rescuer = action.breakdown.rescuerId
-        ? state.drivers.find((d) => d.id === action.breakdown.rescuerId)
-        : undefined
+      const breakdownPlace = action.breakdown.breakdownPlace.trim()
+      if (!breakdownPlace) return state
+
+      const rescuer = state.drivers.find((d) => d.id === action.breakdown.rescuerId)
+      if (!rescuer || rescuer.violation) return state
+
       const compensationGiven =
         location === "بعيد"
           ? Math.max(0, Math.floor(action.breakdown.compensationGiven ?? 0))
-          : undefined
+          : 0
+      const rescuerType = action.breakdown.rescuerTripType
+
       const b: Breakdown = {
         id: nextId(),
         tripId: trip.id,
@@ -1180,20 +1187,21 @@ compensationBalance:
         driverName: driver.ownerName,
         plate: driver.plate,
         location,
+        breakdownPlace,
         action: actionChoice,
-        rescuerId: action.breakdown.rescuerId,
-        rescuerName: rescuer?.ownerName,
-        rescuerTripType: action.breakdown.rescuerTripType,
-        breakNum: action.breakdown.rescuerTripType === "بدون" ? undefined : action.breakdown.breakNum,
-        compensationGiven,
-        compensation: compensationGiven,
+        rescuerId: rescuer.id,
+        rescuerName: rescuer.ownerName,
+        rescuerTripType: rescuerType,
+        breakNum: rescuerType === "بدون" ? undefined : action.breakdown.breakNum,
+        compensationGiven: location === "بعيد" ? compensationGiven : undefined,
+        compensation: location === "بعيد" ? compensationGiven : undefined,
         payload: trip.payload,
         province: trip.province,
         destinationType: trip.destinationType,
         destination: trip.destination,
         notes: action.breakdown.notes,
         ownerSnapshot: snapshotDriver(driver),
-        rescuerSnapshot: rescuer ? snapshotDriver(rescuer) : undefined,
+        rescuerSnapshot: snapshotDriver(rescuer),
         originalTripStatus: trip.status,
         originalTripCompletionState: trip.completionState,
         originalTripCompletedAt: trip.completedAt,
@@ -1231,8 +1239,7 @@ compensationBalance:
         )
       }
 
-      const rescuerType = action.breakdown.rescuerTripType
-      if (rescuer && rescuerType && rescuerType !== "بدون" && !rescuer.currentTrip) {
+      if (rescuerType !== "بدون" && !rescuer.currentTrip) {
         const rescuerTrip: Trip = {
           id: nextId(),
           driverId: rescuer.id,
@@ -1244,7 +1251,8 @@ compensationBalance:
           breakNum: action.breakdown.breakNum ?? suggestNextBreakNum(trips),
           status: "مؤكدة_مبدئياً",
           createdAt: new Date().toLocaleString("ar-SA"),
-          breakdownLocation: b.location,
+          breakdownLocation: breakdownPlace,
+          preTripSnapshot: snapshotDriver(rescuer),
         }
         b.rescuerTripId = rescuerTrip.id
         trips = [rescuerTrip, ...trips]
@@ -1253,11 +1261,14 @@ compensationBalance:
             ? {
                 ...item,
                 currentTrip: rescuerType,
-                compensationBalance: item.compensationBalance + (compensationGiven ?? 0),
+                compensationBalance:
+                  location === "بعيد"
+                    ? item.compensationBalance + compensationGiven
+                    : item.compensationBalance,
               }
             : item,
         )
-      } else if (rescuer && compensationGiven) {
+      } else if (location === "بعيد" && compensationGiven > 0) {
         drivers = drivers.map((item) =>
           item.id === rescuer.id
             ? { ...item, compensationBalance: item.compensationBalance + compensationGiven }
@@ -1275,7 +1286,7 @@ compensationBalance:
           icon: "🔧",
           type: "عطل",
           title: "بلاغ عطل",
-          message: `تم تسجيل عطل ${action.breakdown.location} للسائق ${driver.ownerName}`,
+          message: `تم تسجيل عطل ${location} للسائق ${driver.ownerName} — ${breakdownPlace}`,
         }),
         pendingSyncCount: bumpPendingSync(state),
       }
@@ -1343,13 +1354,24 @@ compensationBalance:
       const rescuerName = patch.rescuerId
         ? state.drivers.find((d) => d.id === patch.rescuerId)?.ownerName
         : existing.rescuerName
+      const nextPlace = patch.breakdownPlace?.trim() ?? existing.breakdownPlace
+      let trips = state.trips
+      if (existing.rescuerTripId && nextPlace) {
+        trips = trips.map((trip) =>
+          trip.id === existing.rescuerTripId
+            ? { ...trip, breakdownLocation: nextPlace }
+            : trip,
+        )
+      }
       return {
         ...state,
+        trips,
         breakdowns: state.breakdowns.map((b) =>
           b.id === action.breakdownId
             ? {
                 ...b,
                 location: patch.location ?? b.location,
+                breakdownPlace: nextPlace ?? b.breakdownPlace,
                 action: patch.action ?? b.action,
                 rescuerId: patch.rescuerId ?? b.rescuerId,
                 rescuerName,

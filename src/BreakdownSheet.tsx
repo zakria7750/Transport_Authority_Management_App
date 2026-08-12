@@ -1,25 +1,27 @@
-import { useState, useMemo } from "react"
+import { useMemo, useState } from "react"
 import { useApp } from "./context"
 import { BottomSheet, useTheme, T, SearchableRosterField, MonochromeIcon } from "./components"
 import { suggestNextBreakNum, eligibleRescueDrivers, matchesNameOrPlate } from "./domain"
-import type { Trip, Breakdown } from "./data"
-import type { RescuerTripType } from "./data"
+import { BREAKDOWN_PLACE_SUGGESTIONS } from "./constants"
+import type { Trip, Breakdown, RescuerTripType } from "./data"
 
 type Props = {
   trip: Trip
   breakdown?: Breakdown
   onClose: () => void
+  onSaved?: (undo: () => void) => void
 }
 
-const RESCUER_TRIP_TYPES: RescuerTripType[] = ["م1", "م2", "فرزة", "بدون"]
+const RESCUER_TRIP_TYPES: RescuerTripType[] = ["فرزة", "م1", "م2", "بدون"]
 
-export default function BreakdownSheet({ trip, breakdown, onClose }: Props) {
+export default function BreakdownSheet({ trip, breakdown, onClose, onSaved }: Props) {
   const { state, dispatch, showSnackbar } = useApp()
   const th = useTheme()
   const isEdit = !!breakdown
   const driver = state.drivers.find((d) => d.id === trip.driverId)
 
   const [location, setLocation] = useState<"قريب" | "بعيد">(breakdown?.location ?? "قريب")
+  const [breakdownPlace, setBreakdownPlace] = useState(breakdown?.breakdownPlace ?? "")
   const [action, setAction] = useState<"إلغاء_النهمة" | "إبقاء_النهمة">(
     breakdown?.action ?? "إبقاء_النهمة",
   )
@@ -53,9 +55,26 @@ export default function BreakdownSheet({ trip, breakdown, onClose }: Props) {
     return state.drivers.find((r) => `${r.ownerName} · ${r.plate}` === rescuerLabel)
   }, [state.drivers, rescuerLabel])
 
+  const placeSuggestions = useMemo(() => {
+    const query = breakdownPlace.trim().toLowerCase()
+    const base = [...BREAKDOWN_PLACE_SUGGESTIONS]
+    if (query && !base.some((item) => item.toLowerCase() === query)) {
+      return [breakdownPlace.trim(), ...base]
+    }
+    return base
+  }, [breakdownPlace])
+
   const submit = () => {
-    if (location === "بعيد" && !selectedRescuer) {
-      showSnackbar("يرجى اختيار المسعف ⚠️")
+    if (!breakdownPlace.trim()) {
+      showSnackbar("يرجى تحديد مكان العطل ⚠️")
+      return
+    }
+    if (!selectedRescuer) {
+      showSnackbar("يرجى اختيار البابور المسعف ⚠️")
+      return
+    }
+    if (rescuerTripType !== "بدون" && !breakNum.trim()) {
+      showSnackbar("يرجى إدخال رقم الفك للمسعف ⚠️")
       return
     }
 
@@ -65,16 +84,13 @@ export default function BreakdownSheet({ trip, breakdown, onClose }: Props) {
         breakdownId: breakdown.id,
         patch: {
           location,
+          breakdownPlace: breakdownPlace.trim(),
           action,
           notes,
-          ...(location === "بعيد"
-            ? {
-                rescuerId: selectedRescuer!.id,
-                rescuerTripType,
-                ...(rescuerTripType !== "بدون" ? { breakNum } : {}),
-                compensationGiven,
-              }
-            : {}),
+          rescuerId: selectedRescuer.id,
+          rescuerTripType,
+          ...(rescuerTripType !== "بدون" ? { breakNum } : {}),
+          compensationGiven: location === "بعيد" ? compensationGiven : 0,
         },
       })
       showSnackbar(`تم تحديث عطل ${driver?.ownerName ?? ""} ✅`)
@@ -82,26 +98,49 @@ export default function BreakdownSheet({ trip, breakdown, onClose }: Props) {
       return
     }
 
+    const snapshot = {
+      drivers: state.drivers,
+      trips: state.trips,
+      breakdowns: state.breakdowns,
+    }
+
     dispatch({
       type: "ADD_BREAKDOWN",
       breakdown: {
         tripId: trip.id,
         location,
+        breakdownPlace: breakdownPlace.trim(),
         action,
         notes,
-        ...(location === "بعيد"
-          ? {
-              rescuerId: selectedRescuer!.id,
-              rescuerTripType,
-              ...(rescuerTripType !== "بدون" ? { breakNum } : {}),
-              compensationGiven,
-            }
-          : {}),
+        rescuerId: selectedRescuer.id,
+        rescuerTripType,
+        ...(rescuerTripType !== "بدون" ? { breakNum } : {}),
+        compensationGiven: location === "بعيد" ? compensationGiven : 0,
       },
     })
-    showSnackbar(`تم تسجيل عطل (${location}) للسائق ${driver?.ownerName ?? ""} ✅`)
+
+    const undo = () => dispatch({ type: "RESTORE_BREAKDOWN_STATE", snapshot })
+    if (onSaved) {
+      onSaved(undo)
+    } else {
+      showSnackbar(`تم تسجيل عطل (${location}) للسائق ${driver?.ownerName ?? ""} ✅`, undo)
+    }
     onClose()
   }
+
+  const fieldLabel = { fontSize: 12, color: th.sub, margin: "0 0 8px", fontWeight: 600 as const }
+  const toggleBtn = (active: boolean, activeBg: string) => ({
+    flex: 1,
+    padding: "11px",
+    borderRadius: 10,
+    border: "none" as const,
+    background: active ? activeBg : th.inputBg,
+    color: active ? "#fff" : th.sub,
+    fontWeight: 700,
+    fontSize: 12,
+    cursor: "pointer" as const,
+    fontFamily: "inherit" as const,
+  })
 
   return (
     <BottomSheet
@@ -110,167 +149,165 @@ export default function BreakdownSheet({ trip, breakdown, onClose }: Props) {
       onClose={onClose}
       presentation="dialog"
     >
-      <div style={{ background: th.inputBg, borderRadius: 12, padding: "10px 12px", marginBottom: 14 }}>
-        <p style={{ margin: 0, color: th.text, fontSize: 12, fontWeight: 700 }}>{driver?.ownerName ?? "—"} · {driver?.plate ?? "—"}</p>
-        <p style={{ margin: "4px 0 0", color: th.sub, fontSize: 11 }}>
-          {driver?.type ?? "—"} · {trip.payload || "—"} · {trip.destination || "—"} · {trip.breakNum || "—"}
+      <div style={{ background: th.inputBg, borderRadius: 12, padding: "12px 14px", marginBottom: 16 }}>
+        <p style={{ margin: 0, color: th.text, fontSize: 13, fontWeight: 700 }}>
+          {driver?.ownerName ?? "—"} · {driver?.plate ?? "—"}
         </p>
-        <p style={{ margin: "4px 0 0", color: th.muted, fontSize: 10 }}>تاريخ الخروج: {trip.completedAt ?? trip.createdAt}</p>
+        <p style={{ margin: "6px 0 0", color: th.sub, fontSize: 11, lineHeight: 1.6 }}>
+          نوع البابور: {driver?.type ?? "—"} · الحمولة: {trip.payload || "—"} · الوجهة: {trip.destination || trip.province || "—"}
+        </p>
+        <p style={{ margin: "4px 0 0", color: th.sub, fontSize: 11 }}>
+          رقم الفك: {trip.breakNum || "—"} · تاريخ الخروج: {trip.completedAt ?? trip.createdAt}
+        </p>
       </div>
-      <p style={{ fontSize: 12, color: th.sub, margin: "0 0 8px" }}>موقع العطل</p>
+
+      <p style={fieldLabel}>نوع العطل</p>
       <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
         {(["قريب", "بعيد"] as const).map((l) => (
-          <button
-            key={l}
-            type="button"
-            onClick={() => setLocation(l)}
-            style={{
-              flex: 1,
-              padding: "11px",
-              borderRadius: 10,
-              border: "none",
-              background: location === l ? T.primary : th.inputBg,
-              color: location === l ? "#fff" : th.sub,
-              fontWeight: 700,
-              fontSize: 13,
-              cursor: "pointer",
-              fontFamily: "inherit",
-            }}
-          >
-            <><MonochromeIcon name="pin" size={15} /> {l}</>
+          <button key={l} type="button" onClick={() => setLocation(l)} style={toggleBtn(location === l, T.primary)}>
+            <MonochromeIcon name="pin" size={15} /> {l === "قريب" ? "قريب من المصنع" : "بعيد عن المصنع"}
           </button>
         ))}
       </div>
 
-      <p style={{ fontSize: 12, color: th.sub, margin: "0 0 8px" }}>مصير النهمة الأصلية</p>
+      <label style={{ ...fieldLabel, display: "block" }}>
+        مكان العطل *
+        <input
+          list="breakdown-place-options"
+          value={breakdownPlace}
+          onChange={(e) => setBreakdownPlace(e.target.value)}
+          placeholder="أدخل أو اختر مكان العطل..."
+          style={{
+            display: "block",
+            width: "100%",
+            marginTop: 6,
+            padding: "10px 12px",
+            borderRadius: 10,
+            border: `1px solid ${th.border}`,
+            background: th.inputBg,
+            color: th.text,
+            fontSize: 14,
+            fontFamily: "inherit",
+            boxSizing: "border-box",
+          }}
+        />
+        <datalist id="breakdown-place-options">
+          {placeSuggestions.map((place) => (
+            <option key={place} value={place} />
+          ))}
+        </datalist>
+      </label>
+
+      <p style={{ ...fieldLabel, marginTop: 16 }}>مصير النهمة الأصلية *</p>
       <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
         {(["إلغاء_النهمة", "إبقاء_النهمة"] as const).map((a) => (
           <button
             key={a}
             type="button"
             onClick={() => setAction(a)}
-            style={{
-              flex: 1,
-              padding: "11px",
-              borderRadius: 10,
-              border: "none",
-              background:
-                action === a
-                  ? a === "إلغاء_النهمة"
-                    ? T.danger
-                    : T.success
-                  : th.inputBg,
-              color: action === a ? "#fff" : th.sub,
-              fontWeight: 700,
-              fontSize: 12,
-              cursor: "pointer",
-              fontFamily: "inherit",
-            }}
+            style={toggleBtn(action === a, a === "إلغاء_النهمة" ? T.danger : T.success)}
           >
-            {a.replace("_", " ")}
+            {a === "إلغاء_النهمة" ? "إلغاء النهمة" : "إبقاء النهمة"}
           </button>
         ))}
       </div>
 
-      {location === "بعيد" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 16 }}>
-          <SearchableRosterField
-            label="المسعف"
-            query={rescuerSearch}
-            onQueryChange={setRescuerSearch}
-            selectedLabel={rescuerLabel || undefined}
-            items={rescuers}
-            getKey={(d) => d.id}
-            formatLabel={(d) => d.ownerName}
-            formatSubLabel={(d) => `${d.plate} · ${d.status === "نشط" ? "نشط" : "غير نشط"}`}
-            filterItem={(d, q) => matchesNameOrPlate(q, d.ownerName, d.plate)}
-            onPick={(d) => setRescuerLabel(`${d.ownerName} · ${d.plate}`)}
-            placeholder="ابحث بالاسم أو اللوحة..."
-            emptyHint="لا يوجد مسعف مطابق في الكشف"
-          />
-          {rescuerTripType !== "بدون" && (
-          <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: th.sub, display: "block", marginBottom: 6 }}>
-              نوع نهمة المسعف
-            </label>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              {RESCUER_TRIP_TYPES.map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => setRescuerTripType(t)}
-                  style={{
-                    flex: t === "بدون" ? "1 1 100%" : 1,
-                    padding: "8px",
-                    borderRadius: 10,
-                    border: "none",
-                    background: rescuerTripType === t ? T.primary : th.inputBg,
-                    color: rescuerTripType === t ? "#fff" : th.text,
-                    fontSize: 12,
-                    cursor: "pointer",
-                    fontFamily: "inherit",
-                  }}
-                >
-                  {t === "بدون" ? "بدون (لا تُنشأ نهمة)" : t}
-                </button>
-              ))}
-            </div>
-          </div>
-          )}
-          <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: th.sub, display: "block", marginBottom: 6 }}>
-              رقم الفك الجديد
-            </label>
-            {rescuerTripType !== "بدون" && (
-              <input
-                value={breakNum}
-                onChange={(e) => setBreakNum(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "10px 12px",
-                  borderRadius: 10,
-                  border: `1px solid ${th.border}`,
-                  background: th.inputBg,
-                  color: th.text,
-                  fontSize: 14,
-                  fontFamily: "inherit",
-                  boxSizing: "border-box",
-                }}
-              />
-            )}
-          </div>
-          <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: th.sub, display: "block", marginBottom: 6 }}>
-              عدد التعويضات
-            </label>
-            <input
-              type="number"
-              value={compensationGiven}
-              onChange={(e) => setCompensationGiven(Number(e.target.value) || 0)}
+      <SearchableRosterField
+        label="اختيار بابور مسعف *"
+        query={rescuerSearch}
+        onQueryChange={setRescuerSearch}
+        selectedLabel={rescuerLabel || undefined}
+        items={rescuers}
+        getKey={(d) => d.id}
+        formatLabel={(d) => d.ownerName}
+        formatSubLabel={(d) => `${d.plate} · ${d.status === "نشط" ? "نشط" : "غير نشط"}`}
+        filterItem={(d, q) => matchesNameOrPlate(q, d.ownerName, d.plate)}
+        onPick={(d) => setRescuerLabel(`${d.ownerName} · ${d.plate}`)}
+        placeholder="ابحث بالاسم أو اللوحة..."
+        emptyHint="لا يوجد مسعف مطابق (يُستبعد المخالفون)"
+      />
+
+      <div style={{ marginTop: 14 }}>
+        <p style={fieldLabel}>نوع نهمة المسعف</p>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+          {RESCUER_TRIP_TYPES.map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setRescuerTripType(t)}
               style={{
-                width: "100%",
-                padding: "10px 12px",
-                borderRadius: 10,
-                border: `1px solid ${th.border}`,
-                background: th.inputBg,
-                color: th.text,
-                fontSize: 14,
-                fontFamily: "inherit",
-                boxSizing: "border-box",
+                ...toggleBtn(rescuerTripType === t, T.primary),
+                flex: t === "بدون" ? "1 1 100%" : 1,
+                minWidth: 70,
               }}
-            />
+            >
+              {t === "بدون" ? "بدون (لا تُنشأ نهمة)" : t}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {rescuerTripType !== "بدون" && (
+        <label style={{ ...fieldLabel, display: "block", marginBottom: 12 }}>
+          رقم الفك الجديد
+          <input
+            value={breakNum}
+            onChange={(e) => setBreakNum(e.target.value)}
+            style={{
+              display: "block",
+              width: "100%",
+              marginTop: 6,
+              padding: "10px 12px",
+              borderRadius: 10,
+              border: `1px solid ${th.border}`,
+              background: th.inputBg,
+              color: th.text,
+              fontSize: 14,
+              fontFamily: "inherit",
+              boxSizing: "border-box",
+            }}
+          />
+        </label>
+      )}
+
+      {location === "بعيد" && (
+        <div style={{ marginBottom: 14 }}>
+          <p style={fieldLabel}>عدد التعويضات للمسعف</p>
+          <div style={{ display: "flex", gap: 8 }}>
+            {[0, 1, 2, 3].map((n) => (
+              <button
+                key={n}
+                type="button"
+                onClick={() => setCompensationGiven(n)}
+                style={{ ...toggleBtn(compensationGiven === n, T.warning), flex: 1 }}
+              >
+                {n}
+              </button>
+            ))}
           </div>
         </div>
       )}
 
-      <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: th.sub, marginBottom: 16 }}>
+      <label style={{ ...fieldLabel, display: "block", marginBottom: 16 }}>
         ملاحظات
         <textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           rows={3}
-          placeholder="أضف تفاصيل إضافية عن العطل..."
-          style={{ display: "block", width: "100%", marginTop: 6, padding: "10px 12px", borderRadius: 10, border: `1px solid ${th.border}`, background: th.inputBg, color: th.text, fontFamily: "inherit", resize: "vertical", boxSizing: "border-box" }}
+          placeholder="تفاصيل إضافية عن العطل..."
+          style={{
+            display: "block",
+            width: "100%",
+            marginTop: 6,
+            padding: "10px 12px",
+            borderRadius: 10,
+            border: `1px solid ${th.border}`,
+            background: th.inputBg,
+            color: th.text,
+            fontFamily: "inherit",
+            resize: "vertical",
+            boxSizing: "border-box",
+          }}
         />
       </label>
 
@@ -308,7 +345,15 @@ export default function BreakdownSheet({ trip, breakdown, onClose }: Props) {
             fontFamily: "inherit",
           }}
         >
-          {isEdit ? <><MonochromeIcon name="check" size={15} /> حفظ التعديل</> : <><MonochromeIcon name="check" size={15} /> تأكيد التسجيل</>}
+          {isEdit ? (
+            <>
+              <MonochromeIcon name="check" size={15} /> حفظ التعديل
+            </>
+          ) : (
+            <>
+              <MonochromeIcon name="check" size={15} /> تأكيد تسجيل العطل
+            </>
+          )}
         </button>
       </div>
     </BottomSheet>

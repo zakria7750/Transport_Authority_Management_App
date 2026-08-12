@@ -52,6 +52,18 @@ export const DESTINATION_SUGGESTIONS = [
   "أبين",
 ] as const
 
+export const BREAKDOWN_PLACE_SUGGESTIONS = [
+  "قرب المصنع",
+  "بوابة المصنع",
+  "الطريق السريع",
+  "مأرب",
+  "تعز",
+  "الحديدة",
+  "عدن",
+  "صنعاء",
+  ...DESTINATION_SUGGESTIONS,
+] as const
+
 export const ADDABLE_STATUS_REASONS = [
   "مفروز",
   "ملغي",
