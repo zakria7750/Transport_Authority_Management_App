@@ -1210,56 +1210,65 @@ export function BreakdownsScreen() {
   const th = useTheme()
   const [breakdownTrip, setBreakdownTrip] = useState<Trip | null>(null)
   const [editBreakdownId, setEditBreakdownId] = useState<number | null>(null)
+  const [detailBreakdownId, setDetailBreakdownId] = useState<number | null>(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null)
   const [search, setSearch] = useState("")
-  const [statusFilter, setStatusFilter] = useState<"all" | "نشط" | "منتهي">("all")
-  const [locationFilter, setLocationFilter] = useState<"all" | "قريب" | "بعيد">("all")
-  // Task 48: manual add state
-  const [showManualAdd, setShowManualAdd] = useState(false)
-  const [manualDriverSearch, setManualDriverSearch] = useState("")
-  const [manualDriverId, setManualDriverId] = useState<number | null>(null)
-  const [manualLocation, setManualLocation] = useState<"قريب" | "بعيد">("قريب")
+  const [statusFilter, setStatusFilter] = useState<"all" | "جارية" | "مكتملة" | "قريب" | "بعيد">("all")
 
-  // All breakdowns (tasks 44-45: search + full list)
+  const breakdownForTrip = (tripId: number) => state.breakdowns.find((b) => b.tripId === tripId)
+  const ongoingTrips = state.trips.filter(
+    (trip) => trip.status === "مكتملة" && trip.completionState === "جارية" && !breakdownForTrip(trip.id),
+  )
+  const completedTrips = state.trips.filter(
+    (trip) => trip.status === "مكتملة" && trip.completionState !== "جارية" && !breakdownForTrip(trip.id),
+  )
+
   const allBreakdowns = state.breakdowns.filter((b) => {
     const matchesSearch = !search ||
       b.driverName.includes(search) ||
       b.plate.includes(search) ||
       b.tripType?.includes(search)
-    const matchesStatus = statusFilter === "all" || b.status === statusFilter
-    const matchesLocation = locationFilter === "all" || b.location === locationFilter
-    return matchesSearch && matchesStatus && matchesLocation
+    const matchesLocation = statusFilter === "all" || statusFilter === "جارية" || statusFilter === "مكتملة" || b.location === statusFilter
+    return matchesSearch && matchesLocation
   })
 
-  // Completed trips without a breakdown (for registering new breakdown)
-  const completedTripsWithoutBreakdown = state.trips.filter(
-    (t) => t.status === "مكتملة" && !state.breakdowns.find((b) => b.tripId === t.id)
-  )
+  const visibleOngoingTrips = statusFilter === "all" || statusFilter === "جارية"
+    ? ongoingTrips.filter((trip) => {
+        const driver = state.drivers.find((item) => item.id === trip.driverId)
+        return !search || driver?.ownerName.includes(search) || driver?.plate.includes(search)
+      })
+    : []
+  const visibleCompletedTrips = statusFilter === "all" || statusFilter === "مكتملة"
+    ? completedTrips.filter((trip) => {
+        const driver = state.drivers.find((item) => item.id === trip.driverId)
+        return !search || driver?.ownerName.includes(search) || driver?.plate.includes(search)
+      })
+    : []
 
   const editTrip = editBreakdownId !== null
     ? state.trips.find((t) => t.id === state.breakdowns.find((b) => b.id === editBreakdownId)?.tripId)
     : undefined
 
+  const detailBreakdown = detailBreakdownId !== null
+    ? state.breakdowns.find((b) => b.id === detailBreakdownId)
+    : undefined
+
   const handleDeleteBreakdown = (b: import("../data").Breakdown) => {
-    const snap = { ...b }
+    setConfirmDeleteId(b.id)
+  }
+
+  const confirmDeleteBreakdown = (b: import("../data").Breakdown) => {
+    const snapshot = {
+      drivers: state.drivers,
+      trips: state.trips,
+      breakdowns: state.breakdowns,
+    }
     dispatch({ type: "DELETE_BREAKDOWN", breakdownId: b.id })
     showSnackbar(`تم حذف عطل ${b.driverName}`, () => {
-      // Restore (re-add breakdown snapshot)
-      dispatch({ type: "ADD_BREAKDOWN_MANUAL", driverId: b.driverId, location: b.location, date: b.date })
+      dispatch({ type: "RESTORE_BREAKDOWN_STATE", snapshot })
     })
+    setConfirmDeleteId(null)
   }
-
-  const handleManualAdd = () => {
-    if (!manualDriverId) return
-    dispatch({ type: "ADD_BREAKDOWN_MANUAL", driverId: manualDriverId, location: manualLocation })
-    showSnackbar("تم تسجيل العطل اليدوي ✅")
-    setShowManualAdd(false)
-    setManualDriverSearch("")
-    setManualDriverId(null)
-  }
-
-  const filteredDriversForManual = state.drivers.filter(
-    (d) => !manualDriverSearch || d.ownerName.includes(manualDriverSearch) || d.plate.includes(manualDriverSearch)
-  ).slice(0, 6)
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", background: th.bg, overflow: "hidden", position: "relative" }}>

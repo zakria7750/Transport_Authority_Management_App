@@ -36,7 +36,8 @@ export default function BreakdownSheet({ trip, breakdown, onClose }: Props) {
     breakdown?.rescuerTripType ?? "م2",
   )
   const [breakNum, setBreakNum] = useState(breakdown?.breakNum ?? suggestNextBreakNum(state.trips))
-  const [compensationGiven, setCompensationGiven] = useState(breakdown?.compensationGiven ?? 500)
+  const [compensationGiven, setCompensationGiven] = useState(breakdown?.compensationGiven ?? 0)
+  const [notes, setNotes] = useState(breakdown?.notes ?? "")
 
   const rescuers = useMemo(() => {
     const base = eligibleRescueDrivers(state.drivers, trip.driverId)
@@ -64,14 +65,16 @@ export default function BreakdownSheet({ trip, breakdown, onClose }: Props) {
         breakdownId: breakdown.id,
         patch: {
           location,
-          ...(location === "قريب"
-            ? { action }
-            : {
+          action,
+          notes,
+          ...(location === "بعيد"
+            ? {
                 rescuerId: selectedRescuer!.id,
                 rescuerTripType,
-                breakNum,
+                ...(rescuerTripType !== "بدون" ? { breakNum } : {}),
                 compensationGiven,
-              }),
+              }
+            : {}),
         },
       })
       showSnackbar(`تم تحديث عطل ${driver?.ownerName ?? ""} ✅`)
@@ -84,14 +87,16 @@ export default function BreakdownSheet({ trip, breakdown, onClose }: Props) {
       breakdown: {
         tripId: trip.id,
         location,
-        ...(location === "قريب"
-          ? { action }
-          : {
+        action,
+        notes,
+        ...(location === "بعيد"
+          ? {
               rescuerId: selectedRescuer!.id,
               rescuerTripType,
-              breakNum,
+              ...(rescuerTripType !== "بدون" ? { breakNum } : {}),
               compensationGiven,
-            }),
+            }
+          : {}),
       },
     })
     showSnackbar(`تم تسجيل عطل (${location}) للسائق ${driver?.ownerName ?? ""} ✅`)
@@ -103,7 +108,15 @@ export default function BreakdownSheet({ trip, breakdown, onClose }: Props) {
       title={isEdit ? "تعديل العطل" : "تسجيل عطل"}
       subtitle={`${driver?.ownerName ?? ""} · ${trip.type} · ${trip.breakNum}`}
       onClose={onClose}
+      presentation="dialog"
     >
+      <div style={{ background: th.inputBg, borderRadius: 12, padding: "10px 12px", marginBottom: 14 }}>
+        <p style={{ margin: 0, color: th.text, fontSize: 12, fontWeight: 700 }}>{driver?.ownerName ?? "—"} · {driver?.plate ?? "—"}</p>
+        <p style={{ margin: "4px 0 0", color: th.sub, fontSize: 11 }}>
+          {driver?.type ?? "—"} · {trip.payload || "—"} · {trip.destination || "—"} · {trip.breakNum || "—"}
+        </p>
+        <p style={{ margin: "4px 0 0", color: th.muted, fontSize: 10 }}>تاريخ الخروج: {trip.completedAt ?? trip.createdAt}</p>
+      </div>
       <p style={{ fontSize: 12, color: th.sub, margin: "0 0 8px" }}>موقع العطل</p>
       <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
         {(["قريب", "بعيد"] as const).map((l) => (
@@ -129,39 +142,37 @@ export default function BreakdownSheet({ trip, breakdown, onClose }: Props) {
         ))}
       </div>
 
-      {location === "قريب" ? (
-        <>
-          <p style={{ fontSize: 12, color: th.sub, margin: "0 0 8px" }}>حالة النهمة</p>
-          <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-            {(["إلغاء_النهمة", "إبقاء_النهمة"] as const).map((a) => (
-              <button
-                key={a}
-                type="button"
-                onClick={() => setAction(a)}
-                style={{
-                  flex: 1,
-                  padding: "11px",
-                  borderRadius: 10,
-                  border: "none",
-                  background:
-                    action === a
-                      ? a === "إلغاء_النهمة"
-                        ? T.danger
-                        : T.success
-                      : th.inputBg,
-                  color: action === a ? "#fff" : th.sub,
-                  fontWeight: 700,
-                  fontSize: 12,
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                }}
-              >
-                {a.replace("_", " ")}
-              </button>
-            ))}
-          </div>
-        </>
-      ) : (
+      <p style={{ fontSize: 12, color: th.sub, margin: "0 0 8px" }}>مصير النهمة الأصلية</p>
+      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+        {(["إلغاء_النهمة", "إبقاء_النهمة"] as const).map((a) => (
+          <button
+            key={a}
+            type="button"
+            onClick={() => setAction(a)}
+            style={{
+              flex: 1,
+              padding: "11px",
+              borderRadius: 10,
+              border: "none",
+              background:
+                action === a
+                  ? a === "إلغاء_النهمة"
+                    ? T.danger
+                    : T.success
+                  : th.inputBg,
+              color: action === a ? "#fff" : th.sub,
+              fontWeight: 700,
+              fontSize: 12,
+              cursor: "pointer",
+              fontFamily: "inherit",
+            }}
+          >
+            {a.replace("_", " ")}
+          </button>
+        ))}
+      </div>
+
+      {location === "بعيد" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 16 }}>
           <SearchableRosterField
             label="المسعف"
@@ -177,6 +188,7 @@ export default function BreakdownSheet({ trip, breakdown, onClose }: Props) {
             placeholder="ابحث بالاسم أو اللوحة..."
             emptyHint="لا يوجد مسعف مطابق في الكشف"
           />
+          {rescuerTripType !== "بدون" && (
           <div>
             <label style={{ fontSize: 12, fontWeight: 600, color: th.sub, display: "block", marginBottom: 6 }}>
               نوع نهمة المسعف
@@ -204,25 +216,28 @@ export default function BreakdownSheet({ trip, breakdown, onClose }: Props) {
               ))}
             </div>
           </div>
+          )}
           <div>
             <label style={{ fontSize: 12, fontWeight: 600, color: th.sub, display: "block", marginBottom: 6 }}>
               رقم الفك الجديد
             </label>
-            <input
-              value={breakNum}
-              onChange={(e) => setBreakNum(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "10px 12px",
-                borderRadius: 10,
-                border: `1px solid ${th.border}`,
-                background: th.inputBg,
-                color: th.text,
-                fontSize: 14,
-                fontFamily: "inherit",
-                boxSizing: "border-box",
-              }}
-            />
+            {rescuerTripType !== "بدون" && (
+              <input
+                value={breakNum}
+                onChange={(e) => setBreakNum(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "10px 12px",
+                  borderRadius: 10,
+                  border: `1px solid ${th.border}`,
+                  background: th.inputBg,
+                  color: th.text,
+                  fontSize: 14,
+                  fontFamily: "inherit",
+                  boxSizing: "border-box",
+                }}
+              />
+            )}
           </div>
           <div>
             <label style={{ fontSize: 12, fontWeight: 600, color: th.sub, display: "block", marginBottom: 6 }}>
@@ -247,6 +262,17 @@ export default function BreakdownSheet({ trip, breakdown, onClose }: Props) {
           </div>
         </div>
       )}
+
+      <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: th.sub, marginBottom: 16 }}>
+        ملاحظات
+        <textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          rows={3}
+          placeholder="أضف تفاصيل إضافية عن العطل..."
+          style={{ display: "block", width: "100%", marginTop: 6, padding: "10px 12px", borderRadius: 10, border: `1px solid ${th.border}`, background: th.inputBg, color: th.text, fontFamily: "inherit", resize: "vertical", boxSizing: "border-box" }}
+        />
+      </label>
 
       <div style={{ display: "flex", gap: 10 }}>
         <button

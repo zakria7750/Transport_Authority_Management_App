@@ -17,6 +17,7 @@ export type DriverType = "س" | "ع"
 export type TripType = "فرزة" | "م1" | "م2" | "تعويض"
 /** نوع نهمة المسعف — «بدون» = لا تُنشأ نهمة للمسعف */
 export type RescuerTripType = TripType | "بدون"
+export type TripCompletionState = "جارية" | "مكتملة"
 export type ViolationType = "ت" | "ح"
 export type TripStatus = "مسودة" | "مؤكدة_مبدئياً" | "معلقة" | "مكتملة" | "ملغاة"
 export type DestinationType = "وكيل" | "فرع" | "تصدير"
@@ -71,6 +72,8 @@ export interface Trip {
   createdAt: string
   completedAt?: string
   compensationAmount?: number
+  completionState?: TripCompletionState
+  breakdownLocation?: string
   preTripSnapshot?: PreTripSnapshot
   dismissedFromBreakdown?: boolean
 }
@@ -112,6 +115,17 @@ export interface Breakdown {
   breakNum?: string
   compensation?: number
   compensationGiven?: number
+  payload?: string
+  province?: string
+  destinationType?: DestinationType
+  destination?: string
+  notes?: string
+  ownerSnapshot?: PreTripSnapshot
+  rescuerSnapshot?: PreTripSnapshot
+  rescuerTripId?: number
+  originalTripStatus?: TripStatus
+  originalTripCompletionState?: TripCompletionState
+  originalTripCompletedAt?: string
   date: string
   status: "نشط" | "منتهي"
 }

@@ -18,6 +18,7 @@ import {
   type User,
   type Driver,
   type Trip,
+  type TripCompletionState,
   type Violation,
   type Breakdown,
   type Notification,
@@ -26,6 +27,7 @@ import {
   type DestinationType,
   type DriverImages,
   type Guarantor,
+  type PreTripSnapshot,
   type UserRole,
 } from "./data"
 import type { RescuerTripType } from "./data"
@@ -129,6 +131,7 @@ export type BreakdownCreatePayload = {
   rescuerTripType?: RescuerTripType
   breakNum?: string
   compensationGiven?: number
+  notes?: string
 }
 
 type Action =
@@ -153,6 +156,7 @@ type Action =
   | { type: "UPDATE_TRIP"; trip: Trip }
   | { type: "DELETE_TRIP"; tripId: number }
   | { type: "COMPLETE_TRIP"; driverId: number }
+  | { type: "REGISTER_COMPLETED_TRIP"; tripId: number }
   | { type: "CANCEL_TRIP"; driverId: number }
   | { type: "RESTORE_TRIP"; trip: Trip; driver: Driver }
   | { type: "ADD_DRIVER"; driver: Driver }
@@ -185,6 +189,7 @@ type Action =
   | { type: "UPDATE_BREAKDOWN"; breakdownId: number; patch: Partial<BreakdownCreatePayload> }
   | { type: "END_BREAKDOWN"; breakdownId: number }
   | { type: "DELETE_BREAKDOWN"; breakdownId: number }
+  | { type: "RESTORE_BREAKDOWN_STATE"; snapshot: Pick<AppState, "drivers" | "trips" | "breakdowns"> }
   | { type: "DISMISS_COMPLETED_TRIP"; tripId: number }
   | { type: "UPDATE_USER"; user: User }
   | { type: "ADD_USER"; user: User }
@@ -291,6 +296,68 @@ function syncDriversAfterGuaranteeChange(drivers: Driver[], minGuarantors: numbe
     return d
   })
   return reindexActiveDrivers(updated)
+}
+
+function snapshotDriver(driver: Driver): PreTripSnapshot {
+  return {
+    currentTrip: driver.currentTrip,
+    compensationBalance: driver.compensationBalance,
+    status: driver.status,
+    statusReason: driver.statusReason,
+    seq: driver.seq,
+  }
+}
+
+function restoreDriverSnapshot(driver: Driver, snapshot?: PreTripSnapshot): Driver {
+  if (!snapshot) return driver
+  return {
+    ...driver,
+    currentTrip: snapshot.currentTrip,
+    compensationBalance: snapshot.compensationBalance,
+    status: snapshot.status,
+    statusReason: snapshot.statusReason,
+    seq: snapshot.seq,
+  }
+}
+
+function rollbackBreakdownRelations(
+  state: AppState,
+  breakdown: Breakdown,
+): Pick<AppState, "drivers" | "trips"> {
+  let drivers = state.drivers
+  let trips = state.trips
+
+  if (breakdown.rescuerTripId) {
+    trips = trips.filter((trip) => trip.id !== breakdown.rescuerTripId)
+  }
+  if (breakdown.rescuerId && breakdown.rescuerSnapshot) {
+    drivers = drivers.map((driver) =>
+      driver.id === breakdown.rescuerId
+        ? restoreDriverSnapshot(driver, breakdown.rescuerSnapshot)
+        : driver,
+    )
+  }
+  if (breakdown.ownerSnapshot) {
+    drivers = drivers.map((driver) =>
+      driver.id === breakdown.driverId
+        ? restoreDriverSnapshot(driver, breakdown.ownerSnapshot)
+        : driver,
+    )
+  }
+  if (breakdown.tripId) {
+    trips = trips.map((trip) =>
+      trip.id === breakdown.tripId
+        ? {
+            ...trip,
+            status: breakdown.originalTripStatus ?? trip.status,
+            completionState: breakdown.originalTripCompletionState,
+            completedAt: breakdown.originalTripCompletedAt ?? trip.completedAt,
+          }
+        : trip,
+    )
+  }
+
+  return { drivers: reindexActiveDrivers(drivers), trips }
 }
 
 function applyViolationToState(
@@ -802,6 +869,7 @@ compensationBalance:
             ? {
                 ...t,
                 status: "مكتملة",
+                completionState: "جارية" as const,
                 completedAt: new Date().toLocaleString("ar-SA"),
                 // track total deducted: 1 on create + 1 on complete = 2
                 ...(isCompTrip ? { compensationAmount: (t.compensationAmount ?? 1) + 1 } : {}),
@@ -814,6 +882,38 @@ compensationBalance:
           title: "تأكيد خروج",
           message: `تم تأكيد خروج ${driver.ownerName} — نهمة (${trip.type})`,
         }),
+      }
+    }
+
+    case "REGISTER_COMPLETED_TRIP": {
+      const trip = state.trips.find((item) => item.id === action.tripId)
+      const driver = trip ? state.drivers.find((item) => item.id === trip.driverId) : undefined
+      if (!trip || !driver || trip.status !== "مكتملة" || trip.completionState !== "جارية") return state
+      if (driver.violation) return state
+
+      const drivers = reindexActiveDrivers(
+        moveDriverToEndOfActive(
+          state.drivers.map((item) =>
+            item.id === driver.id
+              ? { ...item, currentTrip: null, statusReason: null, violation: null }
+              : item,
+          ),
+          driver.id,
+        ),
+      )
+      return {
+        ...state,
+        drivers,
+        trips: state.trips.map((item) =>
+          item.id === trip.id ? { ...item, completionState: "مكتملة" as TripCompletionState } : item,
+        ),
+        notifications: pushNotif(state, {
+          icon: "✅",
+          type: "تسجيل",
+          title: "تسجيل بعد النهمة",
+          message: `تم تسجيل ${driver.ownerName} من جديد في آخر الكشف النشط`,
+        }),
+        pendingSyncCount: bumpPendingSync(state),
       }
     }
 
@@ -1062,6 +1162,16 @@ compensationBalance:
       const driver = trip ? state.drivers.find((d) => d.id === trip.driverId) : undefined
       if (!trip || !driver) return state
 
+      const location = action.breakdown.location
+      const actionChoice = action.breakdown.action ?? "إبقاء_النهمة"
+      const keepOriginalTrip = actionChoice === "إبقاء_النهمة"
+      const rescuer = action.breakdown.rescuerId
+        ? state.drivers.find((d) => d.id === action.breakdown.rescuerId)
+        : undefined
+      const compensationGiven =
+        location === "بعيد"
+          ? Math.max(0, Math.floor(action.breakdown.compensationGiven ?? 0))
+          : undefined
       const b: Breakdown = {
         id: nextId(),
         tripId: trip.id,
@@ -1069,16 +1179,24 @@ compensationBalance:
         driverId: driver.id,
         driverName: driver.ownerName,
         plate: driver.plate,
-        location: action.breakdown.location,
-        action: action.breakdown.action,
+        location,
+        action: actionChoice,
         rescuerId: action.breakdown.rescuerId,
-        rescuerName: action.breakdown.rescuerId
-          ? state.drivers.find((d) => d.id === action.breakdown.rescuerId)?.ownerName
-          : undefined,
+        rescuerName: rescuer?.ownerName,
         rescuerTripType: action.breakdown.rescuerTripType,
-        breakNum: action.breakdown.breakNum,
-        compensationGiven: action.breakdown.compensationGiven,
-        compensation: action.breakdown.compensationGiven,
+        breakNum: action.breakdown.rescuerTripType === "بدون" ? undefined : action.breakdown.breakNum,
+        compensationGiven,
+        compensation: compensationGiven,
+        payload: trip.payload,
+        province: trip.province,
+        destinationType: trip.destinationType,
+        destination: trip.destination,
+        notes: action.breakdown.notes,
+        ownerSnapshot: snapshotDriver(driver),
+        rescuerSnapshot: rescuer ? snapshotDriver(rescuer) : undefined,
+        originalTripStatus: trip.status,
+        originalTripCompletionState: trip.completionState,
+        originalTripCompletedAt: trip.completedAt,
         date: new Date().toISOString(),
         status: "نشط",
       }
@@ -1086,80 +1204,67 @@ compensationBalance:
       let drivers = [...state.drivers]
       let trips = [...state.trips]
 
-      if (action.breakdown.location === "قريب") {
-        if (action.breakdown.action === "إلغاء_النهمة") {
-          trips = trips.map((t) =>
-            t.id === trip.id ? { ...t, status: "ملغاة" as const } : t,
-          )
-          const snap = trip.preTripSnapshot
-          drivers = drivers.map((d) => {
-            if (d.id !== driver.id) return d
-            if (snap) {
-              return {
-                ...d,
-                currentTrip: snap.currentTrip,
-                compensationBalance: snap.compensationBalance,
-                status: snap.status,
-                statusReason: snap.statusReason,
-                seq: snap.seq,
-              }
-            }
-            return {
-              ...d,
-              currentTrip: null,
-              status: "نشط" as const,
-              statusReason: null,
-              compensationBalance:
-                trip.type === "تعويض" && trip.compensationAmount
-                  ? d.compensationBalance + trip.compensationAmount
-                  : d.compensationBalance,
-            }
-          })
-          drivers = reindexActiveDrivers(drivers)
-        } else {
-          drivers = moveDriverToEndOfActive(drivers, driver.id)
-        }
-      } else if (action.breakdown.rescuerId) {
-        const rescuerId = action.breakdown.rescuerId
-        const rescuerType = action.breakdown.rescuerTripType
-        if (rescuerType && rescuerType !== "بدون") {
-          const rescuer = drivers.find((d) => d.id === rescuerId)
-          if (rescuer && !rescuer.currentTrip) {
-            const rescuerTrip: Trip = {
-              id: nextId(),
-              driverId: rescuerId,
-              type: rescuerType,
-              payload: trip.payload,
-              province: trip.province,
-              destinationType: trip.destinationType,
-              destination: trip.destination,
-              breakNum: action.breakdown.breakNum ?? suggestNextBreakNum(trips),
-              status: "مؤكدة_مبدئياً",
-              createdAt: new Date().toLocaleString("ar-SA"),
-            }
-            trips = [rescuerTrip, ...trips]
-            drivers = drivers.map((d) =>
-              d.id === rescuerId ? { ...d, currentTrip: rescuerType } : d,
-            )
-          }
-        }
-        if (action.breakdown.compensationGiven) {
-          drivers = drivers.map((d) =>
-            d.id === rescuerId
-              ? {
-                  ...d,
-                  compensationBalance: d.compensationBalance + (action.breakdown.compensationGiven ?? 0),
-                }
-              : d.id === driver.id && driver.status !== "نشط"
-                ? { ...d, status: "نشط" as const, statusReason: null, seq: 0 }
-                : d,
-          )
-          if (driver.status !== "نشط") {
-            drivers = appendActiveDriver(drivers, driver.id)
-          }
-          drivers = reindexActiveDrivers(drivers)
-        }
+      if (!keepOriginalTrip) {
+        trips = trips.map((item) =>
+          item.id === trip.id
+            ? { ...item, status: "ملغاة" as const, completionState: undefined }
+            : item,
+        )
+        drivers = drivers.map((item) =>
+          item.id === driver.id
+            ? restoreDriverSnapshot(item, trip.preTripSnapshot ?? b.ownerSnapshot)
+            : item,
+        )
+      } else {
+        trips = trips.map((item) =>
+          item.id === trip.id
+            ? { ...item, completionState: "مكتملة" as const }
+            : item,
+        )
+        drivers = moveDriverToEndOfActive(
+          drivers.map((item) =>
+            item.id === driver.id
+              ? { ...item, currentTrip: null, statusReason: null }
+              : item,
+          ),
+          driver.id,
+        )
       }
+
+      const rescuerType = action.breakdown.rescuerTripType
+      if (rescuer && rescuerType && rescuerType !== "بدون" && !rescuer.currentTrip) {
+        const rescuerTrip: Trip = {
+          id: nextId(),
+          driverId: rescuer.id,
+          type: rescuerType,
+          payload: trip.payload,
+          province: trip.province,
+          destinationType: trip.destinationType,
+          destination: trip.destination,
+          breakNum: action.breakdown.breakNum ?? suggestNextBreakNum(trips),
+          status: "مؤكدة_مبدئياً",
+          createdAt: new Date().toLocaleString("ar-SA"),
+          breakdownLocation: b.location,
+        }
+        b.rescuerTripId = rescuerTrip.id
+        trips = [rescuerTrip, ...trips]
+        drivers = drivers.map((item) =>
+          item.id === rescuer.id
+            ? {
+                ...item,
+                currentTrip: rescuerType,
+                compensationBalance: item.compensationBalance + (compensationGiven ?? 0),
+              }
+            : item,
+        )
+      } else if (rescuer && compensationGiven) {
+        drivers = drivers.map((item) =>
+          item.id === rescuer.id
+            ? { ...item, compensationBalance: item.compensationBalance + compensationGiven }
+            : item,
+        )
+      }
+      drivers = reindexActiveDrivers(drivers)
 
       return {
         ...state,
@@ -1187,6 +1292,7 @@ compensationBalance:
         driverName: driver.ownerName,
         plate: driver.plate,
         location: action.location,
+        notes: action.note,
         date: action.date ?? new Date().toISOString(),
         status: "نشط",
       }
@@ -1211,10 +1317,22 @@ compensationBalance:
         ),
       }
 
-    case "DELETE_BREAKDOWN":
+    case "DELETE_BREAKDOWN": {
+      const breakdown = state.breakdowns.find((item) => item.id === action.breakdownId)
+      if (!breakdown) return state
+      const restored = rollbackBreakdownRelations(state, breakdown)
       return {
         ...state,
-        breakdowns: state.breakdowns.filter((b) => b.id !== action.breakdownId),
+        ...restored,
+        breakdowns: state.breakdowns.filter((item) => item.id !== action.breakdownId),
+        pendingSyncCount: bumpPendingSync(state),
+      }
+    }
+
+    case "RESTORE_BREAKDOWN_STATE":
+      return {
+        ...state,
+        ...action.snapshot,
         pendingSyncCount: bumpPendingSync(state),
       }
 
@@ -1239,6 +1357,7 @@ compensationBalance:
                 breakNum: patch.breakNum ?? b.breakNum,
                 compensationGiven: patch.compensationGiven ?? b.compensationGiven,
                 compensation: patch.compensationGiven ?? b.compensation,
+                notes: patch.notes ?? b.notes,
               }
             : b,
         ),
