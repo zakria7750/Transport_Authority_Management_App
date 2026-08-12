@@ -775,36 +775,65 @@ export function BottomSheet({
   subtitle,
   onClose,
   children,
+  presentation = "sheet",
 }: {
   title: string
   subtitle?: string
   onClose: () => void
   children: ReactNode
+  presentation?: "sheet" | "dialog"
 }) {
   const th = useTheme()
+  const isDialog = presentation === "dialog"
   return (
-    <div style={{ position: "absolute", inset: 0, zIndex: 150 }}>
+    <div style={{ position: "absolute", inset: 0, zIndex: 150, display: isDialog ? "flex" : undefined, alignItems: isDialog ? "center" : undefined, justifyContent: isDialog ? "center" : undefined, padding: isDialog ? 12 : undefined }}>
       <div
         style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)" }}
         onClick={onClose}
       />
       <div
         style={{
-          position: "absolute",
-          bottom: 0,
-          left: 0,
-          right: 0,
+          position: isDialog ? "relative" : "absolute",
+          bottom: isDialog ? undefined : 0,
+          left: isDialog ? undefined : 0,
+          right: isDialog ? undefined : 0,
+          width: isDialog ? "min(560px, 100%)" : undefined,
           background: th.card,
-          borderRadius: "20px 20px 0 0",
-          padding: "0 0 24px",
-          animation: "slideUp 0.3s ease",
-          maxHeight: "85%",
+          borderRadius: isDialog ? 20 : "20px 20px 0 0",
+          padding: isDialog ? "20px 0 24px" : "0 0 24px",
+          animation: isDialog ? "fadeIn 0.2s ease" : "slideUp 0.3s ease",
+          maxHeight: isDialog ? "calc(100% - 24px)" : "85%",
           overflowY: "auto",
         }}
       >
-        <div style={{ padding: "12px 0 8px", display: "flex", justifyContent: "center" }}>
-          <div style={{ width: 40, height: 4, borderRadius: 2, background: th.border }} />
-        </div>
+        {!isDialog && (
+          <div style={{ padding: "12px 0 8px", display: "flex", justifyContent: "center" }}>
+            <div style={{ width: 40, height: 4, borderRadius: 2, background: th.border }} />
+          </div>
+        )}
+        {isDialog && (
+          <button
+            type="button"
+            aria-label="إغلاق النموذج"
+            onClick={onClose}
+            style={{
+              position: "absolute",
+              top: 12,
+              left: 12,
+              width: 32,
+              height: 32,
+              display: "grid",
+              placeItems: "center",
+              border: "none",
+              borderRadius: 99,
+              background: th.inputBg,
+              color: th.sub,
+              cursor: "pointer",
+            }}
+          >
+            <MonochromeIcon name="close" size={17} />
+          </button>
+        )}
         <div style={{ padding: "0 20px" }}>
           <h3 style={{ color: th.text, fontSize: 17, fontWeight: 700, margin: "0 0 4px" }}>{title}</h3>
           {subtitle && <p style={{ color: th.sub, fontSize: 12, margin: "0 0 16px" }}>{subtitle}</p>}
@@ -898,6 +927,7 @@ export function AppBar({ title, back, rightSlot, leftSlot, hideBell }: AppBarPro
 const NAV_ITEMS: { screen: Screen; icon: string; label: string }[] = [
   { screen: 'home', label: 'الرئيسية', icon: 'home' },
   { screen: 'drivers', label: 'الكشف', icon: 'list' },
+  { screen: 'pending-trips', label: 'النهمات', icon: 'truck' },
   { screen: 'registration', label: 'تسجيل', icon: 'plus' },
   { screen: 'more', label: 'المزيد', icon: 'more' },
 ]

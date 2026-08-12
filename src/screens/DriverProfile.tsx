@@ -171,9 +171,9 @@ export default function DriverProfileScreen() {
               justifyContent: "space-between",
             }}
           >
-            <span style={{ color: "#FCD34D", fontSize: 12, display: "flex", alignItems: "center", gap: 5 }}><MonochromeIcon name="money" size={14} /> رصيد التعويض</span>
+             <span style={{ color: "#FCD34D", fontSize: 12, display: "flex", alignItems: "center", gap: 5 }}><MonochromeIcon name="money" size={14} /> رصيد التعويضات</span>
             <span style={{ color: "#FCD34D", fontSize: 18, fontWeight: 800 }}>
-              {driver.compensationBalance.toLocaleString()} ريال
+              {driver.compensationBalance.toLocaleString()} تعويض
             </span>
           </div>
         )}
@@ -383,7 +383,7 @@ export default function DriverProfileScreen() {
                     )}
                     {trip.compensationAmount != null && (
                       <span style={{ fontSize: 13, fontWeight: 700, color: T.warning }}>
-                        <MonochromeIcon name="money" size={14} /> {trip.compensationAmount.toLocaleString()} ريال
+                         <MonochromeIcon name="money" size={14} /> عدد التعويضات: {trip.compensationAmount.toLocaleString()}
                       </span>
                     )}
                   </div>

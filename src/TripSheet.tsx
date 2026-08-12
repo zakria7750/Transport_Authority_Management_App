@@ -91,6 +91,7 @@ export default function TripSheet({ driver, existingTrip, onClose }: Props) {
       title={isEdit ? "تعديل النهمة" : "إنشاء نهمة"}
       subtitle={`${driver.ownerName} · ${driver.plate}`}
       onClose={onClose}
+      presentation="dialog"
     >
       {!isEdit && (
         <>

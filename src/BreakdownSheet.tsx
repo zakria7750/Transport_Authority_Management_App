@@ -226,7 +226,7 @@ export default function BreakdownSheet({ trip, breakdown, onClose }: Props) {
           </div>
           <div>
             <label style={{ fontSize: 12, fontWeight: 600, color: th.sub, display: "block", marginBottom: 6 }}>
-              التعويضات (ريال)
+              عدد التعويضات
             </label>
             <input
               type="number"

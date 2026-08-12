@@ -1386,7 +1386,7 @@ export function BreakdownsScreen() {
                       {b.action && ` · ${b.action.replace("_", " ")}`}
                       {b.rescuerName && ` · مسعف: ${b.rescuerName}`}
                       {b.rescuerTripType && ` (${b.rescuerTripType})`}
-                      {b.compensationGiven != null && ` · تعويض: ${b.compensationGiven} ر`}
+                       {b.compensationGiven != null && ` · عدد التعويضات: ${b.compensationGiven}`}
                     </p>
                   </div>
                   <span

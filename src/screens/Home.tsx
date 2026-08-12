@@ -41,7 +41,7 @@ export default function HomeScreen() {
     { label: 'البوابير النشطة', value: activeCount, icon: 'check', color: T.success, bg: '#D1FAE5', screen: 'drivers', filter: 'نشط' },
     { label: 'غير النشطة', value: inactiveCount, icon: 'pause', color: T.sub, bg: '#F1F5F9', screen: 'drivers', filter: 'غير_نشط' },
     { label: 'المخالفين', value: violatorsCount, icon: 'warning', color: T.danger, bg: '#FEE2E2', screen: 'violations' },
-    { label: 'التعويضات', value: `${totalCompensation.toLocaleString()} ر`, icon: 'money', color: T.warning, bg: '#FEF9C3', screen: 'guarantees' },
+    { label: 'التعويضات', value: `${totalCompensation.toLocaleString()} تعويض`, icon: 'money', color: T.warning, bg: '#FEF9C3', screen: 'guarantees' },
   ]
 
   const roleLabel =
@@ -57,9 +57,7 @@ export default function HomeScreen() {
 
   // Screens for manager/trip officer
   const availableScreens: { label: string; icon: string; screen: Screen; roles: any[] }[] = [
-    { label: 'كشف البوابير', icon: 'clipboard', screen: 'drivers', roles: ['موظف_نهمة', 'مدير_مكتب'] },
     { label: 'كشف التحضير', icon: 'note', screen: 'attendance-sheet', roles: ['موظف_نهمة', 'مدير_مكتب'] },
-    { label: 'النهمات المعلقة', icon: 'truck', screen: 'pending-trips', roles: ['موظف_نهمة', 'مدير_مكتب'] },
     { label: 'سجل الأعطال', icon: 'wrench', screen: 'breakdowns', roles: ['موظف_نهمة', 'مدير_مكتب'] },
     ...(isManager ? [
       { label: 'المخالفات', icon: 'warning', screen: 'violations' as Screen, roles: ['مدير_مكتب'] },

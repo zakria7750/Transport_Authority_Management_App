@@ -169,7 +169,7 @@ function TripCard({
                 }}
               >
                 <span style={{ fontSize: 13, fontWeight: 700, color: "#B45309" }}>
-                   <MonochromeIcon name="money" size={15} /> {trip.compensationAmount?.toLocaleString()} ريال
+                    <MonochromeIcon name="money" size={15} /> عدد التعويضات: {trip.compensationAmount?.toLocaleString()}
                 </span>
               </div>
             )}
