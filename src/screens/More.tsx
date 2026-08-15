@@ -181,7 +181,7 @@ export function SettingsScreen() {
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: th.bg, overflow: 'hidden' }}>
-      <StandardAppBar title="الإعدادات" back="more" />
+      <StandardAppBar title="الإعدادات" back="home" />
 
       <div style={{ flex: 1, overflowY: 'auto' }}>
         {settings.map(section => (

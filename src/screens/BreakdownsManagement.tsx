@@ -14,13 +14,13 @@ import type { Breakdown, Driver, Trip } from "../data"
 
 type TabKey = "all" | "جارية" | "مكتملة" | "قريب" | "بعيد"
 
-type ListItem = { kind: "ongoing" trip: Trip driver: Driver } | {
+type ListItem = { kind: "ongoing"; trip: Trip; driver: Driver } | {
   kind: "completed"
   trip: Trip
   driver: Driver
-} | { kind: "breakdown" breakdown: Breakdown trip?: Trip driver?: Driver }
+} | { kind: "breakdown"; breakdown: Breakdown; trip?: Trip; driver?: Driver }
 
-const TAB_LABELS: { key: TabKey label: string }[] = [
+const TAB_LABELS: { key: TabKey; label: string }[] = [
   { key: "all", label: "الكل" },
   { key: "جارية", label: "جارية" },
   { key: "مكتملة", label: "مكتملة" },

@@ -929,7 +929,6 @@ const NAV_ITEMS: { screen: Screen; icon: string; label: string }[] = [
   { screen: 'drivers', label: 'الكشف', icon: 'list' },
   { screen: 'pending-trips', label: 'النهمات', icon: 'truck' },
   { screen: 'registration', label: 'تسجيل', icon: 'plus' },
-  { screen: 'more', label: 'المزيد', icon: 'more' },
 ]
 
 export function BottomNav() {

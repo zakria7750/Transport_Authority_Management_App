@@ -1499,6 +1499,9 @@ export { BreakdownsScreen } from "./BreakdownsManagement"
 // ══════════════════════════════════════════════════════════
 //  REPORTS SCREEN
 // ══════════════════════════════════════════════════════════
+const REPORT_TYPES = ["الكل", "النهمات", "الأعطال", "المخالفات", "السائقون", "الضمانات"] as const
+type ReportType = typeof REPORT_TYPES[number]
+
 function EmptyReport({ text, onChangePeriod }: { text: string; onChangePeriod?: () => void }) {
   return (
     <div className="report-empty">
@@ -1558,7 +1561,7 @@ export function ReportsScreen() {
   const periodFilterRef = useRef<HTMLElement>(null)
   const th = useTheme()
   const [period, setPeriod] = useState("week")
-  const [reportType, setReportType] = useState("النهمات")
+  const [reportType, setReportType] = useState<ReportType>("الكل")
   const [query, setQuery] = useState("")
   const [detailFilters, setDetailFilters] = useState<Record<number, string>>({})
   const [detailSortIndex, setDetailSortIndex] = useState(0)
@@ -1580,6 +1583,7 @@ export function ReportsScreen() {
     return shiftDateKey(referenceDate, -6)
   })
   const [toDate, setToDate] = useState(referenceDate)
+  const includesReport = (type: Exclude<ReportType, "الكل">) => reportType === "الكل" || reportType === type
 
   const inRange = (value: string) => isDateInRange(value, fromDate, toDate)
   const rangedTrips = state.trips.filter((trip) => inRange(trip.completedAt ?? trip.createdAt))
@@ -1733,20 +1737,36 @@ export function ReportsScreen() {
     const workbook = XLSX.utils.book_new()
     const summaryRows = [
       ["الفترة", `${formatDateForReport(fromDate)} إلى ${formatDateForReport(toDate)}`],
-      ["نوع التقرير التفصيلي", reportType],
+      ["نوع التقرير", reportType],
+    ]
+    if (includesReport("النهمات")) summaryRows.push(
       ["إجمالي النهمات", rangedTrips.length],
       ["النهمات المكتملة", completedTrips],
       ["النهمات الملغاة", cancelledTrips],
       ["النهمات المعلقة", pendingTrips],
+    )
+    if (includesReport("الأعطال")) summaryRows.push(
       ["إجمالي الأعطال", rangedBreakdowns.length],
       ["الأعطال القريبة", closeBreakdowns],
       ["الأعطال البعيدة", farBreakdowns],
+      ["الأعطال المنتهية", finishedBreakdowns],
+    )
+    if (includesReport("المخالفات")) summaryRows.push(
       ["إجمالي المخالفات", totalViolations],
       ["المخالفات المرفوعة", raisedViolations],
-      ["إجمالي الضمانات", uniqueGuarantorCount],
+      ["المخالفات غير المرفوعة", totalViolations - raisedViolations],
+    )
+    if (includesReport("السائقون")) summaryRows.push(
+      ["إجمالي السائقين", state.drivers.length],
       ["السائقون النشطون", activeDrivers],
       ["السائقون غير النشطين", inactiveDrivers],
-    ]
+    )
+    if (includesReport("الضمانات")) summaryRows.push(
+      ["المضمونون بضمانات مكتملة", completeGuarantees],
+      ["المضمونون أصحاب الضمانات", driversWithGuarantees],
+      ["الضامنون الفريدون", uniqueGuarantorCount],
+      ["إجمالي الضمانات الفعالة", activeGuarantors],
+    )
     XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(summaryRows), "الملخص")
 
     const tripsRows = rangedTrips.map((trip) => [
@@ -1780,13 +1800,15 @@ export function ReportsScreen() {
       driver.violation ?? "—",
       driver.guarantors.filter((guarantor) => guarantor.status === "فعال" && !guarantor.suspended).length,
     ])
-    const guaranteeRows = state.drivers.flatMap((driver) => driver.guarantors.map((guarantor) => [
+    const guaranteeRows = state.drivers.flatMap((driver) => driver.guarantors
+      .filter((guarantor) => guarantor.status === "فعال" && !guarantor.suspended)
+      .map((guarantor) => [
       guarantor.name,
       driver.ownerName,
       guarantor.status,
       guarantor.suspended ? "موقوف" : "فعال",
       guarantor.phone,
-    ]))
+      ]))
     const sheets: Array<[string, string[], unknown[][]]> = [
       ["النهمات", ["رقم النهمة", "المالك", "المحافظة", "النوع", "الحالة", "التاريخ"], tripsRows],
       ["الأعطال", ["السائق", "اللوحة", "الموقع", "الحالة", "التاريخ", "المسعف", "نوع نهمة المسعف"], breakdownRows],
@@ -1794,7 +1816,10 @@ export function ReportsScreen() {
       ["السائقون", ["المالك", "اللوحة", "الحالة", "المخالفة", "الضمانات الفعالة"], driverRows],
       ["الضمانات", ["الضامن", "المضمون", "الحالة", "الإجراء", "الهاتف"], guaranteeRows],
     ]
-    for (const [name, headers, rows] of sheets) {
+    const selectedSheets = reportType === "الكل"
+      ? sheets
+      : sheets.filter(([name]) => name === reportType)
+    for (const [name, headers, rows] of selectedSheets) {
       const sheet = XLSX.utils.aoa_to_sheet([headers, ...rows])
       sheet["!autofilter"] = { ref: `A1:${String.fromCharCode(64 + headers.length)}${Math.max(1, rows.length + 1)}` }
       XLSX.utils.book_append_sheet(workbook, sheet, name)
@@ -1863,13 +1888,15 @@ export function ReportsScreen() {
         driver.violation ?? "—",
         driver.guarantors.filter((guarantor) => guarantor.status === "فعال" && !guarantor.suspended).length,
       ])
-      const pdfGuaranteeRows = state.drivers.flatMap((driver) => driver.guarantors.map((guarantor) => [
-        guarantor.name,
-        driver.ownerName,
-        guarantor.status,
-        guarantor.suspended ? "موقوف" : "فعال",
-        guarantor.phone,
-      ]))
+      const pdfGuaranteeRows = state.drivers.flatMap((driver) => driver.guarantors
+        .filter((guarantor) => guarantor.status === "فعال" && !guarantor.suspended)
+        .map((guarantor) => [
+          guarantor.name,
+          driver.ownerName,
+          guarantor.status,
+          "فعال",
+          guarantor.phone,
+        ]))
       const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4", compress: true })
       const amiriFontBase64 = await loadAmiriFontBase64()
       pdf.addFileToVFS("Amiri-Regular.ttf", amiriFontBase64)
@@ -1959,19 +1986,35 @@ export function ReportsScreen() {
       pdf.text(rtl("تقرير إداري قابل للبحث والفرز والطباعة"), pageWidth - margin, 120, { align: "right" })
       pdf.addPage()
       addPageTitle("المؤشرات الرئيسية", `${fromDate} — ${toDate}`)
-      const summary = [
+      const summary: Array<[string, string | number]> = []
+      if (includesReport("النهمات")) summary.push(
         ["إجمالي النهمات", rangedTrips.length],
         ["النهمات المكتملة", completedTrips],
         ["النهمات الملغاة", cancelledTrips],
         ["النهمات المعلقة", pendingTrips],
+      )
+      if (includesReport("الأعطال")) summary.push(
         ["إجمالي الأعطال", rangedBreakdowns.length],
         ["الأعطال القريبة", closeBreakdowns],
         ["الأعطال البعيدة", farBreakdowns],
+        ["الأعطال المنتهية", finishedBreakdowns],
+      )
+      if (includesReport("المخالفات")) summary.push(
         ["إجمالي المخالفات", totalViolations],
-        ["إجمالي الضمانات", uniqueGuarantorCount],
+        ["المخالفات المرفوعة", raisedViolations],
+        ["المخالفات غير المرفوعة", totalViolations - raisedViolations],
+      )
+      if (includesReport("السائقون")) summary.push(
+        ["إجمالي السائقين", state.drivers.length],
         ["السائقون النشطون", activeDrivers],
         ["السائقون غير النشطين", inactiveDrivers],
-      ]
+      )
+      if (includesReport("الضمانات")) summary.push(
+        ["المضمونون بضمانات مكتملة", completeGuarantees],
+        ["المضمونون أصحاب الضمانات", driversWithGuarantees],
+        ["الضامنون الفريدون", uniqueGuarantorCount],
+        ["إجمالي الضمانات الفعالة", activeGuarantors],
+      )
       let summaryY = 52
       summary.forEach(([label, value], index) => {
         const x = margin + (index % 2) * (contentWidth / 2)
@@ -1984,11 +2027,11 @@ export function ReportsScreen() {
         pdf.text(String(value), x + 10, y + 8, { align: "left" })
       })
       addFooter()
-      addTable("تفاصيل النهمات", ["رقم النهمة", "المالك", "المحافظة", "النوع", "الحالة", "التاريخ"], pdfTripsRows)
-      addTable("تفاصيل الأعطال", ["السائق", "اللوحة", "الموقع", "الحالة", "التاريخ", "المسعف", "نوع نهمة المسعف"], pdfBreakdownRows)
-      addTable("تفاصيل المخالفات", ["السائق", "النوع", "المعالجة", "التاريخ", "الملاحظات"], pdfViolationRows)
-      addTable("حالة السائقين", ["المالك", "اللوحة", "الحالة", "المخالفة", "الضمانات الفعالة"], pdfDriverRows)
-      addTable("تفاصيل الضمانات", ["الضامن", "المضمون", "الحالة", "الإجراء", "الهاتف"], pdfGuaranteeRows)
+      if (includesReport("النهمات")) addTable("تفاصيل النهمات", ["رقم النهمة", "المالك", "المحافظة", "النوع", "الحالة", "التاريخ"], pdfTripsRows)
+      if (includesReport("الأعطال")) addTable("تفاصيل الأعطال", ["السائق", "اللوحة", "الموقع", "الحالة", "التاريخ", "المسعف", "نوع نهمة المسعف"], pdfBreakdownRows)
+      if (includesReport("المخالفات")) addTable("تفاصيل المخالفات", ["السائق", "النوع", "المعالجة", "التاريخ", "الملاحظات"], pdfViolationRows)
+      if (includesReport("السائقون")) addTable("حالة السائقين", ["المالك", "اللوحة", "الحالة", "المخالفة", "الضمانات الفعالة"], pdfDriverRows)
+      if (includesReport("الضمانات")) addTable("تفاصيل الضمانات", ["الضامن", "المضمون", "الحالة", "الإجراء", "الهاتف"], pdfGuaranteeRows)
       const pageCount = pdf.getNumberOfPages()
       for (let page = 1; page <= pageCount; page += 1) {
         pdf.setPage(page)
@@ -2036,6 +2079,38 @@ export function ReportsScreen() {
   }
 
   const detailRows = useMemo(() => {
+    if (reportType === "الكل") return [
+      ...rangedTrips.map((trip) => {
+        const ownerName = state.drivers.find((driver) => driver.id === trip.driverId)?.ownerName ?? "—"
+        return {
+          id: `trip-${trip.id}`,
+          cells: ["النهمات", ownerName, trip.status, formatDateForReport(trip.completedAt ?? trip.createdAt), `${trip.breakNum} · ${trip.province}`],
+          search: `النهمات ${trip.breakNum} ${ownerName} ${trip.province} ${trip.type} ${trip.status}`,
+        }
+      }),
+      ...rangedBreakdowns.map((breakdown) => ({
+        id: `breakdown-${breakdown.id}`,
+        cells: ["الأعطال", breakdown.driverName, breakdown.status, formatDateForReport(breakdown.date), `${breakdown.plate} · ${breakdown.breakdownPlace ?? breakdown.location}`],
+        search: `الأعطال ${breakdown.driverName} ${breakdown.plate} ${breakdown.breakdownPlace ?? breakdown.location} ${breakdown.status}`,
+      })),
+      ...rangedViolations.map((violation) => ({
+        id: `violation-${violation.id}`,
+        cells: ["المخالفات", violation.driverName, violation.raised ? "مرفوعة" : "غير مرفوعة", formatDateForReport(violation.date), violation.note],
+        search: `المخالفات ${violation.driverName} ${violation.type} ${violation.note}`,
+      })),
+      ...state.drivers.map((driver) => ({
+        id: `driver-${driver.id}`,
+        cells: ["السائقون", driver.ownerName, driver.status === "نشط" ? "نشط" : "غير نشط", "—", `${driver.plate} · ضمانات: ${driver.guarantors.filter((guarantor) => guarantor.status === "فعال" && !guarantor.suspended).length}`],
+        search: `السائقون ${driver.ownerName} ${driver.plate} ${driver.status} ${driver.violation ?? ""}`,
+      })),
+      ...state.drivers.flatMap((driver) => driver.guarantors
+        .filter((guarantor) => guarantor.status === "فعال" && !guarantor.suspended)
+        .map((guarantor) => ({
+          id: `guarantee-${guarantor.id}`,
+          cells: ["الضمانات", guarantor.name, guarantor.status, "فعال", driver.ownerName],
+          search: `الضمانات ${guarantor.name} ${driver.ownerName} ${guarantor.status}`,
+        }))),
+    ]
     if (reportType === "النهمات") return rangedTrips.map((trip) => ({
       id: trip.id,
       cells: [trip.breakNum, state.drivers.find((driver) => driver.id === trip.driverId)?.ownerName ?? "—", trip.province, trip.type, trip.status],
@@ -2053,14 +2128,16 @@ export function ReportsScreen() {
     }))
     if (reportType === "السائقون") return state.drivers.map((driver) => ({
       id: driver.id,
-      cells: [driver.ownerName, driver.plate, driver.status === "نشط" ? "نشط" : "غير نشط", driver.violation ?? "—", driver.guarantors.length],
+      cells: [driver.ownerName, driver.plate, driver.status === "نشط" ? "نشط" : "غير نشط", driver.violation ?? "—", driver.guarantors.filter((guarantor) => guarantor.status === "فعال" && !guarantor.suspended).length],
       search: `${driver.ownerName} ${driver.plate} ${driver.status} ${driver.violation ?? ""}`,
     }))
-    return state.drivers.flatMap((driver) => driver.guarantors.map((guarantor) => ({
-      id: guarantor.id,
-      cells: [guarantor.name, driver.ownerName, guarantor.status, guarantor.suspended ? "موقوف" : "فعال", guarantor.phone],
-      search: `${guarantor.name} ${driver.ownerName} ${guarantor.status}`,
-    })))
+    return state.drivers.flatMap((driver) => driver.guarantors
+      .filter((guarantor) => guarantor.status === "فعال" && !guarantor.suspended)
+      .map((guarantor) => ({
+        id: guarantor.id,
+        cells: [guarantor.name, driver.ownerName, guarantor.status, "فعال", guarantor.phone],
+        search: `${guarantor.name} ${driver.ownerName} ${guarantor.status}`,
+      })))
   }, [reportType, rangedTrips, rangedBreakdowns, rangedViolations, state.drivers])
   const normalizedQuery = query.trim().toLocaleLowerCase("ar")
   const filteredDetailRows = detailRows
@@ -2077,13 +2154,14 @@ export function ReportsScreen() {
     })
   const visibleRows = pdfExportMode || showAllRows ? filteredDetailRows : filteredDetailRows.slice(0, 30)
   const detailHeaders: Record<string, string[]> = {
+    الكل: ["القسم", "العنصر", "الحالة", "التاريخ", "التفاصيل"],
     النهمات: ["رقم النهمة", "المالك", "المحافظة", "النوع", "الحالة"],
     الأعطال: ["السائق", "اللوحة", "مكان العطل", "الحالة", "التاريخ"],
     المخالفات: ["السائق", "النوع", "المعالجة", "التاريخ", "الملاحظات"],
     السائقون: ["المالك", "اللوحة", "الحالة", "المخالفة", "الضمانات"],
     الضمانات: ["الضامن", "المضمون", "الحالة", "الإجراء", "الهاتف"],
   }
-  const changeDetailType = (nextType: string) => {
+  const changeDetailType = (nextType: ReportType) => {
     setReportType(nextType)
     setQuery("")
     setDetailFilters({})
@@ -2146,6 +2224,10 @@ export function ReportsScreen() {
             <option value="month">هذا الشهر</option>
             <option value="year">هذه السنة</option>
             <option value="custom">فترة مخصصة</option>
+          </select>
+          <div className="report-filter-title"><span className="report-icon"><MonochromeIcon name="filter" size={17} /></span><div><strong>نوع التقرير</strong><small>يحدد الأقسام التي تظهر في التصدير</small></div></div>
+          <select value={reportType} onChange={(event) => changeDetailType(event.target.value as ReportType)} aria-label="نوع التقرير">
+            {REPORT_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
           </select>
           <button type="button" className="report-reset" onClick={resetRange}>إعادة تعيين</button>
           <button type="button" className="report-reset" onClick={refreshReportData} disabled={refreshing}>
@@ -2315,7 +2397,7 @@ export function ReportsScreen() {
 
         <ReportSection forceOpen={pdfExportMode} title="التقرير التفصيلي" subtitle="ابحث وفلتر بيانات الفترة المحددة">
           <div className="detail-controls detail-controls-block" data-pdf-exclude>
-            <select value={reportType} onChange={(event) => changeDetailType(event.target.value)} aria-label="نوع التقرير">{Object.keys(detailHeaders).map((type) => <option key={type}>{type}</option>)}</select>
+            <select value={reportType} onChange={(event) => changeDetailType(event.target.value as ReportType)} aria-label="نوع التقرير التفصيلي">{REPORT_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}</select>
             <div className="report-search"><MonochromeIcon name="search" size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="بحث في التقرير..." /></div>
             <span className="detail-count">{filteredDetailRows.length} نتيجة</span>
             {filteredDetailRows.length > 30 && (

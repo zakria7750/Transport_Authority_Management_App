@@ -46,7 +46,7 @@ export function TripsManagementScreen() {
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: th.bg, overflow: 'hidden' }}>
-      <StandardAppBar title="إدارة النهمات" back="more" />
+        <StandardAppBar title="إدارة النهمات" back="home" />
       <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10, background: th.card, borderBottom: `1px solid ${th.border}` }}>
         <input aria-label="بحث باسم السائق أو اللوحة" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="بحث باسم السائق أو رقم اللوحة" style={{ padding: '11px 13px', borderRadius: 12, border: `1px solid ${th.border}`, background: th.inputBg, color: th.text, direction: 'rtl' }} />
         <div style={{ display: 'flex', gap: 8 }}>
