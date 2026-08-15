@@ -82,6 +82,8 @@ export interface ViolationUndoSnapshot {
   status: DriverStatus
   statusReason: StatusReason
   violation: ViolationType | null
+  currentTrip?: TripType | null
+  compensationBalance?: number
   seq: number
   guarantorSnapshot?: Record<number, Guarantor[]>
 }
@@ -97,6 +99,7 @@ export interface Violation {
   note: string
   recordedBy?: string
   raiseReason?: string
+  guaranteesSuspended?: boolean
   undoSnapshot?: ViolationUndoSnapshot
 }
 

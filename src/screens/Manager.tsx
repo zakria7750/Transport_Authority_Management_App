@@ -12,7 +12,7 @@ import {
   matchesNameOrPlate,
   eligibleGuarantorDrivers,
 } from "../domain"
-import type { ViolationType, UserRole, Trip, Guarantor, Driver } from "../data"
+import type { Violation, ViolationType, UserRole, Trip, Guarantor, Driver } from "../data"
 import { nextId } from "../domain"
 import { dateKey, formatDateForReport, isDateInRange, shiftDateKey, todayKey } from "../reportUtils"
 
@@ -37,253 +37,546 @@ const loadAmiriFontBase64 = async () => {
 // ══════════════════════════════════════════════════════════
 //  VIOLATIONS SCREEN
 // ══════════════════════════════════════════════════════════
+type ViolationStatusFilter = "all" | "open" | "raised"
+type ViolationTypeFilter = "all" | ViolationType
+
+function formatViolationDate(value?: string) {
+  if (!value) return "—"
+  const [date] = value.split("T")
+  const [year, month, day] = date.split("-")
+  return year && month && day ? `${day}/${month}/${year}` : value
+}
+
+function cloneDrivers(drivers: Driver[]) {
+  return drivers.map((driver) => ({
+    ...driver,
+    guarantors: driver.guarantors.map((guarantor) => ({ ...guarantor })),
+  }))
+}
+
 export function ViolationsScreen() {
-  const { state, dispatch, showSnackbar, scheduleDeferredViolation } = useApp()
+  const { state, dispatch, showSnackbar } = useApp()
   const th = useTheme()
-  const [filterRaised, setFilterRaised] = useState<"all" | "open" | "raised">("all")
+  const [statusFilter, setStatusFilter] = useState<ViolationStatusFilter>("all")
+  const [typeFilter, setTypeFilter] = useState<ViolationTypeFilter>("all")
+  const [search, setSearch] = useState("")
   const [showAdd, setShowAdd] = useState(false)
-  const [addDriverLabel, setAddDriverLabel] = useState("")
+  const [selectedDriverId, setSelectedDriverId] = useState<number | null>(null)
+  const [driverSearch, setDriverSearch] = useState("")
   const [addType, setAddType] = useState<ViolationType>("ت")
-  const [loading, setLoading] = useState(false)
-  const [raiseDialog, setRaiseDialog] = useState<{ id: number; name: string } | null>(null)
-  const [raiseReason, setRaiseReason] = useState("")
-  // Task 38: date field for adding violation
   const [addDate, setAddDate] = useState(() => todayKey())
+  const [raiseDialog, setRaiseDialog] = useState<Violation | null>(null)
+  const [raiseReason, setRaiseReason] = useState("")
+  const [editDialog, setEditDialog] = useState<Violation | null>(null)
+  const [editType, setEditType] = useState<ViolationType>("ت")
+  const [deleteDialog, setDeleteDialog] = useState<Violation | null>(null)
+  const [details, setDetails] = useState<Violation | null>(null)
 
-  // Task 36: eligible drivers includes inactive (all drivers without active violation)
-  const eligibleDrivers = state.drivers.filter((d) => !d.violation)
-  const driverOptions = eligibleDrivers.map((d) => `${d.ownerName} · ${d.plate} · ${d.status === "نشط" ? "نشط" : "غير نشط"}`)
+  const driverById = useMemo(
+    () => new Map(state.drivers.map((driver) => [driver.id, driver])),
+    [state.drivers],
+  )
+  const eligibleDrivers = useMemo(
+    () =>
+      state.drivers.filter(
+        (driver) =>
+          (driver.status === "نشط" || driver.status === "غير_نشط") &&
+          !driver.violation &&
+          !state.violations.some(
+            (violation) => violation.driverId === driver.id && !violation.raised,
+          ),
+      ),
+    [state.drivers, state.violations],
+  )
+  const selectedDriver = selectedDriverId
+    ? driverById.get(selectedDriverId)
+    : undefined
 
-  const filtered = state.violations.filter((v) => {
-    if (filterRaised === "open") return !v.raised
-    if (filterRaised === "raised") return v.raised
-    return true
-  })
+  const driverLabel = (driver: Driver) =>
+    `${driver.ownerName} · ${driver.plate} · ${driver.status === "نشط" ? "نشط" : "غير نشط"}`
 
-  const raise = (id: number, driverName: string, reason?: string) => {
-    dispatch({ type: "RAISE_VIOLATION", violationId: id, reason })
-    showSnackbar(`تم رفع مخالفة السائق ${driverName} — أصبح قابل للإضافة ✅`)
+  const filtered = useMemo(
+    () =>
+      state.violations.filter((violation) => {
+        const driver = driverById.get(violation.driverId)
+        const plate = driver?.plate ?? ""
+        const matchesStatus =
+          statusFilter === "all" ||
+          (statusFilter === "open" && !violation.raised) ||
+          (statusFilter === "raised" && violation.raised)
+        const matchesType =
+          typeFilter === "all" || violation.type === typeFilter
+        const matchesSearch = matchesNameOrPlate(
+          search,
+          violation.driverName,
+          plate,
+        )
+        return matchesStatus && matchesType && matchesSearch
+      }),
+    [driverById, search, state.violations, statusFilter, typeFilter],
+  )
+
+  const openAdd = () => {
+    setSelectedDriverId(null)
+    setDriverSearch("")
+    setAddType("ت")
+    setAddDate(todayKey())
+    setShowAdd(true)
+  }
+
+  const closeAdd = () => {
+    setShowAdd(false)
+    setSelectedDriverId(null)
+    setDriverSearch("")
+  }
+
+  const handleAdd = () => {
+    if (!selectedDriver) {
+      showSnackbar("اختر السائق أو المالك أولًا ⚠️")
+      return
+    }
+    if (!addDate) {
+      showSnackbar("حدد تاريخ المخالفة أولًا ⚠️")
+      return
+    }
+    const driverId = selectedDriver.id
+    dispatch({
+      type: "ADD_VIOLATION",
+      driverId,
+      vType: addType,
+      date: addDate,
+      recordedBy: state.user?.name,
+    })
+    showSnackbar("تم تسجيل المخالفة بنجاح — تراجع", () =>
+      dispatch({ type: "UNDO_VIOLATION_BY_DRIVER", driverId }),
+    )
+    closeAdd()
+  }
+
+  const handleRaise = () => {
+    if (!raiseDialog) return
+    const reason = raiseReason.trim()
+    if (!reason) {
+      showSnackbar("سبب رفع المخالفة مطلوب ⚠️")
+      return
+    }
+    const violationId = raiseDialog.id
+    dispatch({ type: "RAISE_VIOLATION", violationId, reason })
+    showSnackbar("تم رفع المخالفة — تراجع", () =>
+      dispatch({ type: "UNDO_RAISE_VIOLATION", violationId }),
+    )
     setRaiseDialog(null)
     setRaiseReason("")
   }
 
-  const handleAdd = () => {
-    const driver = eligibleDrivers.find((d) => `${d.ownerName} · ${d.plate} · ${d.status === "نشط" ? "نشط" : "غير نشط"}` === addDriverLabel)
-    if (!driver) return
-    // Task 38: pass date; Task 39: pass recordedBy
-    dispatch({ type: "ADD_VIOLATION", driverId: driver.id, vType: addType, date: addDate, recordedBy: state.user?.name })
-    showSnackbar(`تم تسجيل مخالفة (${addType}) للسائق ${driver.ownerName} ✅`)
-    setShowAdd(false)
-    setAddDriverLabel("")
-    setAddDate(todayKey())
+  const handleEdit = () => {
+    if (!editDialog || editDialog.raised) return
+    const previousType = editDialog.type
+    const violationId = editDialog.id
+    dispatch({ type: "EDIT_VIOLATION", violationId, vType: editType })
+    showSnackbar("تم تعديل المخالفة بنجاح — تراجع", () =>
+      dispatch({
+        type: "UNDO_EDIT_VIOLATION",
+        violationId,
+        previousType,
+      }),
+    )
+    setEditDialog(null)
   }
 
-  const toggleType = (vId: number, current: ViolationType) => {
-    const next: ViolationType = current === "ت" ? "ح" : "ت"
-    dispatch({ type: "EDIT_VIOLATION", violationId: vId, vType: next })
-    showSnackbar(`تم تعديل نوع المخالفة إلى (${next})`)
+  const handleDelete = () => {
+    if (!deleteDialog) return
+    const violation = deleteDialog
+    const previousDrivers = cloneDrivers(state.drivers)
+    dispatch({ type: "DELETE_VIOLATION", violationId: violation.id })
+    showSnackbar("تم حذف المخالفة — تراجع", () =>
+      dispatch({
+        type: "RESTORE_VIOLATION",
+        violation,
+        drivers: previousDrivers,
+      }),
+    )
+    setDeleteDialog(null)
+    setDetails(null)
   }
 
-  const remove = (vId: number, driverName: string) => {
-    dispatch({ type: "DELETE_VIOLATION", violationId: vId })
-    showSnackbar(`تم حذف مخالفة ${driverName} واستعادة حالته`)
+  const openEdit = (violation: Violation) => {
+    setEditType(violation.type)
+    setEditDialog(violation)
   }
+
+  const statusLabel = (violation: Violation) =>
+    violation.raised ? "مرفوعة" : "غير مرفوعة"
+
+  const openCount = state.violations.filter((violation) => !violation.raised).length
+  const raisedCount = state.violations.filter((violation) => violation.raised).length
+
+  const modal = (
+    title: string,
+    content: ReactNode,
+    onClose: () => void,
+  ) => (
+    <div className="violation-modal-layer" role="presentation">
+      <button
+        type="button"
+        className="violation-modal-backdrop"
+        aria-label="إغلاق"
+        onClick={onClose}
+      />
+      <div className="violation-modal" role="dialog" aria-modal="true" aria-label={title}>
+        {content}
+      </div>
+    </div>
+  )
 
   return (
-    <div style={{ flex: 1, display: "flex", flexDirection: "column", background: th.bg, overflow: "hidden", position: "relative" }}>
+    <div className="violations-screen" style={{ background: th.bg }}>
       <StandardAppBar
-        title="المخالفات"
+        title="إدارة المخالفات"
         back="home"
         extraLeft={
-          <button
-            type="button"
-            onClick={() => setShowAdd(true)}
-            style={{
-              background: T.danger,
-              border: "none",
-              borderRadius: 8,
-              padding: "6px 12px",
-              color: "#fff",
-              fontSize: 12,
-              fontWeight: 700,
-              cursor: "pointer",
-              fontFamily: "inherit",
-            }}
-          >
-            + إضافة
+          <button type="button" className="violation-add-button" onClick={openAdd}>
+            <MonochromeIcon name="plus" size={15} /> إضافة مخالفة
           </button>
         }
       />
 
-      <div style={{ background: th.card, borderBottom: `1px solid ${th.border}`, padding: "10px 16px", display: "flex", gap: 8 }}>
+      <div className="violations-toolbar" style={{ background: th.card, borderColor: th.border }}>
+        <div className="violations-summary">
+          <div><strong>{state.violations.length}</strong><span>إجمالي المخالفات</span></div>
+          <div><strong>{openCount}</strong><span>غير مرفوعة</span></div>
+          <div><strong>{raisedCount}</strong><span>مرفوعة</span></div>
+        </div>
+        <div className="violations-search">
+          <MonochromeIcon name="search" size={16} />
+          <input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="بحث باسم السائق أو رقم اللوحة..."
+            aria-label="بحث المخالفات"
+          />
+          {search && (
+            <button type="button" onClick={() => setSearch("")} aria-label="مسح البحث">
+              <MonochromeIcon name="close" size={14} />
+            </button>
+          )}
+        </div>
+        <div className="violations-filters">
+          <label>
+            <span>الحالة</span>
+            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as ViolationStatusFilter)}>
+              <option value="all">كل الحالات</option>
+              <option value="open">غير مرفوعة</option>
+              <option value="raised">مرفوعة</option>
+            </select>
+          </label>
+          <label>
+            <span>النوع</span>
+            <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value as ViolationTypeFilter)}>
+              <option value="all">كل الأنواع</option>
+              <option value="ت">ت — تحضير</option>
+              <option value="ح">ح — حمول</option>
+            </select>
+          </label>
+        </div>
+      </div>
+
+      <div className="violations-tabs" style={{ background: th.card, borderColor: th.border }}>
         {[
-          ["all", "الكل"],
-          ["open", "مفتوحة"],
-          ["raised", "مرفوعة"],
-        ].map(([k, l]) => (
+          ["all", "الكل", state.violations.length],
+          ["open", "غير مرفوعة", openCount],
+          ["raised", "مرفوعة", raisedCount],
+        ].map(([key, label, count]) => (
           <button
-            key={k}
             type="button"
-            onClick={() => {
-              setLoading(true)
-              setFilterRaised(k as typeof filterRaised)
-              setTimeout(() => setLoading(false), 300)
-            }}
-            style={{
-              padding: "6px 16px",
-              borderRadius: 99,
-              border: "none",
-              background: filterRaised === k ? T.danger : th.dark ? "#1E2D40" : "#F1F5F9",
-              color: filterRaised === k ? "#fff" : th.sub,
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: "pointer",
-              fontFamily: "inherit",
-            }}
+            key={key}
+            onClick={() => setStatusFilter(key as ViolationStatusFilter)}
+            className={statusFilter === key ? "active" : ""}
           >
-            {l}
+            <span>{label}</span><b>{count}</b>
           </button>
         ))}
       </div>
 
-      <div style={{ flex: 1, overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
-        {loading ? (
-          Array.from({ length: 4 }).map((_, i) => <SkeletonRow key={i} dark={th.dark} />)
-        ) : filtered.length === 0 ? (
-          <EmptyState icon="✅" text="لا توجد مخالفات في هذا التصنيف" />
+      <div className="violations-list">
+        {filtered.length === 0 ? (
+          <EmptyState
+            icon="inbox"
+            text={
+              state.violations.length === 0
+                ? "لا توجد مخالفات"
+                : statusFilter === "open" && openCount === 0
+                  ? "لا توجد مخالفات غير مرفوعة"
+                  : statusFilter === "raised" && raisedCount === 0
+                    ? "لا توجد مخالفات مرفوعة"
+                    : "لا توجد مخالفات مطابقة للبحث والفلاتر"
+            }
+          />
         ) : (
-          filtered.map((v) => (
-            <Card key={v.id}>
-              <div style={{ padding: "14px 16px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
-                  <div>
-                    <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: th.text }}>{v.driverName}</p>
-                    <p style={{ margin: "3px 0 0", fontSize: 12, color: th.sub }}>{v.note}</p>
-                    <p style={{ margin: "3px 0 0", fontSize: 11, color: th.muted }}><MonochromeIcon name="calendar" size={13} /> {v.date}</p>
-                    {/* Task 39: show recordedBy */}
-                    {v.recordedBy && (
-                      <p style={{ margin: "2px 0 0", fontSize: 11, color: th.muted }}><MonochromeIcon name="user" size={13} /> {v.recordedBy}</p>
-                    )}
+          filtered.map((violation) => {
+            const driver = driverById.get(violation.driverId)
+            const isRaised = violation.raised
+            return (
+              <article
+                key={violation.id}
+                className="violation-card"
+                style={{ background: th.card, borderColor: th.border }}
+                role="button"
+                tabIndex={0}
+                onClick={() => setDetails(violation)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") setDetails(violation)
+                }}
+              >
+                <div className="violation-card-main">
+                  <div className={`violation-mark ${isRaised ? "raised" : "open"}`}>
+                    <MonochromeIcon name={isRaised ? "check" : "warning"} size={19} />
                   </div>
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
-                    <span
-                      style={{
-                        fontSize: 12,
-                        fontWeight: 700,
-                        padding: "3px 10px",
-                        borderRadius: 99,
-                        background: v.type === "ت" ? "#FEE2E2" : "#FEF9C3",
-                        color: v.type === "ت" ? "#991B1B" : "#92400E",
-                      }}
-                    >
-                      {v.type}
-                    </span>
-                    {!v.raised && (
-                      <button
-                        type="button"
-                        onClick={() => setRaiseDialog({ id: v.id, name: v.driverName })}
-                        style={{
-                          background: "none",
-                          border: "none",
-                          color: T.success,
-                          fontSize: 12,
-                          fontWeight: 700,
-                          cursor: "pointer",
-                          fontFamily: "inherit",
-                        }}
-                      >
-                        <MonochromeIcon name="upload" size={14} /> رفع
-                      </button>
+                  <div className="violation-card-content">
+                    <div className="violation-card-heading">
+                      <div>
+                        <button
+                          type="button"
+                          className="violation-driver-name"
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            setDetails(violation)
+                          }}
+                        >
+                          {violation.driverName}
+                        </button>
+                        <p>{driver?.plate ?? "اللوحة غير متاحة"}</p>
+                      </div>
+                      <div className="violation-card-badges">
+                        <span className={`violation-type-badge type-${violation.type}`}>{violation.type}</span>
+                        <span className={`violation-status-badge ${isRaised ? "raised" : "open"}`}>
+                          {statusLabel(violation)}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="violation-meta-grid">
+                      <span><MonochromeIcon name="calendar" size={13} /> {formatViolationDate(violation.date)}</span>
+                      <span><MonochromeIcon name="user" size={13} /> {violation.recordedBy ?? "غير مسجل"}</span>
+                      {isRaised && <span><MonochromeIcon name="upload" size={13} /> رفع: {formatViolationDate(violation.raisedDate)}</span>}
+                    </div>
+                    <p className="violation-note">{violation.note}</p>
+                    {isRaised && violation.raiseReason && (
+                      <div className="violation-raise-reason">سبب الرفع: {violation.raiseReason}</div>
                     )}
                   </div>
                 </div>
-              </div>
-            </Card>
-            ))
+                <div className="violation-card-actions">
+                  {!isRaised && (
+                    <button
+                      type="button"
+                      className="violation-action raise"
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        setRaiseDialog(violation)
+                        setRaiseReason("")
+                      }}
+                    >
+                      <MonochromeIcon name="upload" size={14} /> رفع
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="violation-action"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      openEdit(violation)
+                    }}
+                  >
+                    <MonochromeIcon name="edit" size={14} /> تعديل
+                  </button>
+                  <button
+                    type="button"
+                    className="violation-action danger"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      setDeleteDialog(violation)
+                    }}
+                  >
+                    <MonochromeIcon name="trash" size={14} /> حذف
+                  </button>
+                </div>
+              </article>
+            )
+          })
         )}
       </div>
 
-      {/* Raise Dialog */}
-      {raiseDialog && (
+      {showAdd && modal(
+        "إضافة مخالفة",
         <>
-          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 80 }} onClick={() => setRaiseDialog(null)} />
-          <div
-            style={{
-              position: "fixed",
-              left: "50%",
-              top: "50%",
-              transform: "translate(-50%, -50%)",
-              background: th.card,
-              borderRadius: 16,
-              padding: 20,
-              zIndex: 90,
-              maxWidth: 320,
-              border: `1px solid ${th.border}`,
-            }}
-          >
-            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: th.text }}>رفع المخالفة</h3>
-            <p style={{ margin: "8px 0 12px", fontSize: 13, color: th.sub }}>يرجى إدخال سبب الرفع</p>
-            <textarea
-              value={raiseReason}
-              onChange={(e) => setRaiseReason(e.target.value)}
-              placeholder="السبب..."
-              style={{
-                width: "100%",
-                minHeight: 80,
-                padding: 10,
-                borderRadius: 8,
-                border: `1px solid ${th.border}`,
-                background: th.inputBg,
-                color: th.text,
-                fontSize: 13,
-                fontFamily: "inherit",
-                direction: "rtl",
-                boxSizing: "border-box",
-                outline: "none",
-                resize: "none",
+          <div className="violation-modal-header">
+            <div><span className="modal-eyebrow">سجل جديد</span><h2>إضافة مخالفة</h2></div>
+            <button type="button" onClick={closeAdd} aria-label="إغلاق"><MonochromeIcon name="close" size={18} /></button>
+          </div>
+          <div className="violation-form">
+            <SearchableRosterField
+              label="السائق / المالك"
+              query={driverSearch}
+              onQueryChange={(query) => {
+                setDriverSearch(query)
+                setSelectedDriverId(null)
               }}
+              selectedLabel={selectedDriver ? driverLabel(selectedDriver) : undefined}
+              items={eligibleDrivers}
+              getKey={(driver) => driver.id}
+              formatLabel={(driver) => driver.ownerName}
+              formatSubLabel={(driver) => `${driver.plate} · ${driver.status === "نشط" ? "نشط" : "غير نشط"}`}
+              filterItem={(driver, query) => matchesNameOrPlate(query, driver.ownerName, driver.plate)}
+              onPick={(driver) => {
+                setSelectedDriverId(driver.id)
+                setDriverSearch(driverLabel(driver))
+              }}
+              placeholder="ابحث بالاسم أو رقم اللوحة..."
+              emptyHint="لا يوجد سائق صالح للاختيار"
             />
-            <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-              <button
-                type="button"
-                onClick={() => setRaiseDialog(null)}
-                style={{
-                  flex: 1,
-                  padding: 10,
-                  borderRadius: 8,
-                  border: `1px solid ${th.border}`,
-                  background: "none",
-                  color: th.sub,
-                  fontSize: 13,
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                }}
-              >
-                إلغاء
-              </button>
-              <button
-                type="button"
-                onClick={() =>raise(raiseDialog.id, raiseDialog.name, raiseReason)}
-                style={{
-                  flex: 1,
-                  padding: 10,
-                  borderRadius: 8,
-                  border: "none",
-                  background: T.success,
-                  color: "#fff",
-                  fontSize: 13,
-                  fontWeight: 700,
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                }}
-              >
-                <MonochromeIcon name="check" size={14} /> رفع
-              </button>
+            <div className="violation-form-grid">
+              <label>
+                <span>نوع المخالفة</span>
+                <select value={addType} onChange={(event) => setAddType(event.target.value as ViolationType)}>
+                  <option value="ت">ت — مخالفة تحضير</option>
+                  <option value="ح">ح — مخالفة حمول</option>
+                </select>
+              </label>
+              <label>
+                <span>تاريخ المخالفة</span>
+                <input type="date" value={addDate} onChange={(event) => setAddDate(event.target.value)} />
+              </label>
             </div>
           </div>
-        </>
+          <div className="violation-modal-actions">
+            <button type="button" className="secondary" onClick={closeAdd}>إلغاء</button>
+            <button type="button" className="primary" onClick={handleAdd}>حفظ المخالفة</button>
+          </div>
+        </>,
+        closeAdd,
       )}
+
+      {raiseDialog && modal(
+        "رفع المخالفة",
+        <>
+          <div className="violation-modal-header">
+            <div><span className="modal-eyebrow">تحديث الحالة</span><h2>رفع المخالفة</h2></div>
+            <button type="button" onClick={() => setRaiseDialog(null)} aria-label="إغلاق"><MonochromeIcon name="close" size={18} /></button>
+          </div>
+          <p className="modal-description">سيصبح السائق غير نشط وقابلًا للإضافة، ولن يعود تلقائيًا إلى الكشف النشط.</p>
+          <div className="modal-driver-highlight"><strong>{raiseDialog.driverName}</strong><span>مخالفة {raiseDialog.type}</span></div>
+          <label className="modal-field">
+            <span>سبب رفع المخالفة <b>*</b></span>
+            <textarea value={raiseReason} onChange={(event) => setRaiseReason(event.target.value)} placeholder="اكتب سبب الرفع..." autoFocus />
+          </label>
+          <div className="violation-modal-actions">
+            <button type="button" className="secondary" onClick={() => setRaiseDialog(null)}>إلغاء</button>
+            <button type="button" className="success" onClick={handleRaise}>تأكيد الرفع</button>
+          </div>
+        </>,
+        () => setRaiseDialog(null),
+      )}
+
+      {editDialog && modal(
+        "تعديل المخالفة",
+        <>
+          <div className="violation-modal-header">
+            <div><span className="modal-eyebrow">تعديل مسموح</span><h2>تعديل نوع المخالفة</h2></div>
+            <button type="button" onClick={() => setEditDialog(null)} aria-label="إغلاق"><MonochromeIcon name="close" size={18} /></button>
+          </div>
+          <p className="modal-description">{editDialog.driverName} · يمكن تعديل النوع فقط طالما أن المخالفة غير مرفوعة.</p>
+          <div className="violation-type-selector">
+            {(["ت", "ح"] as ViolationType[]).map((type) => (
+              <button type="button" key={type} className={editType === type ? "selected" : ""} onClick={() => setEditType(type)}>
+                <strong>{type}</strong><span>{type === "ت" ? "تحضير" : "حمول"}</span>
+              </button>
+            ))}
+          </div>
+          <div className="violation-modal-actions">
+            <button type="button" className="secondary" onClick={() => setEditDialog(null)}>إلغاء</button>
+            <button type="button" className="primary" onClick={handleEdit}>حفظ التعديل</button>
+          </div>
+        </>,
+        () => setEditDialog(null),
+      )}
+
+      {deleteDialog && modal(
+        "تأكيد حذف المخالفة",
+        <>
+          <div className="violation-modal-header">
+            <div><span className="modal-eyebrow danger-text">إجراء نهائي</span><h2>حذف المخالفة؟</h2></div>
+            <button type="button" onClick={() => setDeleteDialog(null)} aria-label="إغلاق"><MonochromeIcon name="close" size={18} /></button>
+          </div>
+          <p className="modal-description">سيتم حذف سجل المخالفة وإعادة السائق إلى حالته الأصلية قبل تسجيلها، بما في ذلك التسلسل والضمانات المحفوظة.</p>
+          <div className="modal-driver-highlight danger-highlight"><strong>{deleteDialog.driverName}</strong><span>مخالفة {deleteDialog.type}</span></div>
+          <div className="violation-modal-actions">
+            <button type="button" className="secondary" onClick={() => setDeleteDialog(null)}>إلغاء</button>
+            <button type="button" className="danger-button" onClick={handleDelete}>حذف المخالفة</button>
+          </div>
+        </>,
+        () => setDeleteDialog(null),
+      )}
+
+      {details && (() => {
+        const driver = driverById.get(details.driverId)
+        const activeGuarantees = driver?.guarantors.filter((g) => g.status === "فعال" && !g.suspended).length ?? 0
+        const totalGuarantees = driver?.guarantors.length ?? 0
+        const suspendedGuarantees = driver?.guarantors.filter((g) => g.suspended).length ?? 0
+        const timeline = [
+          { label: "تسجيل المخالفة", show: true },
+          { label: "تغيير حالة السائق إلى غير نشط", show: Boolean(details.undoSnapshot) },
+          { label: "تعليق الضمانات", show: Boolean(details.guaranteesSuspended) },
+          { label: "رفع المخالفة", show: details.raised },
+          { label: "إزالة المخالفة عن السائق", show: details.raised },
+          { label: "إعادة تفعيل الضمانات", show: details.raised && Boolean(details.guaranteesSuspended) },
+        ].filter((event) => event.show)
+        return modal(
+          "تفاصيل المخالفة",
+          <>
+            <div className="violation-modal-header">
+              <div><span className="modal-eyebrow">سجل المخالفة #{details.id}</span><h2>تفاصيل المخالفة</h2></div>
+              <button type="button" onClick={() => setDetails(null)} aria-label="إغلاق"><MonochromeIcon name="close" size={18} /></button>
+            </div>
+            <div className="details-identity">
+              <div className="details-avatar"><MonochromeIcon name="user" size={22} /></div>
+              <div><strong>{details.driverName}</strong><span>{driver?.plate ?? "اللوحة غير متاحة"}</span></div>
+              <span className={`violation-status-badge ${details.raised ? "raised" : "open"}`}>{statusLabel(details)}</span>
+            </div>
+            <div className="details-section">
+              <h3>بيانات المخالفة</h3>
+              <div className="details-grid">
+                <span>النوع <b>{details.type === "ت" ? "ت — تحضير" : "ح — حمول"}</b></span>
+                <span>التاريخ <b>{formatViolationDate(details.date)}</b></span>
+                <span>المسجل <b>{details.recordedBy ?? "غير مسجل"}</b></span>
+                {details.raised && <span>تاريخ الرفع <b>{formatViolationDate(details.raisedDate)}</b></span>}
+              </div>
+              <p className="details-note">{details.note}</p>
+              {details.raiseReason && <p className="details-note">سبب الرفع: {details.raiseReason}</p>}
+            </div>
+            <div className="details-section">
+              <h3>حالة السائق والضمانات</h3>
+              <div className="details-grid">
+                <span>الحالة الحالية <b>{driver?.status === "نشط" ? "نشط" : driver?.statusReason === "قابل_للإضافة" ? "غير نشط · قابل للإضافة" : "غير نشط"}</b></span>
+                <span>الضمانات الفعالة <b>{activeGuarantees} من {totalGuarantees}</b></span>
+                <span>المعلقة الآن <b>{suspendedGuarantees}</b></span>
+                <span>تأثرت بالمخالفة <b>{details.guaranteesSuspended ? "نعم" : "لا"}</b></span>
+              </div>
+            </div>
+            <div className="details-section">
+              <h3>سجل العمليات</h3>
+              <ol className="violation-timeline">
+                {timeline.map((event, index) => <li key={event.label}><i>{index + 1}</i><span>{event.label}</span></li>)}
+              </ol>
+            </div>
+            <div className="violation-modal-actions">
+              {!details.raised && <button type="button" className="success" onClick={() => { setDetails(null); setRaiseDialog(details); setRaiseReason("") }}>رفع المخالفة</button>}
+              <button type="button" className="secondary" onClick={() => { setDetails(null); openEdit(details) }}>تعديل</button>
+              <button type="button" className="danger-button" onClick={() => { setDetails(null); setDeleteDialog(details) }}>حذف</button>
+            </div>
+          </>,
+          () => setDetails(null),
+        )
+      })()}
     </div>
   )
 }

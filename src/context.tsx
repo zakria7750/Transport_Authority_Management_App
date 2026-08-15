@@ -115,100 +115,111 @@ export type BreakdownCreatePayload = {
   notes?: string
 }
 
-type Action = { type: "LOGIN" user: User } | { type: "LOGOUT" } | {
-  type: "NAVIGATE"
-  screen: Screen
-  params?: Record<string, unknown>
-} | { type: "TOGGLE_DARK" } | {
-  type: "SET_THEME"
-  preference: ThemePreference
-} | { type: "SET_BIOMETRIC" enabled: boolean } | { type: "SYNC_NOW" } | {
-  type: "SHOW_SNACKBAR"
-  message: string
-  undoFn?: () => void
-} | { type: "HIDE_SNACKBAR" } | {
-  type: "ADD_VIOLATION"
-  driverId: number
-  vType: ViolationType
-  date?: string
-  recordedBy?: string
-} | { type: "UNDO_VIOLATION" violationId: number } | {
-  type: "UNDO_VIOLATION_BY_DRIVER"
-  driverId: number
-} | { type: "RAISE_VIOLATION" violationId: number reason?: string } | {
-  type: "RAISE_ALL_VIOLATIONS"
-} | { type: "EDIT_VIOLATION" violationId: number vType: ViolationType } | {
-  type: "DELETE_VIOLATION"
-  violationId: number
-} | { type: "CREATE_TRIP" trip: TripCreatePayload } | {
-  type: "EDIT_TRIP"
-  edit: TripEditPayload
-} | { type: "UPDATE_TRIP" trip: Trip } | {
-  type: "DELETE_TRIP"
-  tripId: number
-} | { type: "COMPLETE_TRIP" driverId: number } | {
-  type: "REGISTER_COMPLETED_TRIP"
-  tripId: number
-} | { type: "CANCEL_TRIP" driverId: number } | {
-  type: "RESTORE_TRIP"
-  trip: Trip
-  driver: Driver
-} | { type: "ADD_DRIVER" driver: Driver } | {
-  type: "UPDATE_DRIVER"
-  driver: Driver
-} | { type: "DELETE_DRIVER" driverId: number } | {
-  type: "DISABLE_DRIVER"
-  driverId: number
-} | { type: "ACTIVATE_DRIVER" driverId: number } | {
-  type: "RE_REGISTER_DRIVER"
-  driverId: number
-} | { type: "SET_DRIVER_IMAGES" driverId: number images: DriverImages } | {
-  type: "READ_NOTIFICATION"
-  id: number
-} | { type: "READ_ALL_NOTIFICATIONS" } | {
-  type: "DELETE_NOTIFICATION"
-  id: number
-} | {
-  type: "ADD_NOTIFICATION"
-  notification: Omit<Notification, "id" | "read" | "date">
-} | { type: "SAVE_ATTENDANCE" absentDriverIds: number[] } | {
-  type: "UPDATE_GUARANTORS"
-  driverId: number
-  guarantors: Guarantor[]
-} | { type: "CANCEL_GUARANTOR" guarantorNationalId: string } | {
-  type: "SET_GUARANTOR_TARGETS"
-  template: Pick<Guarantor, "name" | "phone" | "nationalId" | "sourceDriverId">
-  targetDriverIds: number[]
-} | { type: "ADD_BREAKDOWN" breakdown: BreakdownCreatePayload } | {
-  type: "ADD_BREAKDOWN_MANUAL"
-  driverId: number
-  location: "قريب" | "بعيد"
-  date?: string
-  note?: string
-} | {
-  type: "UPDATE_BREAKDOWN"
-  breakdownId: number
-  patch: Partial<BreakdownCreatePayload>
-} | { type: "END_BREAKDOWN" breakdownId: number } | {
-  type: "DELETE_BREAKDOWN"
-  breakdownId: number
-} | {
-  type: "RESTORE_BREAKDOWN_STATE"
-  snapshot: Pick<AppState, "drivers" | "trips" | "breakdowns">
-} | { type: "DISMISS_COMPLETED_TRIP" tripId: number } | {
-  type: "UPDATE_USER"
-  user: User
-} | { type: "ADD_USER" user: User } | { type: "DELETE_USER" userId: number } | {
-  type: "SET_MIN_GUARANTORS"
-  min: number
-} | { type: "SET_HIGHLIGHT" driverId: number | null } | {
-  type: "SAVE_SCROLL"
-  screen: Screen
-  position: number
-} | {
-  type: "IMPORT_DATA"
-  data: Partial<Pick<AppState, "drivers" | "trips" | "violations" | "breakdowns" | "notifications" | "users" | "minGuarantors">>
-}
+type Action =
+  | { type: "LOGIN"; user: User }
+  | { type: "LOGOUT" }
+  | { type: "NAVIGATE"; screen: Screen; params?: Record<string, unknown> }
+  | { type: "TOGGLE_DARK" }
+  | { type: "SET_THEME"; preference: ThemePreference }
+  | { type: "SET_BIOMETRIC"; enabled: boolean }
+  | { type: "SYNC_NOW" }
+  | { type: "SHOW_SNACKBAR"; message: string; undoFn?: () => void }
+  | { type: "HIDE_SNACKBAR" }
+  | {
+      type: "ADD_VIOLATION"
+      driverId: number
+      vType: ViolationType
+      date?: string
+      recordedBy?: string
+    }
+  | { type: "UNDO_VIOLATION"; violationId: number }
+  | { type: "UNDO_VIOLATION_BY_DRIVER"; driverId: number }
+  | { type: "RAISE_VIOLATION"; violationId: number; reason?: string }
+  | { type: "RAISE_ALL_VIOLATIONS" }
+  | { type: "EDIT_VIOLATION"; violationId: number; vType: ViolationType }
+  | {
+      type: "UNDO_EDIT_VIOLATION"
+      violationId: number
+      previousType: ViolationType
+    }
+  | { type: "UNDO_RAISE_VIOLATION"; violationId: number }
+  | { type: "RESTORE_VIOLATION"; violation: Violation; drivers: Driver[] }
+  | { type: "DELETE_VIOLATION"; violationId: number }
+  | { type: "CREATE_TRIP"; trip: TripCreatePayload }
+  | { type: "EDIT_TRIP"; edit: TripEditPayload }
+  | { type: "UPDATE_TRIP"; trip: Trip }
+  | { type: "DELETE_TRIP"; tripId: number }
+  | { type: "COMPLETE_TRIP"; driverId: number }
+  | { type: "REGISTER_COMPLETED_TRIP"; tripId: number }
+  | { type: "CANCEL_TRIP"; driverId: number }
+  | { type: "RESTORE_TRIP"; trip: Trip; driver: Driver }
+  | { type: "ADD_DRIVER"; driver: Driver }
+  | { type: "UPDATE_DRIVER"; driver: Driver }
+  | { type: "DELETE_DRIVER"; driverId: number }
+  | { type: "DISABLE_DRIVER"; driverId: number }
+  | { type: "ACTIVATE_DRIVER"; driverId: number }
+  | { type: "RE_REGISTER_DRIVER"; driverId: number }
+  | { type: "SET_DRIVER_IMAGES"; driverId: number; images: DriverImages }
+  | { type: "READ_NOTIFICATION"; id: number }
+  | { type: "READ_ALL_NOTIFICATIONS" }
+  | { type: "DELETE_NOTIFICATION"; id: number }
+  | {
+      type: "ADD_NOTIFICATION"
+      notification: Omit<Notification, "id" | "read" | "date">
+    }
+  | { type: "SAVE_ATTENDANCE"; absentDriverIds: number[] }
+  | {
+      type: "UPDATE_GUARANTORS"
+      driverId: number
+      guarantors: Guarantor[]
+    }
+  | { type: "CANCEL_GUARANTOR"; guarantorNationalId: string }
+  | {
+      type: "SET_GUARANTOR_TARGETS"
+      template: Pick<Guarantor, "name" | "phone" | "nationalId" | "sourceDriverId">
+      targetDriverIds: number[]
+    }
+  | { type: "ADD_BREAKDOWN"; breakdown: BreakdownCreatePayload }
+  | {
+      type: "ADD_BREAKDOWN_MANUAL"
+      driverId: number
+      location: "قريب" | "بعيد"
+      date?: string
+      note?: string
+    }
+  | {
+      type: "UPDATE_BREAKDOWN"
+      breakdownId: number
+      patch: Partial<BreakdownCreatePayload>
+    }
+  | { type: "END_BREAKDOWN"; breakdownId: number }
+  | { type: "DELETE_BREAKDOWN"; breakdownId: number }
+  | {
+      type: "RESTORE_BREAKDOWN_STATE"
+      snapshot: Pick<AppState, "drivers" | "trips" | "breakdowns">
+    }
+  | { type: "DISMISS_COMPLETED_TRIP"; tripId: number }
+  | { type: "UPDATE_USER"; user: User }
+  | { type: "ADD_USER"; user: User }
+  | { type: "DELETE_USER"; userId: number }
+  | { type: "SET_MIN_GUARANTORS"; min: number }
+  | { type: "SET_HIGHLIGHT"; driverId: number | null }
+  | { type: "SAVE_SCROLL"; screen: Screen; position: number }
+  | {
+      type: "IMPORT_DATA"
+      data: Partial<
+        Pick<
+          AppState,
+          | "drivers"
+          | "trips"
+          | "violations"
+          | "breakdowns"
+          | "notifications"
+          | "users"
+          | "minGuarantors"
+        >
+      >
+    }
 
 const REGISTRATION_SCREENS: Screen[] = ["registration", "settings", "login"]
 const MANAGER_ONLY: Screen[] = [
@@ -432,6 +443,8 @@ function applyViolationToState(
       status: driver.status,
       statusReason: driver.statusReason,
       violation: driver.violation,
+      currentTrip: driver.currentTrip,
+      compensationBalance: driver.compensationBalance,
       seq: driver.seq,
       guarantorSnapshot: gSnap,
     },
@@ -451,6 +464,11 @@ function applyViolationToState(
   )
   drivers = suspendGuarantorObligations(drivers, driverId)
   drivers = reindexActiveDrivers(drivers)
+  const guaranteesSuspended = drivers.some((item) =>
+    item.guarantors.some(
+      (guarantor) => guarantor.suspendedForViolatorId === driverId,
+    ),
+  )
 
   let notifications = pushNotif(state, {
     icon: "⚠️",
@@ -470,7 +488,10 @@ function applyViolationToState(
   return {
     ...state,
     drivers,
-    violations: [newViolation, ...state.violations],
+    violations: [
+      { ...newViolation, guaranteesSuspended },
+      ...state.violations,
+    ],
     notifications,
     pendingSyncCount: bumpPendingSync(state),
   }
@@ -639,6 +660,9 @@ function reducer(state: AppState, action: Action): AppState {
               status: snap.status,
               statusReason: snap.statusReason,
               violation: snap.violation,
+              currentTrip: snap.currentTrip ?? d.currentTrip,
+              compensationBalance:
+                snap.compensationBalance ?? d.compensationBalance,
               seq: snap.seq,
             }
           : d,
@@ -654,12 +678,10 @@ function reducer(state: AppState, action: Action): AppState {
 
     case "RAISE_VIOLATION": {
       const viol = state.violations.find((v) => v.id === action.violationId)
-      if (!viol) return state
+      const reason = action.reason?.trim()
+      if (!viol || viol.raised || !reason) return state
       const today = new Date().toISOString()
-      const raiseNote = action.reason?.trim()
-        ? `${viol.note} · سبب الرفع: ${action.reason.trim()}`
-        : viol.note
-      const drivers = state.drivers.map((d) => {
+      let drivers = state.drivers.map((d) => {
         if (d.id !== viol.driverId) return d
         return {
           ...d,
@@ -669,11 +691,25 @@ function reducer(state: AppState, action: Action): AppState {
           guarantors: reactivateGuarantorsOnRaise(d.guarantors),
         }
       })
+      const guaranteeSnapshot = viol.undoSnapshot?.guarantorSnapshot
+      if (guaranteeSnapshot) {
+        const snapMap = new Map(
+          Object.entries(guaranteeSnapshot).map(([key, value]) => [
+            Number(key),
+            value,
+          ]),
+        )
+        drivers = restoreGuarantorsFromSnapshot(
+          drivers,
+          viol.driverId,
+          snapMap,
+        )
+      }
       return {
         ...state,
         violations: state.violations.map((v) =>
           v.id === action.violationId
-            ? { ...v, raised: true, raisedDate: today, note: raiseNote }
+            ? { ...v, raised: true, raisedDate: today, raiseReason: reason }
             : v,
         ),
         drivers,
@@ -681,10 +717,43 @@ function reducer(state: AppState, action: Action): AppState {
           icon: "✅",
           type: "مخالفة",
           title: "رفع مخالفة",
-          message: `المدير رفع المخالفة عن ${viol.driverName}${
-            raiseNote.includes("سبب الرفع") ? ` — ${action.reason?.trim()}` : ""
-          }`,
+          message: `المدير رفع المخالفة عن ${viol.driverName} — ${reason}`,
         }),
+        pendingSyncCount: bumpPendingSync(state),
+      }
+    }
+
+    case "UNDO_RAISE_VIOLATION": {
+      const viol = state.violations.find((v) => v.id === action.violationId)
+      if (!viol || !viol.raised) return state
+      let drivers = state.drivers.map((d) =>
+        d.id === viol.driverId
+          ? {
+              ...d,
+              violation: viol.type,
+              status: "غير_نشط" as const,
+              statusReason: statusReasonForViolation(viol.type),
+              seq: 0,
+            }
+          : d,
+      )
+      drivers = reindexActiveDrivers(
+        suspendGuarantorObligations(drivers, viol.driverId),
+      )
+      return {
+        ...state,
+        violations: state.violations.map((v) =>
+          v.id === viol.id
+            ? {
+                ...v,
+                raised: false,
+                raisedDate: undefined,
+                raiseReason: undefined,
+              }
+            : v,
+        ),
+        drivers,
+        pendingSyncCount: bumpPendingSync(state),
       }
     }
 
@@ -727,7 +796,7 @@ function reducer(state: AppState, action: Action): AppState {
           v.id === action.violationId ? { ...v, type: action.vType } : v,
         ),
         drivers: state.drivers.map((d) =>
-          d.id === viol.driverId
+          d.id === viol.driverId && !viol.raised
             ? {
                 ...d,
                 violation: action.vType,
@@ -735,14 +804,36 @@ function reducer(state: AppState, action: Action): AppState {
               }
             : d,
         ),
+        pendingSyncCount: bumpPendingSync(state),
       }
     }
 
+    case "UNDO_EDIT_VIOLATION": {
+      const viol = state.violations.find((v) => v.id === action.violationId)
+      if (!viol) return state
+      return reducer(state, {
+        type: "EDIT_VIOLATION",
+        violationId: action.violationId,
+        vType: action.previousType,
+      })
+    }
+
+    case "RESTORE_VIOLATION":
+      return {
+        ...state,
+        violations: [
+          action.violation,
+          ...state.violations.filter((v) => v.id !== action.violation.id),
+        ],
+        drivers: action.drivers,
+        pendingSyncCount: bumpPendingSync(state),
+      }
+
     case "DELETE_VIOLATION": {
       const viol = state.violations.find((v) => v.id === action.violationId)
-      if (!viol || !viol.undoSnapshot) return state
+      if (!viol) return state
       const snap = viol.undoSnapshot
-      const snapMap = snap.guarantorSnapshot
+      const snapMap = snap?.guarantorSnapshot
         ? new Map(
             Object.entries(snap.guarantorSnapshot).map(([k, v]) => [
               Number(k),
@@ -750,23 +841,41 @@ function reducer(state: AppState, action: Action): AppState {
             ]),
           )
         : captureGuarantorSnapshot(state.drivers)
-      let drivers = state.drivers.map((d) =>
-        d.id === viol.driverId
-          ? {
-              ...d,
-              status: snap.status,
-              statusReason: snap.statusReason,
-              violation: snap.violation,
-              seq: snap.seq,
-            }
-          : d,
-      )
-      drivers = restoreGuarantorsFromSnapshot(drivers, viol.driverId, snapMap)
+      let drivers = state.drivers.map((d) => {
+        if (d.id !== viol.driverId) return d
+        if (snap) {
+          return {
+            ...d,
+            status: snap.status,
+            statusReason: snap.statusReason,
+            violation: snap.violation,
+            currentTrip: snap.currentTrip ?? d.currentTrip,
+            compensationBalance:
+              snap.compensationBalance ?? d.compensationBalance,
+            seq: snap.seq,
+          }
+        }
+        return {
+          ...d,
+          violation: null,
+          statusReason:
+            d.statusReason === "مخالف_ت" || d.statusReason === "مخالف_ح"
+              ? null
+              : d.statusReason,
+          seq: 0,
+        }
+      })
+      if (snapMap) {
+        drivers = restoreGuarantorsFromSnapshot(drivers, viol.driverId, snapMap)
+      } else {
+        drivers = reindexActiveDrivers(drivers)
+      }
       drivers = reindexActiveDrivers(drivers)
       return {
         ...state,
         violations: state.violations.filter((v) => v.id !== action.violationId),
         drivers,
+        pendingSyncCount: bumpPendingSync(state),
       }
     }
 
