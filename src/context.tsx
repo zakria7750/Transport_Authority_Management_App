@@ -173,6 +173,7 @@ type Action =
       driverId: number
       guarantors: Guarantor[]
     }
+  | { type: "RESTORE_GUARANTEE_STATE"; drivers: Driver[] }
   | { type: "CANCEL_GUARANTOR"; guarantorNationalId: string }
   | {
       type: "SET_GUARANTOR_TARGETS"
@@ -1290,10 +1291,24 @@ function reducer(state: AppState, action: Action): AppState {
     case "UPDATE_GUARANTORS": {
       const driver = state.drivers.find((d) => d.id === action.driverId)
       if (!driver) return state
-      const sanitized = filterValidActiveGuarantors(
+      const filtered = filterValidActiveGuarantors(
         action.guarantors,
         state.drivers,
       )
+      const seenActive = new Set<string>()
+      const sanitized = filtered.map((guarantor) => {
+        const key = guarantor.sourceDriverId
+          ? `driver:${guarantor.sourceDriverId}`
+          : `national:${guarantor.nationalId}`
+        const isSelf = guarantor.sourceDriverId === action.driverId
+        if (guarantor.status === "فعال" && (!isSelf && !seenActive.has(key))) {
+          seenActive.add(key)
+          return guarantor
+        }
+        return guarantor.status === "فعال"
+          ? { ...guarantor, status: "منتهي" as const, suspended: false }
+          : guarantor
+      })
       const activeCount = sanitized.filter(
         (g) => g.status === "فعال" && !g.suspended,
       ).length
@@ -1331,6 +1346,18 @@ function reducer(state: AppState, action: Action): AppState {
         pendingSyncCount: bumpPendingSync(state),
       }
     }
+
+    case "RESTORE_GUARANTEE_STATE":
+      return {
+        ...state,
+        drivers: reindexActiveDrivers(
+          action.drivers.map((driver) => ({
+            ...driver,
+            guarantors: driver.guarantors.map((guarantor) => ({ ...guarantor })),
+          })),
+        ),
+        pendingSyncCount: bumpPendingSync(state),
+      }
 
     case "CANCEL_GUARANTOR": {
       const guarantorName =
@@ -1777,6 +1804,7 @@ function reducer(state: AppState, action: Action): AppState {
         }
         drivers = reindexActiveDrivers(drivers)
       }
+      drivers = syncDriversAfterGuaranteeChange(drivers, min)
       return { ...state, minGuarantors: min, drivers }
     }
 
