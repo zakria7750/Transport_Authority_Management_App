@@ -873,7 +873,6 @@ const NAV_ITEMS: { screen: Screen; icon: string; label: string }[] = [
   { screen: 'home', label: 'الرئيسية', icon: '⌂' },
   { screen: 'drivers', label: 'الكشف', icon: '▤' },
   { screen: 'registration', label: 'تسجيل', icon: '+' },
-  { screen: 'more', label: 'المزيد', icon: '⋯' },
 ]
 
 export function BottomNav() {
@@ -964,7 +963,7 @@ export function Snackbar() {
   )
 }
 
-// ─── Section Header ───────────────────────────────────────
+// ─── Section Header ─────────────────────────────────��─────
 export function SectionHeader({ title, count }: { title: string; count?: number }) {
   const th = useTheme()
   return (

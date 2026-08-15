@@ -1527,6 +1527,7 @@ export function ReportsScreen() {
     return d.toISOString().split('T')[0]
   })
   const [toDate, setToDate] = useState(() => new Date().toISOString().split('T')[0])
+  const [reportType, setReportType] = useState<'all' | 'trips' | 'breakdowns' | 'violations' | 'drivers' | 'guarantees'>('all')
 
   const inRange = (value: string) => {
     const date = value.slice(0, 10)
@@ -1598,6 +1599,34 @@ export function ReportsScreen() {
     const end = new Date()
     const start = new Date(end); start.setDate(end.getDate() - 7)
     setFromDate(start.toISOString().split('T')[0]); setToDate(end.toISOString().split('T')[0])
+  }
+
+  const reportLabels = { all: 'الكل', trips: 'النهمات', breakdowns: 'الأعطال', violations: 'المخالفات', drivers: 'السائقون', guarantees: 'الضمانات' } as const
+  const buildReportCsv = () => {
+    const sections: string[] = []
+    const add = (title: string, headers: string[], rows: unknown[][]) => {
+      sections.push(title, headers.join(','), ...rows.map((row) => row.map((cell) => `"${String(cell ?? '').replaceAll('"', '""')}"`).join(',')), '')
+    }
+    if (reportType === 'all' || reportType === 'trips') add('النهمات', ['رقم', 'السائق', 'المحافظة', 'النوع', 'الحالة', 'التاريخ'], rangedTrips.map((t) => [t.breakNum, state.drivers.find((d) => d.id === t.driverId)?.ownerName ?? '', t.province, t.type, t.status, t.completedAt ?? t.createdAt]))
+    if (reportType === 'all' || reportType === 'breakdowns') add('الأعطال', ['السائق', 'الموقع', 'الحالة', 'التاريخ'], rangedBreakdowns.map((b) => [b.driverName, b.location, b.status, b.date]))
+    if (reportType === 'all' || reportType === 'violations') add('المخالفات', ['السائق', 'النوع', 'مرفوعة', 'التاريخ'], rangedViolations.map((v) => [v.driverName, v.type, v.raised ? 'نعم' : 'لا', v.date]))
+    if (reportType === 'all' || reportType === 'drivers') add('السائقون', ['المالك', 'اللوحة', 'الهاتف', 'الحالة'], state.drivers.map((d) => [d.ownerName, d.plate, d.phone, d.status]))
+    if (reportType === 'all' || reportType === 'guarantees') add('الضمانات', ['المالك', 'اللوحة', 'الضامنون'], state.drivers.map((d) => [d.ownerName, d.plate, d.guarantors.filter((g) => g.status === 'فعال' && !g.suspended).map((g) => g.name).join(' | ')]))
+    return sections.join('\\n')
+  }
+
+  const exportReport = () => {
+    const blob = new Blob([`\uFEFF${buildReportCsv()}`], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `تقرير_${reportLabels[reportType]}_${fromDate}_${toDate}.csv`; a.click(); URL.revokeObjectURL(url)
+    showSnackbar(`تم تصدير تقرير ${reportLabels[reportType]}`)
+  }
+
+  const printReport = () => {
+    const popup = window.open('', '_blank', 'width=900,height=700')
+    if (!popup) { showSnackbar('تعذر فتح نافذة الطباعة'); return }
+    popup.document.write(`<html dir="rtl"><head><title>تقرير ${reportLabels[reportType]}</title><style>body{font-family:Arial,sans-serif;padding:28px;direction:rtl}h1{font-size:20px}pre{white-space:pre-wrap;font-family:Arial;line-height:1.8;border-top:1px solid #ddd;padding-top:16px}</style></head><body><h1>تقرير ${reportLabels[reportType]} — ${fromDate} إلى ${toDate}</h1><pre>${buildReportCsv().replaceAll('&', '&amp;').replaceAll('<', '&lt;')}</pre></body></html>`)
+    popup.document.close(); popup.focus(); popup.print()
+    showSnackbar(`تم فتح طباعة تقرير ${reportLabels[reportType]}`)
   }
 
   return (
@@ -1721,10 +1750,15 @@ export function ReportsScreen() {
           </div>
         </div>
 
-        {/* Export buttons - Task 64, 65, 66 */}
-        <p style={{ fontSize: 12, fontWeight: 700, color: th.sub, textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 10px' }}>
-          تصدير
-        </p>
+        <div style={{ marginBottom: 16 }}>
+          <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: th.sub, marginBottom: 6 }}>نوع التقرير</label>
+          <select value={reportType} onChange={(e) => setReportType(e.target.value as typeof reportType)} style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: `1px solid ${th.border}`, background: th.card, color: th.text, fontSize: 12, fontFamily: 'inherit', direction: 'rtl' }}>
+            {Object.entries(reportLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+          </select>
+        </div>
+
+        {/* Export buttons - filtered by current date range and report type */}
+        <p style={{ fontSize: 12, fontWeight: 700, color: th.sub, textTransform: 'uppercase', letterSpacing: 1, margin: '0 0 10px' }}>تصدير — {reportLabels[reportType]}</p>
         <input
           ref={importInputRef}
           type="file"
@@ -1741,24 +1775,12 @@ export function ReportsScreen() {
             { 
               label: 'طباعة التقرير', 
               color: '#DC2626',
-              action: () => {
-                window.print()
-                showSnackbar('تم فتح نافذة الطباعة')
-              }
+              action: printReport
             },
             { 
               label: '📊 تصدير Excel', 
               color: '#16A34A',
-              action: () => {
-                const csv = `اسم,القيمة\nإجمالي البوابير,${totalDrivers}\nالنشطين,${activeDrivers}\nالنهمات,${completedTrips}\nالمخالفات,${totalViolations}\nالتعويضات,${totalComp}`
-                const blob = new Blob([csv], { type: 'text/csv' })
-                const url = URL.createObjectURL(blob)
-                const a = document.createElement('a')
-                a.href = url
-                a.download = `تقرير_${fromDate}_${toDate}.csv`
-                a.click()
-                showSnackbar('تم تصدير Excel ✅')
-              }
+              action: exportReport
             },
             { 
               label: '💾 تصدير قاعدة البيانات', 
