@@ -1502,6 +1502,10 @@ export { BreakdownsScreen } from "./BreakdownsManagement"
 const REPORT_TYPES = ["الكل", "النهمات", "الأعطال", "المخالفات", "السائقون", "الضمانات"] as const
 type ReportType = typeof REPORT_TYPES[number]
 
+function getCurrentGuarantors(driver: Driver): Guarantor[] {
+  return driver.guarantors.filter((guarantor) => guarantor.status === "فعال" && !guarantor.suspended)
+}
+
 function EmptyReport({ text, onChangePeriod }: { text: string; onChangePeriod?: () => void }) {
   return (
     <div className="report-empty">
@@ -1599,18 +1603,16 @@ export function ReportsScreen() {
   const closeBreakdowns = rangedBreakdowns.filter((breakdown) => breakdown.location === "قريب").length
   const farBreakdowns = rangedBreakdowns.filter((breakdown) => breakdown.location === "بعيد").length
   const finishedBreakdowns = rangedBreakdowns.filter((breakdown) => breakdown.status === "منتهي").length
-  const activeGuarantors = state.drivers.reduce((sum, driver) => sum + driver.guarantors.filter((guarantor) => guarantor.status === "فعال" && !guarantor.suspended).length, 0)
+  const activeGuarantors = state.drivers.reduce((sum, driver) => sum + countActiveGuarantors(driver), 0)
   const uniqueGuarantorCount = useMemo(() => {
     const ids = new Set<string>()
     state.drivers.forEach((driver) => {
-      driver.guarantors.forEach((guarantor) => {
-        if (guarantor.status === "فعال" && !guarantor.suspended) ids.add(guarantor.nationalId)
-      })
+      getCurrentGuarantors(driver).forEach((guarantor) => ids.add(guarantor.nationalId))
     })
     return ids.size
   }, [state.drivers])
-  const completeGuarantees = state.drivers.filter((driver) => driver.guarantors.filter((guarantor) => guarantor.status === "فعال" && !guarantor.suspended).length >= state.minGuarantors).length
-  const driversWithGuarantees = state.drivers.filter((driver) => driver.guarantors.some((guarantor) => guarantor.status === "فعال" && !guarantor.suspended)).length
+  const completeGuarantees = state.drivers.filter((driver) => countActiveGuarantors(driver) >= state.minGuarantors).length
+  const driversWithGuarantees = state.drivers.filter((driver) => countActiveGuarantors(driver) > 0).length
 
   const countBy = (values: string[]) => Object.entries(values.reduce<Record<string, number>>((counts, value) => {
     counts[value || "بدون"] = (counts[value || "بدون"] ?? 0) + 1
@@ -1733,51 +1735,20 @@ export function ReportsScreen() {
     link.click()
     URL.revokeObjectURL(url)
   }
-  const exportExcel = () => {
-    const workbook = XLSX.utils.book_new()
-    const summaryRows = [
-      ["الفترة", `${formatDateForReport(fromDate)} إلى ${formatDateForReport(toDate)}`],
-      ["نوع التقرير", reportType],
-    ]
-    if (includesReport("النهمات")) summaryRows.push(
-      ["إجمالي النهمات", rangedTrips.length],
-      ["النهمات المكتملة", completedTrips],
-      ["النهمات الملغاة", cancelledTrips],
-      ["النهمات المعلقة", pendingTrips],
-    )
-    if (includesReport("الأعطال")) summaryRows.push(
-      ["إجمالي الأعطال", rangedBreakdowns.length],
-      ["الأعطال القريبة", closeBreakdowns],
-      ["الأعطال البعيدة", farBreakdowns],
-      ["الأعطال المنتهية", finishedBreakdowns],
-    )
-    if (includesReport("المخالفات")) summaryRows.push(
-      ["إجمالي المخالفات", totalViolations],
-      ["المخالفات المرفوعة", raisedViolations],
-      ["المخالفات غير المرفوعة", totalViolations - raisedViolations],
-    )
-    if (includesReport("السائقون")) summaryRows.push(
-      ["إجمالي السائقين", state.drivers.length],
-      ["السائقون النشطون", activeDrivers],
-      ["السائقون غير النشطين", inactiveDrivers],
-    )
-    if (includesReport("الضمانات")) summaryRows.push(
-      ["المضمونون بضمانات مكتملة", completeGuarantees],
-      ["المضمونون أصحاب الضمانات", driversWithGuarantees],
-      ["الضامنون الفريدون", uniqueGuarantorCount],
-      ["إجمالي الضمانات الفعالة", activeGuarantors],
-    )
-    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(summaryRows), "الملخص")
 
-    const tripsRows = rangedTrips.map((trip) => [
+  // Both exporters consume these live AppState-derived rows. Keeping this
+  // mapping in one place prevents PDF and Excel from drifting apart when a
+  // screen changes the shape or meaning of a record.
+  const exportRows = {
+    trips: rangedTrips.map((trip) => [
       trip.breakNum,
       state.drivers.find((driver) => driver.id === trip.driverId)?.ownerName ?? "—",
       trip.province,
       trip.type,
       trip.status,
       formatDateForReport(trip.completedAt ?? trip.createdAt),
-    ])
-    const breakdownRows = rangedBreakdowns.map((breakdown) => [
+    ]),
+    breakdowns: rangedBreakdowns.map((breakdown) => [
       breakdown.driverName,
       breakdown.plate,
       breakdown.location,
@@ -1785,40 +1756,81 @@ export function ReportsScreen() {
       formatDateForReport(breakdown.date),
       breakdown.rescuerName ?? "—",
       breakdown.rescuerTripType ?? "—",
-    ])
-    const violationRows = rangedViolations.map((violation) => [
+    ]),
+    violations: rangedViolations.map((violation) => [
       violation.driverName,
       violation.type,
       violation.raised ? "مرفوعة" : "غير مرفوعة",
       formatDateForReport(violation.date),
       violation.note,
-    ])
-    const driverRows = state.drivers.map((driver) => [
+    ]),
+    drivers: state.drivers.map((driver) => [
       driver.ownerName,
       driver.plate,
       driver.status === "نشط" ? "نشط" : "غير نشط",
       driver.violation ?? "—",
-      driver.guarantors.filter((guarantor) => guarantor.status === "فعال" && !guarantor.suspended).length,
-    ])
-    const guaranteeRows = state.drivers.flatMap((driver) => driver.guarantors
-      .filter((guarantor) => guarantor.status === "فعال" && !guarantor.suspended)
-      .map((guarantor) => [
-      guarantor.name,
-      driver.ownerName,
-      guarantor.status,
-      guarantor.suspended ? "موقوف" : "فعال",
-      guarantor.phone,
-      ]))
-    const sheets: Array<[string, string[], unknown[][]]> = [
-      ["النهمات", ["رقم النهمة", "المالك", "المحافظة", "النوع", "الحالة", "التاريخ"], tripsRows],
-      ["الأعطال", ["السائق", "اللوحة", "الموقع", "الحالة", "التاريخ", "المسعف", "نوع نهمة المسعف"], breakdownRows],
-      ["المخالفات", ["السائق", "النوع", "المعالجة", "التاريخ", "الملاحظات"], violationRows],
-      ["السائقون", ["المالك", "اللوحة", "الحالة", "المخالفة", "الضمانات الفعالة"], driverRows],
-      ["الضمانات", ["الضامن", "المضمون", "الحالة", "الإجراء", "الهاتف"], guaranteeRows],
+      countActiveGuarantors(driver),
+    ]),
+    guarantees: state.drivers.flatMap((driver) =>
+      getCurrentGuarantors(driver).map((guarantor) => [
+        guarantor.name,
+        driver.ownerName,
+        guarantor.status,
+        guarantor.suspended ? "موقوف" : "فعال",
+        guarantor.phone,
+      ]),
+    ),
+  }
+
+  const exportSheets: Array<[ReportType, string[], unknown[][]]> = [
+    ["النهمات", ["رقم النهمة", "المالك", "المحافظة", "النوع", "الحالة", "التاريخ"], exportRows.trips],
+    ["الأعطال", ["السائق", "اللوحة", "الموقع", "الحالة", "التاريخ", "المسعف", "نوع نهمة المسعف"], exportRows.breakdowns],
+    ["المخالفات", ["السائق", "النوع", "المعالجة", "التاريخ", "الملاحظات"], exportRows.violations],
+    ["السائقون", ["المالك", "اللوحة", "الحالة", "المخالفة", "الضمانات الفعالة"], exportRows.drivers],
+    ["الضمانات", ["الضامن", "المضمون", "الحالة", "الإجراء", "الهاتف"], exportRows.guarantees],
+  ]
+  const exportSummary: Array<[string, string | number]> = []
+  if (includesReport("النهمات")) exportSummary.push(
+    ["إجمالي النهمات", rangedTrips.length],
+    ["النهمات المكتملة", completedTrips],
+    ["النهمات الملغاة", cancelledTrips],
+    ["النهمات المعلقة", pendingTrips],
+  )
+  if (includesReport("الأعطال")) exportSummary.push(
+    ["إجمالي الأعطال", rangedBreakdowns.length],
+    ["الأعطال القريبة", closeBreakdowns],
+    ["الأعطال البعيدة", farBreakdowns],
+    ["الأعطال المنتهية", finishedBreakdowns],
+  )
+  if (includesReport("المخالفات")) exportSummary.push(
+    ["إجمالي المخالفات", totalViolations],
+    ["المخالفات المرفوعة", raisedViolations],
+    ["المخالفات غير المرفوعة", totalViolations - raisedViolations],
+  )
+  if (includesReport("السائقون")) exportSummary.push(
+    ["إجمالي السائقين", state.drivers.length],
+    ["السائقون النشطون", activeDrivers],
+    ["السائقون غير النشطين", inactiveDrivers],
+  )
+  if (includesReport("الضمانات")) exportSummary.push(
+    ["المضمونون بضمانات مكتملة", completeGuarantees],
+    ["المضمونون أصحاب الضمانات", driversWithGuarantees],
+    ["الضامنون الفريدون", uniqueGuarantorCount],
+    ["إجمالي الضمانات الفعالة", activeGuarantors],
+  )
+
+  const exportExcel = () => {
+    const workbook = XLSX.utils.book_new()
+    const summaryRows = [
+      ["الفترة", `${formatDateForReport(fromDate)} إلى ${formatDateForReport(toDate)}`],
+      ["نوع التقرير", reportType],
+      ...exportSummary,
     ]
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(summaryRows), "الملخص")
+
     const selectedSheets = reportType === "الكل"
-      ? sheets
-      : sheets.filter(([name]) => name === reportType)
+      ? exportSheets
+      : exportSheets.filter(([name]) => name === reportType)
     for (const [name, headers, rows] of selectedSheets) {
       const sheet = XLSX.utils.aoa_to_sheet([headers, ...rows])
       sheet["!autofilter"] = { ref: `A1:${String.fromCharCode(64 + headers.length)}${Math.max(1, rows.length + 1)}` }
@@ -1857,46 +1869,6 @@ export function ReportsScreen() {
 
     setExportingPdf(true)
     try {
-      const pdfTripsRows = rangedTrips.map((trip) => [
-        trip.breakNum,
-        state.drivers.find((driver) => driver.id === trip.driverId)?.ownerName ?? "—",
-        trip.province,
-        trip.type,
-        trip.status,
-        formatDateForReport(trip.completedAt ?? trip.createdAt),
-      ])
-      const pdfBreakdownRows = rangedBreakdowns.map((breakdown) => [
-        breakdown.driverName,
-        breakdown.plate,
-        breakdown.location,
-        breakdown.status,
-        formatDateForReport(breakdown.date),
-        breakdown.rescuerName ?? "—",
-        breakdown.rescuerTripType ?? "—",
-      ])
-      const pdfViolationRows = rangedViolations.map((violation) => [
-        violation.driverName,
-        violation.type,
-        violation.raised ? "مرفوعة" : "غير مرفوعة",
-        formatDateForReport(violation.date),
-        violation.note,
-      ])
-      const pdfDriverRows = state.drivers.map((driver) => [
-        driver.ownerName,
-        driver.plate,
-        driver.status === "نشط" ? "نشط" : "غير نشط",
-        driver.violation ?? "—",
-        driver.guarantors.filter((guarantor) => guarantor.status === "فعال" && !guarantor.suspended).length,
-      ])
-      const pdfGuaranteeRows = state.drivers.flatMap((driver) => driver.guarantors
-        .filter((guarantor) => guarantor.status === "فعال" && !guarantor.suspended)
-        .map((guarantor) => [
-          guarantor.name,
-          driver.ownerName,
-          guarantor.status,
-          "فعال",
-          guarantor.phone,
-        ]))
       const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4", compress: true })
       const amiriFontBase64 = await loadAmiriFontBase64()
       pdf.addFileToVFS("Amiri-Regular.ttf", amiriFontBase64)
@@ -1986,35 +1958,7 @@ export function ReportsScreen() {
       pdf.text(rtl("تقرير إداري قابل للبحث والفرز والطباعة"), pageWidth - margin, 120, { align: "right" })
       pdf.addPage()
       addPageTitle("المؤشرات الرئيسية", `${fromDate} — ${toDate}`)
-      const summary: Array<[string, string | number]> = []
-      if (includesReport("النهمات")) summary.push(
-        ["إجمالي النهمات", rangedTrips.length],
-        ["النهمات المكتملة", completedTrips],
-        ["النهمات الملغاة", cancelledTrips],
-        ["النهمات المعلقة", pendingTrips],
-      )
-      if (includesReport("الأعطال")) summary.push(
-        ["إجمالي الأعطال", rangedBreakdowns.length],
-        ["الأعطال القريبة", closeBreakdowns],
-        ["الأعطال البعيدة", farBreakdowns],
-        ["الأعطال المنتهية", finishedBreakdowns],
-      )
-      if (includesReport("المخالفات")) summary.push(
-        ["إجمالي المخالفات", totalViolations],
-        ["المخالفات المرفوعة", raisedViolations],
-        ["المخالفات غير المرفوعة", totalViolations - raisedViolations],
-      )
-      if (includesReport("السائقون")) summary.push(
-        ["إجمالي السائقين", state.drivers.length],
-        ["السائقون النشطون", activeDrivers],
-        ["السائقون غير النشطين", inactiveDrivers],
-      )
-      if (includesReport("الضمانات")) summary.push(
-        ["المضمونون بضمانات مكتملة", completeGuarantees],
-        ["المضمونون أصحاب الضمانات", driversWithGuarantees],
-        ["الضامنون الفريدون", uniqueGuarantorCount],
-        ["إجمالي الضمانات الفعالة", activeGuarantors],
-      )
+      const summary = exportSummary
       let summaryY = 52
       summary.forEach(([label, value], index) => {
         const x = margin + (index % 2) * (contentWidth / 2)
@@ -2027,11 +1971,11 @@ export function ReportsScreen() {
         pdf.text(String(value), x + 10, y + 8, { align: "left" })
       })
       addFooter()
-      if (includesReport("النهمات")) addTable("تفاصيل النهمات", ["رقم النهمة", "المالك", "المحافظة", "النوع", "الحالة", "التاريخ"], pdfTripsRows)
-      if (includesReport("الأعطال")) addTable("تفاصيل الأعطال", ["السائق", "اللوحة", "الموقع", "الحالة", "التاريخ", "المسعف", "نوع نهمة المسعف"], pdfBreakdownRows)
-      if (includesReport("المخالفات")) addTable("تفاصيل المخالفات", ["السائق", "النوع", "المعالجة", "التاريخ", "الملاحظات"], pdfViolationRows)
-      if (includesReport("السائقون")) addTable("حالة السائقين", ["المالك", "اللوحة", "الحالة", "المخالفة", "الضمانات الفعالة"], pdfDriverRows)
-      if (includesReport("الضمانات")) addTable("تفاصيل الضمانات", ["الضامن", "المضمون", "الحالة", "الإجراء", "الهاتف"], pdfGuaranteeRows)
+      if (includesReport("النهمات")) addTable("تفاصيل النهمات", exportSheets[0][1], exportRows.trips)
+      if (includesReport("الأعطال")) addTable("تفاصيل الأعطال", exportSheets[1][1], exportRows.breakdowns)
+      if (includesReport("المخالفات")) addTable("تفاصيل المخالفات", exportSheets[2][1], exportRows.violations)
+      if (includesReport("السائقون")) addTable("حالة السائقين", exportSheets[3][1], exportRows.drivers)
+      if (includesReport("الضمانات")) addTable("تفاصيل الضمانات", exportSheets[4][1], exportRows.guarantees)
       const pageCount = pdf.getNumberOfPages()
       for (let page = 1; page <= pageCount; page += 1) {
         pdf.setPage(page)

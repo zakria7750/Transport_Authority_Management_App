@@ -959,7 +959,7 @@ export function BottomNav() {
         background: th.card,
         borderTop: `1px solid ${th.border}`,
         display: 'flex',
-        justifyContent: 'space-around',
+         justifyContent: 'stretch',
         boxShadow: '0 -8px 24px rgba(15, 23, 42, 0.08)',
       }}
     >
@@ -969,7 +969,7 @@ export function BottomNav() {
           <button key={item.screen}
             onClick={() => navigate(item.screen)}
             style={{
-              flex: 1, border: 'none', background: 'none', cursor: 'pointer',
+               flex: '1 1 0', minWidth: 0, border: 'none', background: 'none', cursor: 'pointer',
               padding: '8px 4px 10px',
               display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
               color: active ? T.primary : th.sub,
