@@ -33,7 +33,6 @@ import {
 import type { RescuerTripType } from "./data"
 import {
   nextId,
-  isOpenTripStatus,
   reindexActiveDrivers,
   suspendGuarantorObligations,
   restoreGuarantorsFromSnapshot,
@@ -47,7 +46,6 @@ import {
   meetsMinGuarantors,
   applyGuarantorGroupToDrivers,
   filterValidActiveGuarantors,
-  canBeGuarantor,
   suggestNextBreakNum,
 } from "./domain"
 
@@ -1146,6 +1144,17 @@ function reducer(state: AppState, action: Action): AppState {
     }
 
     case "ADD_DRIVER": {
+      const existing = state.drivers.find((driver) => driver.id === action.driver.id)
+      if (existing) {
+        return {
+          ...state,
+          drivers: reindexActiveDrivers(
+            state.drivers.map((driver) =>
+              driver.id === action.driver.id ? { ...driver, ...action.driver, seq: driver.seq } : driver,
+            ),
+          ),
+        }
+      }
       let drivers = [...state.drivers, { ...action.driver, seq: 0 }]
       if (action.driver.status === "نشط") {
         drivers = appendActiveDriver(drivers, action.driver.id)
@@ -1217,7 +1226,6 @@ function reducer(state: AppState, action: Action): AppState {
     }
 
     case "RE_REGISTER_DRIVER": {
-      // Task 33: re-register creates a brand NEW driver record, archives the old one
       const source = state.drivers.find((d) => d.id === action.driverId)
       if (!source || source.violation || source.status === "نشط") return state
       if (
@@ -1225,18 +1233,8 @@ function reducer(state: AppState, action: Action): AppState {
       )
         return state
 
-      // Archive old driver
-      const archivedOld = {
+      const reactivatedDriver: Driver = {
         ...source,
-        status: "غير_نشط" as const,
-        statusReason: "ملغي" as const,
-        seq: 0,
-      }
-
-      // Create new driver record with fresh id/seq, copy guarantors/images
-      const newDriver: Driver = {
-        ...source,
-        id: nextId(),
         seq: 0,
         status: "نشط" as const,
         statusReason: null,
@@ -1246,10 +1244,9 @@ function reducer(state: AppState, action: Action): AppState {
       }
 
       let drivers = state.drivers.map((d) =>
-        d.id === source.id ? archivedOld : d,
+        d.id === source.id ? reactivatedDriver : d,
       )
-      drivers = [...drivers, newDriver]
-      drivers = appendActiveDriver(drivers, newDriver.id)
+      drivers = appendActiveDriver(drivers, source.id)
       drivers = reindexActiveDrivers(drivers)
 
       return {
@@ -1264,7 +1261,7 @@ function reducer(state: AppState, action: Action): AppState {
           icon: "✅",
           type: "تسجيل",
           title: "إعادة تسجيل",
-          message: `تم إعادة تسجيل ${source.ownerName} (سجل جديد) في الكشف النشط`,
+          message: `تم إعادة تسجيل ${source.ownerName} في الكشف النشط`,
         }),
         pendingSyncCount: bumpPendingSync(state),
       }

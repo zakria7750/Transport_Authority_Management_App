@@ -9,10 +9,10 @@
 
 import { useState, useMemo } from 'react'
 import { useApp } from '../context'
-import { useTheme, T, Input, Btn, EmptyState, SkeletonRow, MonochromeIcon } from '../components'
-import { countActiveGuarantors, matchesNameOrPlate } from '../domain'
+import { useTheme, T, Input, EmptyState, SkeletonRow, MonochromeIcon } from '../components'
+import { countActiveGuarantors } from '../domain'
 import { nextId } from '../domain'
-import type { Driver, DriverType } from '../data'
+import type { Driver } from '../data'
 import { ADDABLE_STATUS_REASONS } from '../constants'
 
 // ─── Re-registration Web Component ─────────────────────────
@@ -157,7 +157,6 @@ export default function RegistrationWebPage() {
                   <tr key={driver.id} style={{
                     borderBottom: `1px solid ${th.border}`,
                     transition: 'background 0.2s',
-                    '&:hover': { background: th.dark ? '#1E2D40' : '#F8FAFC' },
                   }}>
                     <td style={{ padding: 14, fontSize: 13, color: th.text, fontWeight: 600 }}>
                       {driver.ownerName}

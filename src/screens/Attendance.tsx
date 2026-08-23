@@ -15,7 +15,7 @@ export default function AttendanceScreen() {
       if (d.status !== "نشط") return false
       if (!search) return true
       return d.ownerName.includes(search) || d.plate.includes(search)
-    })
+    }).sort((a, b) => a.seq - b.seq || a.id - b.id)
   }, [state.drivers, search])
 
   const getDriverTripLabel = (driverId: number, slot: "م1" | "م2") => {

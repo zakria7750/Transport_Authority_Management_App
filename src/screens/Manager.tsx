@@ -3,7 +3,7 @@ import { jsPDF } from "jspdf"
 import amiriFontUrl from "../assets/Amiri-Regular.ttf?url"
 import * as XLSX from "xlsx"
 import { useApp } from "../context"
-import { useTheme, T, Card, EmptyState, SkeletonRow, SearchableField, SearchableRosterField, APP_FULL_BRAND, StandardAppBar, MonochromeIcon } from "../components"
+import { useTheme, T, Card, EmptyState, SearchableRosterField, StandardAppBar, MonochromeIcon } from "../components"
 import {
   countActiveGuarantors,
   canBeGuarantor,
@@ -12,7 +12,7 @@ import {
   matchesNameOrPlate,
   eligibleGuarantorDrivers,
 } from "../domain"
-import type { Violation, ViolationType, UserRole, Trip, Guarantor, Driver } from "../data"
+import type { Violation, ViolationType, UserRole, Guarantor, Driver } from "../data"
 import { nextId } from "../domain"
 import { dateKey, formatDateForReport, isDateInRange, shiftDateKey, todayKey } from "../reportUtils"
 
@@ -37,7 +37,6 @@ const loadAmiriFontBase64 = async () => {
 // ══════════════════════════════════════════════════════════
 //  VIOLATIONS SCREEN
 // ══════════════════════════════════════════════════════════
-type ViolationStatusFilter = "all" | "open" | "raised"
 type ViolationTypeFilter = "all" | ViolationType
 
 function formatViolationDate(value?: string) {
@@ -57,7 +56,6 @@ function cloneDrivers(drivers: Driver[]) {
 export function ViolationsScreen() {
   const { state, dispatch, showSnackbar } = useApp()
   const th = useTheme()
-  const [statusFilter, setStatusFilter] = useState<ViolationStatusFilter>("all")
   const [typeFilter, setTypeFilter] = useState<ViolationTypeFilter>("all")
   const [search, setSearch] = useState("")
   const [showAdd, setShowAdd] = useState(false)
@@ -100,10 +98,6 @@ export function ViolationsScreen() {
       state.violations.filter((violation) => {
         const driver = driverById.get(violation.driverId)
         const plate = driver?.plate ?? ""
-        const matchesStatus =
-          statusFilter === "all" ||
-          (statusFilter === "open" && !violation.raised) ||
-          (statusFilter === "raised" && violation.raised)
         const matchesType =
           typeFilter === "all" || violation.type === typeFilter
         const matchesSearch = matchesNameOrPlate(
@@ -111,9 +105,9 @@ export function ViolationsScreen() {
           violation.driverName,
           plate,
         )
-        return matchesStatus && matchesType && matchesSearch
+        return matchesType && matchesSearch
       }),
-    [driverById, search, state.violations, statusFilter, typeFilter],
+    [driverById, search, state.violations, typeFilter],
   )
 
   const openAdd = () => {
@@ -263,14 +257,6 @@ export function ViolationsScreen() {
         </div>
         <div className="violations-filters">
           <label>
-            <span>الحالة</span>
-            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as ViolationStatusFilter)}>
-              <option value="all">كل الحالات</option>
-              <option value="open">غير مرفوعة</option>
-              <option value="raised">مرفوعة</option>
-            </select>
-          </label>
-          <label>
             <span>النوع</span>
             <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value as ViolationTypeFilter)}>
               <option value="all">كل الأنواع</option>
@@ -282,20 +268,7 @@ export function ViolationsScreen() {
       </div>
 
       <div className="violations-tabs" style={{ background: th.card, borderColor: th.border }}>
-        {[
-          ["all", "الكل", state.violations.length],
-          ["open", "غير مرفوعة", openCount],
-          ["raised", "مرفوعة", raisedCount],
-        ].map(([key, label, count]) => (
-          <button
-            type="button"
-            key={key}
-            onClick={() => setStatusFilter(key as ViolationStatusFilter)}
-            className={statusFilter === key ? "active" : ""}
-          >
-            <span>{label}</span><b>{count}</b>
-          </button>
-        ))}
+        <div className="violations-tab-spacer" />
       </div>
 
       <div className="violations-list">
@@ -305,11 +278,7 @@ export function ViolationsScreen() {
             text={
               state.violations.length === 0
                 ? "لا توجد مخالفات"
-                : statusFilter === "open" && openCount === 0
-                  ? "لا توجد مخالفات غير مرفوعة"
-                  : statusFilter === "raised" && raisedCount === 0
-                    ? "لا توجد مخالفات مرفوعة"
-                    : "لا توجد مخالفات مطابقة للبحث والفلاتر"
+                : "لا توجد مخالفات مطابقة للبحث والفلاتر"
             }
           />
         ) : (
@@ -587,11 +556,11 @@ export function ViolationsScreen() {
 export function DriverManagementScreen() {
   const { state, dispatch, showSnackbar, navigate } = useApp()
   const th = useTheme()
-  const [filter, setFilter] = useState<"all" | "active" | "inactive">("all")
+  const [filter, setFilter] = useState<"active" | "inactive">("active")
   const [search, setSearch] = useState("")
 
   const filtered = state.drivers.filter((d) => {
-    const matchFilter = filter === "all" || (filter === "active" ? d.status === "نشط" : d.status === "غير_نشط")
+    const matchFilter = filter === "active" ? d.status === "نشط" : d.status === "غير_نشط"
     const matchSearch = !search || d.ownerName.includes(search) || d.plate.includes(search)
     return matchFilter && matchSearch
   })
@@ -626,7 +595,6 @@ export function DriverManagementScreen() {
 
       <div style={{ padding: "12px 16px", background: th.card, borderBottom: `1px solid ${th.border}`, display: "flex", gap: 8 }}>
         {[
-          ["all", "الكل"],
           ["active", "النشطين"],
           ["inactive", "غير النشطين"],
         ].map(([k, l]) => (
@@ -719,7 +687,7 @@ export function DriverManagementScreen() {
               </div>
             </div>
             <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-              <button type="button" onClick={() => navigate("driver-profile", { driverId: driver.id })} style={{ flex: 1, padding: "8px 6px", borderRadius: 9, border: `1px solid ${th.border}`, background: th.inputBg, color: th.text, fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>تعديل</button>
+              <button type="button" onClick={() => navigate("driver-profile", { driverId: driver.id, edit: true })} style={{ flex: 1, padding: "8px 6px", borderRadius: 9, border: `1px solid ${th.border}`, background: th.inputBg, color: th.text, fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>تعديل</button>
               <button type="button" onClick={() => handleDisable(driver.id, driver.ownerName)} disabled={driver.status !== "نشط"} style={{ flex: 1, padding: "8px 6px", borderRadius: 9, border: "none", background: driver.status === "نشط" ? "#FEF3C7" : th.inputBg, color: driver.status === "نشط" ? T.warning : th.muted, fontSize: 11, fontWeight: 700, cursor: driver.status === "نشط" ? "pointer" : "not-allowed", fontFamily: "inherit" }}>تعطيل</button>
               <button type="button" onClick={() => handleDelete(driver.id, driver.ownerName)} disabled={!canDelete(driver)} style={{ flex: 1, padding: "8px 6px", borderRadius: 9, border: "none", background: canDelete(driver) ? "#FEE2E2" : th.inputBg, color: canDelete(driver) ? T.danger : th.muted, fontSize: 11, fontWeight: 700, cursor: canDelete(driver) ? "pointer" : "not-allowed", fontFamily: "inherit" }}>حذف</button>
             </div>
@@ -768,44 +736,6 @@ function buildGuarantorGroups(drivers: Driver[]): GuarantorGroup[] {
     }
   }
   return [...map.values()].sort((a, b) => a.name.localeCompare(b.name, "ar"))
-}
-
-function ActionIconBtn({
-  icon,
-  title,
-  color,
-  bg,
-  onClick,
-}: {
-  icon: string
-  title: string
-  color: string
-  bg: string
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      title={title}
-      onClick={onClick}
-      style={{
-        width: 34,
-        height: 34,
-        borderRadius: 10,
-        border: "none",
-        background: bg,
-        color,
-        fontSize: 15,
-        cursor: "pointer",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        flexShrink: 0,
-      }}
-    >
-      {icon}
-    </button>
-  )
 }
 
 export function GuaranteesScreen() {
@@ -2438,7 +2368,7 @@ export function UsersScreen() {
             <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
               <div style={{
                 width: 44, height: 44, borderRadius: 14,
-                background: user.role === 'مدير_م��تب' ? '#DBEAFE' : '#F0FDF4',
+                background: user.role === 'مدير_مكتب' ? '#DBEAFE' : '#F0FDF4',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: 18, fontWeight: 800,
                 color: user.role === 'مدير_مكتب' ? T.primary : T.success,

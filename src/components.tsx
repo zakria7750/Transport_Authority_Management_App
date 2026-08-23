@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, type ReactNode } from "react"
 import { useApp, type Screen } from "./context"
 import type { Driver } from "./data"
 import { isViolator } from "./domain"
-import { OFFICE_BRAND, APP_FULL_BRAND } from "./constants"
+import { OFFICE_BRAND } from "./constants"
 
 export { OFFICE_BRAND, APP_FULL_BRAND, APP_SHORT_BRAND, APP_TAGLINE, TRANSPORT_AUTHORITY, APP_NAME, APP_PRINT_HEADER } from "./constants"
 
@@ -558,12 +558,12 @@ export function SearchableRosterField<T>({
 }
 
 export function AppBarStandardSlots({
-  onQuickAdd,
+  onSearch,
   showBell = true,
   extraRight,
   extraLeft,
 }: {
-  onQuickAdd?: () => void
+  onSearch?: () => void
   showBell?: boolean
   extraRight?: React.ReactNode
   extraLeft?: React.ReactNode
@@ -662,18 +662,18 @@ export function AppBarStandardSlots({
         {bellBtn}
         {syncBtn}
         {extraLeft}
-        {onQuickAdd ? (
+        {onSearch ? (
           <button
             type="button"
-            onClick={onQuickAdd}
+            onClick={onSearch}
             style={{
               width: 32,
               height: 32,
               borderRadius: 8,
-              background: T.primaryLight,
+              background: "rgba(255,255,255,0.08)",
               border: "none",
               color: "#fff",
-              fontSize: 20,
+              fontSize: 18,
               cursor: "pointer",
               display: "flex",
               alignItems: "center",
@@ -681,7 +681,7 @@ export function AppBarStandardSlots({
               fontWeight: 300,
             }}
           >
-            +
+            <MonochromeIcon name="search" size={18} />
           </button>
         ) : null}
       </div>
@@ -692,7 +692,7 @@ export function AppBarStandardSlots({
 type StandardAppBarProps = {
   title: string
   back?: Screen | "home"
-  onQuickAdd?: () => void
+  onSearch?: () => void
   extraRight?: React.ReactNode
   extraLeft?: React.ReactNode
   showBell?: boolean
@@ -702,14 +702,14 @@ type StandardAppBarProps = {
 export function StandardAppBar({
   title,
   back,
-  onQuickAdd,
+  onSearch,
   extraRight,
   extraLeft,
   showBell = true,
   hideBell,
 }: StandardAppBarProps) {
   const { rightSlot, leftSlot } = AppBarStandardSlots({
-    onQuickAdd,
+    onSearch,
     extraRight,
     extraLeft,
     showBell: showBell && !hideBell,
@@ -929,6 +929,7 @@ const NAV_ITEMS: { screen: Screen; icon: string; label: string }[] = [
   { screen: 'drivers', label: 'الكشف', icon: 'list' },
   { screen: 'pending-trips', label: 'النهمات', icon: 'truck' },
   { screen: 'registration', label: 'تسجيل', icon: 'plus' },
+  { screen: 'attendance-sheet', label: 'التحضير', icon: 'note' },
 ]
 
 export function BottomNav() {

@@ -81,13 +81,8 @@ export default function RegistrationScreen() {
 
   const handleRegister = async () => {
     // Task 29: Validate separator as numeric
-    if (!form.ownerName || !form.plate || !form.phone || !form.separator) {
+    if (!form.ownerName || !form.plate || !form.separator) {
       showSnackbar("يرجى تعبئة جميع الحقول المطلوبة ⚠️")
-      return
-    }
-    // Task 30: Validate front and back ID cards are required
-    if (!images.frontId || !images.backId) {
-      showSnackbar("يرجى إرفاق صورة البطاقة (أمام وخلف) ⚠️")
       return
     }
     setSaving(true)
@@ -255,11 +250,13 @@ export default function RegistrationScreen() {
               icon="🚗"
             />
             <Input
-              label="رقم الهاتف *"
+               label="رقم الهاتف (اختياري)"
               value={form.phone}
-              onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
-              placeholder="05xxxxxxxx"
+               onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value.replace(/\D/g, "").slice(0, 9) }))}
+               placeholder="حتى 9 أرقام"
               icon="📞"
+               inputMode="numeric"
+               maxLength={9}
             />
             <Input
               label="الفاصل (رقم) *"
@@ -281,7 +278,7 @@ export default function RegistrationScreen() {
                 gap: 10,
               }}
             >
-              <span style={{ fontSize: 13, fontWeight: 700, color: th.text, display: "flex", alignItems: "center", gap: 6 }}><MonochromeIcon name="camera" size={16} /> المرفقات (إلزامي: أمام + خلف)</span>
+               <span style={{ fontSize: 13, fontWeight: 700, color: th.text, display: "flex", alignItems: "center", gap: 6 }}><MonochromeIcon name="camera" size={16} /> المرفقات (اختيارية)</span>
               {imageFields.map(({ key, label }) => (
                 <label
                   key={key}

@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { useApp, useSaveScrollPosition, useGetScrollPosition } from '../context'
-import { AppBar, StatusChip, SkeletonRow, useTheme, T, EmptyState, PullToRefresh, useInfiniteScroll, StandardAppBar, MonochromeIcon } from '../components'
+import { SkeletonRow, useTheme, T, EmptyState, PullToRefresh, useInfiniteScroll, StandardAppBar, MonochromeIcon } from '../components'
 import TripSheet from '../TripSheet'
 import { isViolator, sortDriversAllFilter } from '../domain'
 import type { Driver, ViolationType } from '../data'
@@ -162,7 +162,6 @@ export default function DriversScreen() {
   })
   const [subFilter, setSubFilter] = useState<SubFilter>('الكل_نشط')
   const [search, setSearch] = useState('')
-  const [showSearch, setShowSearch] = useState(false)
   const [showSubFilters, setShowSubFilters] = useState(false)
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null)
   const [loading, setLoading] = useState(false)
@@ -257,23 +256,6 @@ export default function DriversScreen() {
           style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: `1px solid ${th.border}`, background: th.inputBg, color: th.text, boxSizing: 'border-box', direction: 'rtl' }}
         />
       </div>
-      {showSearch && (
-        <div style={{ padding: '8px 16px', background: T.appbar }}>
-          <input
-            autoFocus
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="البحث بالاسم، اللوحة، الهاتف..."
-            style={{
-              width: '100%', padding: '10px 14px', borderRadius: 10,
-              background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)',
-              color: '#F1F5F9', fontSize: 14, outline: 'none',
-              boxSizing: 'border-box', fontFamily: 'inherit', direction: 'rtl',
-            }}
-          />
-        </div>
-      )}
-
       {/* Filters — الصف الأول دائماً مرئي (§4.1) */}
       <div style={{ background: th.card, borderBottom: `1px solid ${th.border}`, flexShrink: 0 }}>
         <div style={{ display: 'flex', gap: 8, padding: '10px 16px', overflowX: 'auto' }}>

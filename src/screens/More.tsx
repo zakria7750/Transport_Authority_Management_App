@@ -85,7 +85,6 @@ export function SettingsScreen() {
   const { state, dispatch, showSnackbar } = useApp()
   const th = useTheme()
   const [autoSync, setAutoSync] = useState(true)
-  const [autoBackup, setAutoBackup] = useState(false)
 
   const handleSync = async () => {
     await new Promise((r) => setTimeout(r, 600))
@@ -171,10 +170,6 @@ export function SettingsScreen() {
            icon: 'refresh', label: 'المزامنة التلقائية', desc: 'مزامنة البيانات تلقائياً',
           control: <Toggle checked={autoSync} onChange={() => setAutoSync(!autoSync)} />,
         },
-        {
-           icon: 'save', label: 'النسخ الاحتياطي التلقائي', desc: 'نسخ يومي تلقائي',
-          control: <Toggle checked={autoBackup} onChange={() => setAutoBackup(!autoBackup)} />,
-        },
       ],
     },
   ]
@@ -205,7 +200,7 @@ export function SettingsScreen() {
                     <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: th.text }}>{item.label}</p>
                     <p style={{ margin: '2px 0 0', fontSize: 11, color: th.sub }}>{item.desc}</p>
                   </div>
-                  {item.control}
+                  {item.control ?? null}
                 </div>
               ))}
             </div>
@@ -231,10 +226,6 @@ export function SettingsScreen() {
           <button onClick={() => void handleSync()}
             style={{ padding: '14px', borderRadius: 12, border: `1px solid ${th.border}`, background: th.card, color: T.primary, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
              <MonochromeIcon name="refresh" size={16} /> مزامنة يدوية {state.pendingSyncCount > 0 ? `(${state.pendingSyncCount})` : ''}
-          </button>
-          <button onClick={() => showSnackbar('تم إنشاء نسخة احتياطية ✅')}
-            style={{ padding: '14px', borderRadius: 12, border: `1px solid ${th.border}`, background: th.card, color: T.success, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
-             <MonochromeIcon name="save" size={16} /> نسخ احتياطي الآن
           </button>
         </div>
       </div>
@@ -309,7 +300,7 @@ export function SearchScreen() {
               border: `1px solid ${th.border}`, borderRadius: 12,
               background: th.inputBg, color: th.text,
               fontSize: 14, outline: 'none',
-              boxSizing: 'border-box', fontFamily: 'inherit', direction: 'rtl', inputMode: 'numeric',
+             boxSizing: 'border-box', fontFamily: 'inherit', direction: 'rtl',
             }}
           />
         </div>

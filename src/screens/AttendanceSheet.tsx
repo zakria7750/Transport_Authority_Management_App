@@ -3,20 +3,17 @@ import { useApp } from '../context'
 import { useTheme, MonochromeIcon } from '../components'
 
 import TripSheet from '../TripSheet'
-import type { Driver } from '../data'
 
 export function AttendanceSheet() {
-  const { state, dispatch, showSnackbar } = useApp()
+  const { state, dispatch, showSnackbar, scheduleDeferredAttendance } = useApp()
   const th = useTheme()
   
   const [attendance, setAttendance] = useState<Record<number, boolean>>({})
-  const [printing, setPrinting] = useState<'none' | 'attendance' | 'trips'>('none')
   const [showTripSheet, setShowTripSheet] = useState(false)
-  const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null)
 
   // Load active drivers only
   const activeDrivers = useMemo(() => {
-    return state.drivers.filter(d => d.status === 'نشط')
+    return state.drivers.filter(d => d.status === 'نشط').sort((a, b) => a.seq - b.seq || a.id - b.id)
   }, [state.drivers])
 
   // Initialize attendance based on successful trips (م1 type)
@@ -38,41 +35,7 @@ export function AttendanceSheet() {
       return
     }
 
-    // Record violations for absent drivers
-    absentDrivers.forEach(driver => {
-      dispatch({
-        type: 'ADD_VIOLATION',
-        violation: {
-          id: Math.random(),
-          driverId: driver.id,
-          driverName: driver.ownerName,
-          type: 'ت',
-          date: new Date().toLocaleDateString('ar-SA'),
-          raised: false,
-          recordedBy: state.currentUser?.name || 'النظام',
-        }
-      })
-      
-      // Set driver status to inactive
-      dispatch({
-        type: 'SET_DRIVER_STATUS',
-        driverId: driver.id,
-        status: 'غير_نشط',
-        reason: 'مخالف(ت)',
-      })
-    })
-
-    // Re-index active drivers
-    const remainingActive = state.drivers.filter(d => d.status === 'نشط')
-    remainingActive.forEach((d, idx) => {
-      const updated = { ...d, seq: idx + 1 }
-      dispatch({
-        type: 'UPDATE_DRIVER',
-        driver: updated,
-      })
-    })
-
-    showSnackbar(`تم حفظ التحضير - ${absentDrivers.length} غياب ✅`)
+    scheduleDeferredAttendance(absentDrivers.map((driver) => driver.id))
   }
 
   const handlePrintAttendance = () => {
@@ -149,15 +112,15 @@ export function AttendanceSheet() {
           <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${d.type}</td>
           <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${d.plate}</td>
           <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${d.separator}</td>
-          <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${d.currentTrip?.type === 'م1' ? 'ن' : ''}</td>
-          <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${d.currentTrip?.type === 'م2' ? 'ن' : ''}</td>
+          <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${d.currentTrip === 'م1' ? 'ن' : ''}</td>
+          <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${d.currentTrip === 'م2' ? 'ن' : ''}</td>
           <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${d2?.seq || ''}</td>
           <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${d2?.ownerName || ''}</td>
           <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${d2?.type || ''}</td>
           <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${d2?.plate || ''}</td>
           <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${d2?.separator || ''}</td>
-          <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${d2?.currentTrip?.type === 'م1' ? 'ن' : ''}</td>
-          <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${d2?.currentTrip?.type === 'م2' ? 'ن' : ''}</td>
+          <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${d2?.currentTrip === 'م1' ? 'ن' : ''}</td>
+          <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${d2?.currentTrip === 'م2' ? 'ن' : ''}</td>
         </tr>
       `
     }).join('')
@@ -247,7 +210,7 @@ export function AttendanceSheet() {
               </tr>
             </thead>
             <tbody>
-              {activeDrivers.map((driver, idx) => (
+              {activeDrivers.map((driver) => (
                 <tr key={driver.id} style={{ borderBottom: `1px solid ${th.border}` }}>
                   <td style={{ padding: '10px', textAlign: 'right', color: th.text }}>{driver.seq}</td>
                   <td style={{ padding: '10px', textAlign: 'right', color: th.text }}>{driver.type}</td>

@@ -20,7 +20,7 @@ export default function DriverProfileScreen() {
   const driverId = state.screenParams.driverId as number
   const driver: Driver | undefined = state.drivers.find((d) => d.id === driverId)
   const [tab, setTab] = useState<Tab>("info")
-  const [editing, setEditing] = useState(false)
+  const [editing, setEditing] = useState(() => state.screenParams.edit === true)
   const [editForm, setEditForm] = useState({
     ownerName: "",
     plate: "",
@@ -129,10 +129,10 @@ export default function DriverProfileScreen() {
               overflow: "hidden",
             }}
           >
-            {driver.images?.licenseImg ? (
-              <img src={driver.images.licenseImg} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            {driver.images?.frontId ? (
+              <img src={driver.images.frontId} alt="صورة البطاقة الأمامية" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
             ) : (
-              <MonochromeIcon name="car" size={28} strokeWidth={1.6} />
+              <span style={{ color: "#CBD5E1", fontSize: 10, textAlign: "center", padding: 5 }}>لا توجد صورة</span>
             )}
           </div>
           <div>

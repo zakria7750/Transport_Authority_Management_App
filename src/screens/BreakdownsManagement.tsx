@@ -12,7 +12,7 @@ import BreakdownSheet from "../BreakdownSheet"
 import { matchesNameOrPlate } from "../domain"
 import type { Breakdown, Driver, Trip } from "../data"
 
-type TabKey = "all" | "جارية" | "مكتملة" | "قريب" | "بعيد"
+type TabKey = "جارية" | "مكتملة" | "قريب" | "بعيد"
 
 type ListItem = { kind: "ongoing"; trip: Trip; driver: Driver } | {
   kind: "completed"
@@ -21,7 +21,6 @@ type ListItem = { kind: "ongoing"; trip: Trip; driver: Driver } | {
 } | { kind: "breakdown"; breakdown: Breakdown; trip?: Trip; driver?: Driver }
 
 const TAB_LABELS: { key: TabKey; label: string }[] = [
-  { key: "all", label: "الكل" },
   { key: "جارية", label: "جارية" },
   { key: "مكتملة", label: "مكتملة" },
   { key: "قريب", label: "قريب" },
@@ -29,7 +28,6 @@ const TAB_LABELS: { key: TabKey; label: string }[] = [
 ]
 
 const EMPTY_MESSAGES: Record<TabKey, string> = {
-  all: "لا توجد سجلات في شاشة الأعطال",
   جارية: "لا توجد نهمات جارية",
   مكتملة: "لا توجد نهمات مكتملة",
   قريب: "لا توجد أعطال قريبة",
@@ -294,7 +292,7 @@ function BreakdownDetailSheet({
 export function BreakdownsScreen() {
   const { state, dispatch, showSnackbar } = useApp()
   const th = useTheme()
-  const [tab, setTab] = useState<TabKey>("all")
+  const [tab, setTab] = useState<TabKey>("جارية")
   const [search, setSearch] = useState("")
   const [breakdownTrip, setBreakdownTrip] = useState<Trip | null>(null)
   const [editBreakdown, setEditBreakdown] = useState<Breakdown | null>(null)
@@ -393,20 +391,6 @@ export function BreakdownsScreen() {
     })
   }, [allItems, tab, search])
 
-  const registerTrip = (trip: Trip) => {
-    const driver = state.drivers.find((d) => d.id === trip.driverId)
-    if (!driver) return
-    const snapshot = {
-      drivers: state.drivers,
-      trips: state.trips,
-      breakdowns: state.breakdowns,
-    }
-    dispatch({ type: "REGISTER_COMPLETED_TRIP", tripId: trip.id })
-    showSnackbar(`تم تسجيل ${driver.ownerName} في الكشف النشط ✅`, () => {
-      dispatch({ type: "RESTORE_BREAKDOWN_STATE", snapshot })
-    })
-  }
-
   const confirmDeleteBreakdown = (breakdown: Breakdown) => {
     const snapshot = {
       drivers: state.drivers,
@@ -479,25 +463,6 @@ export function BreakdownsScreen() {
           <div
             style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}
           >
-            <button
-              type="button"
-              onClick={() => registerTrip(trip)}
-              style={{
-                flex: 1,
-                minWidth: 120,
-                padding: "9px 12px",
-                borderRadius: 10,
-                border: "none",
-                background: T.success,
-                color: "#fff",
-                fontSize: 12,
-                fontWeight: 700,
-                cursor: "pointer",
-                fontFamily: "inherit",
-              }}
-            >
-              <MonochromeIcon name="check" size={14} /> تسجيل
-            </button>
             <button
               type="button"
               onClick={() => setBreakdownTrip(trip)}
@@ -827,7 +792,7 @@ export function BreakdownsScreen() {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
+             gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
             gap: 5,
           }}
         >

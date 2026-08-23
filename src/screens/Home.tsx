@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useRef, useEffect } from 'react'
 import { useApp, useSaveScrollPosition, useGetScrollPosition } from '../context'
 import { AppBar, useTheme, T, PullToRefresh, AppBarStandardSlots, APP_FULL_BRAND, MonochromeIcon } from '../components'
 import { isPendingTripStatus, violatorCount } from '../domain'
@@ -7,7 +7,6 @@ import type { Screen } from '../context'
 export default function HomeScreen() {
   const { state, navigate, dispatch, isManager, showSnackbar } = useApp()
   const th = useTheme()
-  const [showQuickMenu, setShowQuickMenu] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const saveScroll = useSaveScrollPosition('home')
   const savedScroll = useGetScrollPosition('home')
@@ -52,12 +51,11 @@ export default function HomeScreen() {
         : 'موظف نهمة'
 
   const { rightSlot, leftSlot } = AppBarStandardSlots({
-    onQuickAdd: () => setShowQuickMenu(!showQuickMenu),
+    onSearch: () => navigate("search"),
   })
 
   // Screens for manager/trip officer
   const availableScreens: { label: string; icon: string; screen: Screen; roles: any[] }[] = [
-    { label: 'كشف التحضير', icon: 'note', screen: 'attendance-sheet', roles: ['موظف_نهمة', 'مدير_مكتب'] },
     { label: 'سجل الأعطال', icon: 'wrench', screen: 'breakdowns', roles: ['موظف_نهمة', 'مدير_مكتب'] },
     ...(isManager ? [
       { label: 'المخالفات', icon: 'warning', screen: 'violations' as Screen, roles: ['مدير_مكتب'] },
@@ -74,40 +72,7 @@ export default function HomeScreen() {
         <AppBar
         title="الرئيسية"
         rightSlot={rightSlot}
-        leftSlot={
-          <div style={{ position: 'relative' }}>
-            {leftSlot}
-            {showQuickMenu && (
-              <div style={{
-                position: 'absolute', left: 0, top: 38, zIndex: 100,
-                background: '#1E293B', borderRadius: 12, overflow: 'hidden',
-                boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
-                minWidth: 180, border: '1px solid #334155',
-              }}>
-                {[
-                  { label: 'تسجيل مالك جديد', icon: 'user', action: () => { navigate('registration', { tab: 'register' }); setShowQuickMenu(false) } },
-                  { label: 'إضافة مالك للكشف', icon: 'clipboard', action: () => { navigate('registration', { tab: 'add' }); setShowQuickMenu(false) } },
-                  { label: 'كشف التحضير', icon: 'note', action: () => { navigate('attendance-sheet'); setShowQuickMenu(false) } },
-                  ...(isManager ? [
-                    { label: 'إضافة مخالفة', icon: 'warning', action: () => { navigate('violations'); setShowQuickMenu(false) } },
-                    { label: 'إضافة مستخدم', icon: 'key', action: () => { navigate('users'); setShowQuickMenu(false) } },
-                  ] : []),
-                ].map(item => (
-                  <button key={item.label} onClick={item.action}
-                    style={{
-                      width: '100%', padding: '12px 16px', border: 'none',
-                      background: 'none', color: '#F1F5F9', cursor: 'pointer',
-                      display: 'flex', alignItems: 'center', gap: 10,
-                      fontSize: 13, textAlign: 'right', fontFamily: 'inherit',
-                      borderBottom: '1px solid #334155',
-                    }}>
-                    <MonochromeIcon name={item.icon} size={17} />{item.label}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        }
+        leftSlot={leftSlot}
       />
 
       {/* Hero greeting */}
