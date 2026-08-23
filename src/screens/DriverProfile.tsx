@@ -62,7 +62,7 @@ export default function DriverProfileScreen() {
   }
 
   const saveEdit = () => {
-    if (!editForm.ownerName || !editForm.plate || !editForm.phone) {
+    if (!editForm.ownerName || !editForm.plate) {
       showSnackbar("يرجى تعبئة الحقول المطلوبة ⚠️")
       return
     }

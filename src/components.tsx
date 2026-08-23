@@ -570,6 +570,7 @@ export function AppBarStandardSlots({
 }) {
   const { navigate, dispatch, isManager, state, showSnackbar, unreadCount } = useApp()
   const th = useTheme()
+  const [globalSearch, setGlobalSearch] = React.useState("")
 
   const bellBtn = showBell ? (
     <div style={{ position: "relative" }}>
@@ -642,6 +643,37 @@ export function AppBarStandardSlots({
     </button>
   ) : null
 
+  const globalSearchField = (
+    <form
+      onSubmit={(event) => {
+        event.preventDefault()
+        const query = globalSearch.trim()
+        if (query) navigate("search", { query })
+      }}
+      style={{ display: "flex", alignItems: "center", gap: 4 }}
+    >
+      <MonochromeIcon name="search" size={16} />
+      <input
+        value={globalSearch}
+        onChange={(event) => setGlobalSearch(event.target.value)}
+        placeholder="بحث عام"
+        aria-label="البحث العام باسم المالك أو رقم اللوحة"
+        style={{
+          width: 92,
+          padding: "6px 7px",
+          border: "1px solid rgba(203,213,225,.35)",
+          borderRadius: 8,
+          background: "rgba(255,255,255,.08)",
+          color: "#F1F5F9",
+          fontSize: 11,
+          outline: "none",
+          fontFamily: "inherit",
+          direction: "rtl",
+        }}
+      />
+    </form>
+  )
+
   return {
     rightSlot: (
       <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
@@ -660,6 +692,7 @@ export function AppBarStandardSlots({
     leftSlot: (
       <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
         {bellBtn}
+        {globalSearchField}
         {syncBtn}
         {extraLeft}
         {onSearch ? (
@@ -1125,7 +1158,7 @@ export function Card({ children, style }: { children: React.ReactNode; style?: R
 }
 
 // ─── EmptyState ───────────────────────────────────────────
-export function EmptyState({ icon, text }: { icon: string; text: string }) {
+export function EmptyState({ icon = "inbox", text }: { icon?: string; text: string }) {
   const th = useTheme()
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 40, gap: 12 }}>

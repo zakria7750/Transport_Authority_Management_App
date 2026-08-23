@@ -200,7 +200,7 @@ export function SettingsScreen() {
                     <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: th.text }}>{item.label}</p>
                     <p style={{ margin: '2px 0 0', fontSize: 11, color: th.sub }}>{item.desc}</p>
                   </div>
-                  {item.control ?? null}
+                  {"control" in item ? item.control : null}
                 </div>
               ))}
             </div>
@@ -239,15 +239,12 @@ export function SettingsScreen() {
 export function SearchScreen() {
   const { state, navigate } = useApp()
   const th = useTheme()
-  const [query, setQuery] = useState('')
-  const [separator, setSeparator] = useState('')
+  const [query, setQuery] = useState(() => (state.screenParams.query as string) ?? '')
   const debouncedQuery = useDebounce(query, 300)
-  const debouncedSep = useDebounce(separator, 300)
 
   const results = useMemo(() => {
     const hasQuery = debouncedQuery.trim().length >= 2
-    const hasSep = debouncedSep.trim().length >= 1
-    if (!hasQuery && !hasSep) return { active: [], inactive: [] }
+    if (!hasQuery) return { active: [], inactive: [] }
 
     const match = (d: typeof state.drivers[0]) => {
       const q = debouncedQuery.toLowerCase()
@@ -256,14 +253,13 @@ export function SearchScreen() {
         d.ownerName.includes(q) ||
         d.plate.includes(q) ||
         d.phone.includes(q)
-      const bySep = !hasSep || d.separator.includes(debouncedSep.trim())
-      return byText && bySep
+      return byText
     }
 
     const active = state.drivers.filter((d) => d.status === 'نشط' && match(d))
     const inactive = state.drivers.filter((d) => d.status === 'غير_نشط' && match(d))
     return { active, inactive }
-  }, [debouncedQuery, debouncedSep, state.drivers])
+  }, [debouncedQuery, state.drivers])
 
   const total = results.active.length + results.inactive.length
 
@@ -272,7 +268,7 @@ export function SearchScreen() {
       <StandardAppBar title="البحث الشامل" back="home" />
 
       <div style={{ padding: '12px 16px', background: th.card, borderBottom: `1px solid ${th.border}`, display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {/* Task 70-71: Search with plate separator and status chip */}
+        {/* البحث بالاسم أو رقم اللوحة */}
         <div style={{ position: 'relative' }}>
            <span style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)' }}><MonochromeIcon name="search" size={18} /></span>
           <input
@@ -289,41 +285,13 @@ export function SearchScreen() {
             }}
           />
         </div>
-        <div style={{ position: 'relative' }}>
-           <span style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)' }}><MonochromeIcon name="hash" size={16} /></span>
-          <input
-            value={separator}
-            onChange={e => setSeparator(e.target.value.replace(/[^\d\u0660-\u0669]/g, ''))}
-            placeholder="ابحث بالفاصل..."
-            style={{
-              width: '100%', padding: '13px 46px 13px 14px',
-              border: `1px solid ${th.border}`, borderRadius: 12,
-              background: th.inputBg, color: th.text,
-              fontSize: 14, outline: 'none',
-             boxSizing: 'border-box', fontFamily: 'inherit', direction: 'rtl',
-            }}
-          />
-        </div>
-        <input
-          value={separator}
-          onChange={e => setSeparator(e.target.value.replace(/[^\d\u0660-\u0669]/g, ''))}
-          placeholder="فاصل اللوحة (رقم)"
-          inputMode="numeric"
-          style={{
-            width: '100%', padding: '11px 14px',
-            border: `1px solid ${th.border}`, borderRadius: 12,
-            background: th.inputBg, color: th.text,
-            fontSize: 14, outline: 'none',
-            boxSizing: 'border-box', fontFamily: 'inherit', direction: 'rtl',
-          }}
-        />
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto' }}>
-        {!query.trim() && !separator.trim() ? (
+        {!query.trim() ? (
           <div style={{ padding: 40, textAlign: 'center' }}>
              <MonochromeIcon name="search" size={48} />
-            <p style={{ color: th.sub, fontSize: 14 }}>ابحث عن سائق بالاسم أو رقم اللوحة أو فاصل اللوحة</p>
+             <p style={{ color: th.sub, fontSize: 14 }}>ابحث عن مالك بالاسم أو رقم اللوحة</p>
           </div>
         ) : total === 0 ? (
           <div style={{ padding: 40, textAlign: 'center' }}>

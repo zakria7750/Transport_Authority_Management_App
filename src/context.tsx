@@ -1173,7 +1173,7 @@ function reducer(state: AppState, action: Action): AppState {
 
     case "DELETE_DRIVER": {
       const driver = state.drivers.find((d) => d.id === action.driverId)
-      if (!driver || driver.status === "نشط" || driver.currentTrip) return state
+       if (!driver || driver.currentTrip) return state
       let drivers = state.drivers.filter((d) => d.id !== action.driverId)
       drivers = reindexActiveDrivers(drivers)
       return {

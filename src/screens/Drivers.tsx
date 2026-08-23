@@ -1,11 +1,11 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { useApp, useSaveScrollPosition, useGetScrollPosition } from '../context'
-import { SkeletonRow, useTheme, T, EmptyState, PullToRefresh, useInfiniteScroll, StandardAppBar, MonochromeIcon } from '../components'
+import { SkeletonRow, useTheme, T, EmptyState, PullToRefresh, useInfiniteScroll, StandardAppBar, MonochromeIcon, StatusChip } from '../components'
 import TripSheet from '../TripSheet'
-import { isViolator, sortDriversAllFilter } from '../domain'
+import { isViolator } from '../domain'
 import type { Driver, ViolationType } from '../data'
 
-type Filter = 'الكل' | 'نشط' | 'غير_نشط' | 'مخالف'
+type Filter = 'نشط' | 'غير_نشط' | 'مخالف'
 type SubFilter = 'الكل_نشط' | 'جاهز' | 'لديه_نهمة'
 function DriverRow({ driver, isManager, onNahma, onViolation, highlighted }: {
   driver: Driver
@@ -158,7 +158,7 @@ export default function DriversScreen() {
   const th = useTheme()
   const [filter, setFilter] = useState<Filter>(() => {
     const p = state.screenParams.filter as Filter | undefined
-    return p && ['الكل', 'نشط', 'غير_نشط', 'مخالف'].includes(p) ? p : 'الكل'
+    return p && ['نشط', 'غير_نشط', 'مخالف'].includes(p) ? p : 'نشط'
   })
   const [subFilter, setSubFilter] = useState<SubFilter>('الكل_نشط')
   const [search, setSearch] = useState('')
@@ -177,7 +177,7 @@ export default function DriversScreen() {
 
   useEffect(() => {
     const p = state.screenParams.filter as Filter | undefined
-    if (p && ['الكل', 'نشط', 'غير_نشط', 'مخالف'].includes(p)) {
+    if (p && ['نشط', 'غير_نشط', 'مخالف'].includes(p)) {
       setFilter(p)
     }
   }, [state.screenParams.filter])
@@ -213,10 +213,8 @@ export default function DriversScreen() {
       list = list.filter(d => d.status === 'غير_نشط' && !d.violation)
     } else if (filter === 'مخالف') {
       list = list.filter(d => isViolator(d))
-    } else if (filter === 'الكل') {
-      list = sortDriversAllFilter(list)
     }
-    return list
+    return [...list].sort((a, b) => a.seq - b.seq || a.id - b.id)
   }, [state.drivers, filter, subFilter, search])
 
   const { visibleItems, totalItems, hasMore } = useInfiniteScroll(filtered, 20, scrollRef)
@@ -259,7 +257,7 @@ export default function DriversScreen() {
       {/* Filters — الصف الأول دائماً مرئي (§4.1) */}
       <div style={{ background: th.card, borderBottom: `1px solid ${th.border}`, flexShrink: 0 }}>
         <div style={{ display: 'flex', gap: 8, padding: '10px 16px', overflowX: 'auto' }}>
-          {(['الكل', 'نشط', 'غير_نشط', 'مخالف'] as Filter[]).map(f => (
+          {(['نشط', 'غير_نشط', 'مخالف'] as Filter[]).map(f => (
             <button key={f} onClick={() => { setFilter(f); if (f === 'نشط') setShowSubFilters(true) }}
               style={{
                 padding: '6px 16px', borderRadius: 99, border: 'none', whiteSpace: 'nowrap',

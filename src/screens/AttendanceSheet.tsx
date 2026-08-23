@@ -2,14 +2,12 @@ import { useState, useMemo } from 'react'
 import { useApp } from '../context'
 import { useTheme, MonochromeIcon } from '../components'
 
-import TripSheet from '../TripSheet'
 
 export function AttendanceSheet() {
-  const { state, dispatch, showSnackbar, scheduleDeferredAttendance } = useApp()
+  const { state, showSnackbar, scheduleDeferredAttendance } = useApp()
   const th = useTheme()
   
   const [attendance, setAttendance] = useState<Record<number, boolean>>({})
-  const [showTripSheet, setShowTripSheet] = useState(false)
 
   // Load active drivers only
   const activeDrivers = useMemo(() => {
@@ -217,10 +215,10 @@ export function AttendanceSheet() {
                   <td style={{ padding: '10px', textAlign: 'right', color: th.text }}>{driver.ownerName}</td>
                   <td style={{ padding: '10px', textAlign: 'right', color: th.text }}>{driver.plate}</td>
                   <td style={{ padding: '10px', textAlign: 'right' }}>
-                    {driver.currentTrip?.type === 'م1' ? 'ن' : ''}
+                    {driver.currentTrip === 'م1' ? 'ن' : ''}
                   </td>
                   <td style={{ padding: '10px', textAlign: 'right' }}>
-                    {driver.currentTrip?.type === 'م2' ? 'ن' : ''}
+                    {driver.currentTrip === 'م2' ? 'ن' : ''}
                   </td>
                   <td style={{ padding: '10px', textAlign: 'center' }}>
                     <input
@@ -302,32 +300,6 @@ export function AttendanceSheet() {
         </button>
       </div>
 
-      {/* Trip Sheet Modal */}
-      {showTripSheet && selectedDriver && (
-        <div style={{
-          position: 'fixed',
-          inset: 0,
-          background: 'rgba(0,0,0,0.5)',
-          zIndex: 100,
-          display: 'flex',
-          alignItems: 'flex-end',
-        }}>
-          <div style={{
-            width: '100%',
-            maxHeight: '85vh',
-            background: th.bg,
-            borderRadius: '16px 16px 0 0',
-            overflow: 'hidden',
-            display: 'flex',
-            flexDirection: 'column',
-          }}>
-            <TripSheet
-              driver={selectedDriver}
-              onClose={() => setShowTripSheet(false)}
-            />
-          </div>
-        </div>
-      )}
     </div>
   )
 }

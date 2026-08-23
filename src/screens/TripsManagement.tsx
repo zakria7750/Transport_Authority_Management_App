@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useApp } from '../context'
 import { StandardAppBar, useTheme, T, EmptyState } from '../components'
 import { YEMEN_PROVINCES, PAYLOAD_OPTIONS, DESTINATION_TYPES } from '../constants'
-import type { DestinationType, Trip, TripType } from '../data'
+import type { Trip, TripType } from '../data'
 
 type Tab = 'pending' | 'completed' | 'cancelled'
 
